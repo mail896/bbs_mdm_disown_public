@@ -20,8 +20,8 @@ $bulkLastIds = [];
 $bulkLastStep = '';
 $currentAdminUser = disown_current_admin_user();
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.3-dev' : '1.3';
-$appVersionDate = '11. Juni 2026';
+$appVersion = $isDevMode ? '1.4-dev' : '1.4';
+$appVersionDate = '12. Juni 2026';
 $validFilters = ['open', 'scheduled', 'done', 'all'];
 $filter = (string) ($_GET['filter'] ?? 'open');
 if (!in_array($filter, $validFilters, true)) {

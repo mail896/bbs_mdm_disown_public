@@ -194,7 +194,8 @@ Im Adminportal werden Antraege mit zukuenftigem Wunschdatum getrennt als termini
 
 ## Admin-Benachrichtigung
 
-Das Skript `notify_admins.php` informiert Admins per Mail ueber faellige und terminierte Antraege.
+Das Skript `notify_admins.php` informiert Admins per Mail ueber heute faellige Antraege.
+Terminierte Antraege fuer spaeter loesen allein keine Mail aus; sie werden nur als Zusatzinfo angezeigt, wenn es faellige Antraege gibt.
 
 Beispiel-Cron:
 
@@ -202,7 +203,7 @@ Beispiel-Cron:
 30 7,13 * * 1-5 /usr/bin/php /var/www/example.org/disown/notify_admins.php >> /var/log/disown-notify.log 2>&1
 ```
 
-Das Skript sendet nur bei Aenderungen seit der letzten Benachrichtigung.
+Das Skript sendet nur bei faelligen Antraegen und nur bei Aenderungen seit der letzten Benachrichtigung.
 
 Nuetzliche Optionen:
 
@@ -324,8 +325,8 @@ Backups liegen ausserhalb des Webroots.
 Aktueller dokumentierter Stand:
 
 ```text
-Version 1.3
-Stand: 11. Juni 2026
+Version 1.4
+Stand: 12. Juni 2026
 ```
 
 Wichtige Releases:
@@ -333,6 +334,7 @@ Wichtige Releases:
 - 1.1: neuer fachlicher Workflow, private E-Mail, Klasse, Wunschdatum, editierbare Mail
 - 1.2: Bulk-Verarbeitung fuer Jamf, ASM und Mail
 - 1.3: terminierte Antraege und Admin-Benachrichtigung per Cron
+- 1.4: IServ-OIDC fuer Adminbereich, Auth-Audit-Events und Favicon
 
 ## Git-Workflow
 

@@ -194,7 +194,8 @@ The admin portal separates requests with a future release date as scheduled requ
 
 ## Admin Notifications
 
-The script `notify_admins.php` sends email notifications about due and scheduled requests.
+The script `notify_admins.php` sends email notifications about requests due today.
+Future scheduled requests do not trigger mail on their own; they are shown only as additional context when due requests exist.
 
 Example cron entry:
 
@@ -202,7 +203,7 @@ Example cron entry:
 30 7,13 * * 1-5 /usr/bin/php /var/www/example.org/disown/notify_admins.php >> /var/log/disown-notify.log 2>&1
 ```
 
-The script sends mail only when the notification state has changed since the last run.
+The script sends mail only when due requests exist and the notification state has changed since the last run.
 
 Useful options:
 
@@ -324,8 +325,8 @@ Backups are stored outside the web root.
 Current documented state:
 
 ```text
-Version 1.3
-Date: 11 June 2026
+Version 1.4
+Date: 12 June 2026
 ```
 
 Important releases:
@@ -333,6 +334,7 @@ Important releases:
 - 1.1: corrected workflow, private email, class, requested date, editable mail
 - 1.2: bulk processing for Jamf, ASM, and mail
 - 1.3: scheduled requests and admin notifications by cron
+- 1.4: IServ OIDC for the admin area, authentication audit events, and favicon
 
 ## Git Workflow
 
