@@ -264,14 +264,63 @@ Beispiel im Repository:
 config/notify.example.conf
 ```
 
+### IServ OpenID Connect
+
+Der Adminbereich kann ueber IServ/OpenID Connect abgesichert werden. In der
+Produktionsumgebung ist OIDC fuer Adminportal und Audit-Log vorgesehen.
+
+IServ-Issuer:
+
+```text
+https://bbs-einbeck.de
+```
+
+Redirect URIs fuer den IServ-SSO-Client:
+
+```text
+https://example.org/disown/oidc_callback.php
+https://example.org/disown-dev/oidc_callback.php
+```
+
+Empfohlene Scopes:
+
+```text
+openid email profile iserv:roles iserv:uuid
+```
+
+Empfohlener Grant Type:
+
+```text
+Authorization code
+```
+
+OIDC-Konfiguration liegt ausserhalb des Webroots:
+
+```text
+/etc/disown/oidc.conf
+/etc/disown/oidc-dev.conf
+```
+
+Beispiel im Repository:
+
+```text
+config/oidc.example.conf
+```
+
+Der Client Secret darf nicht ins Repository. Fuer DEV und PROD koennen
+getrennte Konfigurationsdateien genutzt werden, damit OIDC zuerst im
+Entwicklungssystem getestet werden kann.
+
 ## Sicherheit
 
-- Adminportal und Audit-Log sind per Apache Basic Auth geschuetzt.
-- PHP liest den Adminbenutzer ueber `$_SERVER['REMOTE_USER']`.
+- Adminportal und Audit-Log sind per IServ OpenID Connect geschuetzt.
+- DEV und PROD koennen getrennte OIDC-Konfigurationen nutzen.
+- Apache Basic Auth kann als Fallback/Altbetrieb dienen, ist aber nicht der aktuelle Zielbetrieb fuer 1.4.
+- PHP protokolliert erfolgreiche Logins, abgelehnte Logins, Login-Fehler und Logout-Ereignisse im Audit-Log.
 - Admin-POST-Aktionen nutzen CSRF-Pruefung.
 - Datenbankzugriffe mit Eingaben nutzen Prepared Statements.
 - HTML-Ausgaben werden escaped.
-- Jamf-, Mail- und Notify-Konfiguration liegen ausserhalb des Webroots.
+- Jamf-, Mail-, Notify- und OIDC-Konfiguration liegen ausserhalb des Webroots.
 - `db.php`, SQL-Dumps und Backups werden nicht versioniert.
 - Audit-Log dokumentiert Adminaktionen.
 - Linux-Dateirechte und ACLs koennen zusaetzlich lokale Benutzer aus dem Projekt ausschliessen.
@@ -299,6 +348,10 @@ Typische Aktionen:
 - `MAIL_SENT`
 - `MAIL_FAILED`
 - `TEMPLATE_UPDATED`
+- `AUTH_LOGIN_SUCCESS`
+- `AUTH_LOGIN_DENIED`
+- `AUTH_LOGIN_ERROR`
+- `AUTH_LOGOUT`
 - Bulk-Aktionen
 
 Die Audit-Seite bietet Filter und CSV-Export.
@@ -375,9 +428,12 @@ admin.php                         Adminportal
 audit_log.php                     Audit-Log
 jamf.php                          Jamf-API-Integration
 notify_admins.php                 Admin-Benachrichtigung
-logout.php                        Logout-Hinweis fuer Basic Auth
+auth.php                          Authentifizierung und OIDC-Helfer
+oidc_callback.php                 OIDC-Callback
+logout.php                        Logout-Seite
 templates/mail_release.txt        Mailvorlage
 config/notify.example.conf        Beispiel fuer Notify-Konfiguration
+config/oidc.example.conf          Beispiel fuer OIDC-Konfiguration
 images/                           anonymisierte Screenshots
 ```
 
