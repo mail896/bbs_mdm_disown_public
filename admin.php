@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+require __DIR__ . '/auth.php';
+disown_require_admin();
 require 'db.php';
 require __DIR__ . '/jamf.php';
 require __DIR__ . '/vendor/autoload.php';
@@ -16,12 +18,12 @@ $bulkError = '';
 $bulkAsmSerials = [];
 $bulkLastIds = [];
 $bulkLastStep = '';
-$currentAdminUser = trim((string) ($_SERVER['REMOTE_USER'] ?? ''));
+$currentAdminUser = disown_current_admin_user();
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '1.3-dev' : '1.3';
 $appVersionDate = '11. Juni 2026';
 $validFilters = ['open', 'scheduled', 'done', 'all'];
-$filter = (string) ($_GET ?? 'open');
+$filter = (string) ($_GET['filter'] ?? 'open');
 if (!in_array($filter, $validFilters, true)) {
     $filter = 'open';
 }
@@ -99,7 +101,7 @@ function admin_url(array $params = []): string
 
 function log_request_action($mysqli, int $requestId, string $action, ?string $details = null): void
 {
-    $adminUser = trim((string) ($_SERVER['REMOTE_USER'] ?? ''));
+    $adminUser = disown_current_admin_user();
     if ($adminUser === '') {
         $adminUser = 'unknown';
     }
@@ -704,26 +706,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
     }
 
-    if (isset($_POST['done'])) {
-        $doneId = (int) $_POST['done'];
-        if ($doneId > 0) {
-            $stmt = $mysqli->prepare(
-                "UPDATE requests
-                 SET status='erledigt',
-                     completed_at=NOW(),
-                     completed_by='marc'
-                 WHERE id=?"
-            );
-            if ($stmt) {
-                $stmt->bind_param('i', $doneId);
-                $stmt->execute();
-                $stmt->close();
-            }
-
-            header('Location: admin.php');
-            exit;
-        }
-    }
 }
 
 $currentYear = (int) date('Y');
@@ -1685,7 +1667,7 @@ tr:hover {
             </div>
             <a class="admin-user" href="logout.php">👤 <?=htmlspecialchars($currentAdminUser)?></a>
             <div class="tool-links" aria-label="Admin-Werkzeuge">
-                <a class="tool-link" href="https://jamf.example.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
+                <a class="tool-link" href="https://bbseinbeck.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
                     <img class="tool-logo" src="logo_jamf.png" alt="Jamf">
                 </a>
                 <a class="tool-link" href="https://school.apple.com" target="_blank" rel="noopener noreferrer" title="Apple School Manager in neuem Fenster öffnen">
@@ -1996,7 +1978,7 @@ tr:hover {
         </div>
     </div>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:maintainer@example.org">Project Maintainer</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="admin.php?filter=<?=htmlspecialchars(rawurlencode($filter))?>&amp;export=requests_csv" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>

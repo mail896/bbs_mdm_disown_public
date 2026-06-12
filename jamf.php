@@ -1,8 +1,10 @@
 <?php
 
-function disown_is_dev_mode(): bool
-{
-    return basename(__DIR__) === 'disown-dev';
+if (!function_exists('disown_is_dev_mode')) {
+    function disown_is_dev_mode(): bool
+    {
+        return basename(__DIR__) === 'disown-dev';
+    }
 }
 
 function jamf_lookup_by_serial(string $serial): ?array

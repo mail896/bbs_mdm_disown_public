@@ -1,19 +1,9 @@
 <?php
+require __DIR__ . '/auth.php';
+disown_require_admin();
 require 'db.php';
 
-$currentAdminUser = trim((string) ($_SERVER['REMOTE_USER'] ?? ''));
-if ($currentAdminUser === '') {
-    $currentAdminUser = trim((string) ($_SERVER['REDIRECT_REMOTE_USER'] ?? ''));
-}
-if ($currentAdminUser === '') {
-    $currentAdminUser = trim((string) ($_SERVER['PHP_AUTH_USER'] ?? ''));
-}
-if ($currentAdminUser === '') {
-    $currentAdminUser = trim((string) ($_SERVER['REDIRECT_PHP_AUTH_USER'] ?? ''));
-}
-if ($currentAdminUser === '') {
-    $currentAdminUser = trim((string) ($_SERVER['AUTHENTICATE_UID'] ?? ''));
-}
+$currentAdminUser = disown_current_admin_user();
 
 $filterUser = trim((string) ($_GET['user'] ?? ''));
 $filterAction = trim((string) ($_GET['action'] ?? ''));

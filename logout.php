@@ -1,5 +1,27 @@
 <?php
-$currentAdminUser = trim((string) ($_SERVER['REMOTE_USER'] ?? ''));
+require __DIR__ . '/auth.php';
+
+$currentAdminUser = disown_current_admin_user();
+$oidcLogoutUrl = disown_oidc_logout_url();
+
+if (disown_oidc_enabled()) {
+    $_SESSION = [];
+
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params['path'],
+            $params['domain'],
+            $params['secure'],
+            $params['httponly']
+        );
+    }
+
+    session_destroy();
+}
 ?>
 <!doctype html>
 <html lang="de">
@@ -70,8 +92,14 @@ body {
         <?php if ($currentAdminUser !== ''): ?>
             <div class="admin-user">👤 <?=htmlspecialchars($currentAdminUser)?></div>
         <?php endif; ?>
-        <p class="hint-text">Sie verwenden eine Browser-Anmeldung. Um sich vollständig abzumelden, schließen Sie bitte dieses Browserfenster oder beenden Sie den Browser.</p>
-        <a class="button" href="admin">Zurück zur Anmeldung</a>
+        <?php if ($oidcLogoutUrl !== null): ?>
+            <p class="hint-text">Sie wurden lokal aus DISOWN abgemeldet. Optional können Sie sich zusätzlich bei IServ abmelden.</p>
+            <a class="button" href="<?=htmlspecialchars($oidcLogoutUrl)?>">Bei IServ abmelden</a>
+            <a class="button" href="admin">Zurück zur Anmeldung</a>
+        <?php else: ?>
+            <p class="hint-text">Sie verwenden eine Browser-Anmeldung. Um sich vollständig abzumelden, schließen Sie bitte dieses Browserfenster oder beenden Sie den Browser.</p>
+            <a class="button" href="admin">Zurück zur Anmeldung</a>
+        <?php endif; ?>
     </div>
 </div>
 </body>
