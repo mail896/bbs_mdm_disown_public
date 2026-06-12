@@ -214,7 +214,7 @@ function send_notification_mail(array $recipients, string $subject, string $body
             $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         }
         $mail->CharSet = 'UTF-8';
-        $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
+        $mail->setFrom($mailConfig['MAIL_FROM'], 'Example School, Team Mobile Device Management');
         foreach ($recipients as $recipient) {
             $mail->addAddress($recipient);
         }

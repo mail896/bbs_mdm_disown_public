@@ -176,9 +176,9 @@ if ($mailTemplate === false || $mailTemplate === null) {
         "Gerät:\n{{device_name}}\n\n" .
         "Seriennummer:\n{{serial}}\n\n" .
         "Bitte beachten Sie, dass schulische Profile, Apps und Konfigurationen nach der Freigabe nicht mehr zur Verfügung stehen.\n\n" .
-        "Mit freundlichen Grüßen\n\nBBS Einbeck";
+        "Mit freundlichen Grüßen\n\nExample School";
 }
-$mailSubject = 'iPad-Freigabe BBS Einbeck';
+$mailSubject = 'iPad-Freigabe Example School';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
@@ -386,7 +386,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                                 $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                             }
                             $mail->CharSet = 'UTF-8';
-                            $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
+                            $mail->setFrom($mailConfig['MAIL_FROM'], 'Example School, Team Mobile Device Management');
                             $mail->addAddress($recipient);
                             $mail->Subject = $mailSubject;
 
@@ -426,7 +426,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                          WHERE id = ?"
                     );
                     if ($updateStmt) {
-                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'system');
                         $updateStmt->bind_param('ssi', $recipient, $completedBy, $requestId);
                         $updateStmt->execute();
                         $updateStmt->close();
@@ -535,7 +535,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                     }
                     $mail->CharSet = 'UTF-8';
-                    $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
+                    $mail->setFrom($mailConfig['MAIL_FROM'], 'Example School, Team Mobile Device Management');
                     foreach ($sendRecipients as $recipient) {
                         $mail->addAddress($recipient);
                     }
@@ -567,7 +567,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                              WHERE id = ?"
                         );
                         if ($updateStmt) {
-                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
+                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'system';
                             $updateStmt->bind_param('ssi', $sendRecipientList, $completedBy, $sendRequestId);
                             $updateStmt->execute();
                             $updateStmt->close();
@@ -1641,12 +1641,12 @@ tr:hover {
         </div>
         <div class="header-actions">
             <div class="logo-actions">
-                <img src="logo.png" alt="BBS Einbeck" class="site-logo">
+                <img src="logo.png" alt="Example School" class="site-logo">
                 <a class="refresh-link" href="<?=htmlspecialchars($refreshUrl)?>" title="Seite aktualisieren" aria-label="Seite aktualisieren">↻</a>
             </div>
             <a class="admin-user" href="logout.php">👤 <?=htmlspecialchars($currentAdminUser)?></a>
             <div class="tool-links" aria-label="Admin-Werkzeuge">
-                <a class="tool-link" href="https://bbseinbeck.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
+                <a class="tool-link" href="https://your-school.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
                     <img class="tool-logo" src="logo_jamf.png" alt="Jamf">
                 </a>
                 <a class="tool-link" href="https://school.apple.com" target="_blank" rel="noopener noreferrer" title="Apple School Manager in neuem Fenster öffnen">
@@ -1957,7 +1957,7 @@ tr:hover {
         </div>
     </div>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:maintainer@example.org">Maintainer</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="admin.php?filter=<?=htmlspecialchars(rawurlencode($filter))?>&amp;export=requests_csv" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>

@@ -1,8 +1,8 @@
-# BBS MDM Disown
+# School MDM Disown
 
 [English README](README.en.md)
 
-Webanwendung der BBS Einbeck zur Freigabe schulisch verwalteter iPads aus Jamf und Apple School Manager.
+Webanwendung der Example School zur Freigabe schulisch verwalteter iPads aus Jamf und Apple School Manager.
 
 Die Anwendung bildet den lokalen Verwaltungsprozess ab: Schuelerinnen und Schueler stellen ueber einen iPad-Webclip einen Antrag, das MDM-Team bearbeitet die Freigabe im Adminportal und dokumentiert die Schritte nachvollziehbar.
 
@@ -21,6 +21,7 @@ Die Anwendung bildet den lokalen Verwaltungsprozess ab: Schuelerinnen und Schuel
 ![Adminportal Uebersicht](images/Demo01_dsgvo.jpg)
 
 ![Mailvorschau](images/Demo02_dsgvo.jpg)
+
 
 ## Funktionsumfang
 

@@ -452,7 +452,7 @@ function disown_oidc_redirect_uri(): string
 
 function disown_absolute_url(string $path): string
 {
-    $host = $_SERVER['HTTP_HOST'] ?? 'sicher.bbs-einbeck.de';
+    $host = $_SERVER['HTTP_HOST'] ?? 'example.org';
     return 'https://' . $host . $path;
 }
 

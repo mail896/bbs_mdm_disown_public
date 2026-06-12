@@ -1,8 +1,8 @@
-# BBS MDM Disown
+# School MDM Disown
 
 [Deutsche README](README.md)
 
-Web application used by BBS Einbeck to release school-managed iPads from Jamf and Apple School Manager.
+Web application used by Example School to release school-managed iPads from Jamf and Apple School Manager.
 
 The application reflects a local school workflow: students submit a release request from an iPad Web Clip, the MDM team processes the request in the admin portal, and every relevant step is documented.
 

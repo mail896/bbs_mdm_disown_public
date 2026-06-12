@@ -351,9 +351,9 @@ body {
 	        <div class="card-header">
 	            <div>
 	                <h1 class="page-title">iPad-Freigabe</h1>
-	                <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
+	                <p class="description">Sie verlassen die Example School?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
 	            </div>
-	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
+	            <img src="logo.png" alt="Example School" class="site-logo">
 	        </div>
 
             <div class="warning-box">
