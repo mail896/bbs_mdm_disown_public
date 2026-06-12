@@ -744,7 +744,8 @@ $dashboard = [
     'jamf_unenrolled' => 0,
     'asm_done' => 0,
     'mail_sent' => 0,
-    'avg_processing_seconds' => null,
+    'avg_admin_processing_seconds' => null,
+    'avg_student_response_seconds' => null,
     'school_year_total' => 0,
     'school_year_done' => 0,
     'school_year_open' => 0,
@@ -763,10 +764,18 @@ $dashboardStmt = $mysqli->prepare(
          AVG(CASE
              WHEN {$doneCondition}
                   AND (completed_by IS NULL OR completed_by <> 'history-import')
+                  AND jamf_unenrolled_at IS NOT NULL
+                  AND asm_manual_done_at IS NOT NULL
+             THEN TIMESTAMPDIFF(SECOND, jamf_unenrolled_at, asm_manual_done_at)
+             ELSE NULL
+         END) AS avg_admin_processing_seconds,
+         AVG(CASE
+             WHEN {$doneCondition}
+                  AND (completed_by IS NULL OR completed_by <> 'history-import')
                   AND COALESCE(completed_at, mail_sent_at) IS NOT NULL
              THEN TIMESTAMPDIFF(SECOND, created_at, COALESCE(completed_at, mail_sent_at))
              ELSE NULL
-         END) AS avg_processing_seconds,
+         END) AS avg_student_response_seconds,
          COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END), 0) AS school_year_total,
          COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? AND {$doneCondition} THEN 1 ELSE 0 END), 0) AS school_year_done,
          COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? AND ({$openCondition}) THEN 1 ELSE 0 END), 0) AS school_year_open
@@ -780,17 +789,27 @@ if ($dashboardStmt) {
     }
     $dashboardStmt->close();
 }
-$avgProcessingText = '–';
-if ($dashboard['avg_processing_seconds'] !== null) {
-    $avgProcessingSeconds = max(0, (int) round((float) $dashboard['avg_processing_seconds']));
-    $avgDays = intdiv($avgProcessingSeconds, 86400);
-    $avgHours = intdiv($avgProcessingSeconds % 86400, 3600);
-    if ($avgDays > 0) {
-        $avgProcessingText = $avgDays . ' T ' . $avgHours . ' Std';
-    } else {
-        $avgProcessingText = $avgHours . ' Std';
+function format_duration_seconds($seconds): string
+{
+    if ($seconds === null) {
+        return '–';
     }
+
+    $durationSeconds = max(0, (int) round((float) $seconds));
+    $avgDays = intdiv($durationSeconds, 86400);
+    $avgHours = intdiv($durationSeconds % 86400, 3600);
+    $avgMinutes = intdiv($durationSeconds % 3600, 60);
+    if ($avgDays > 0) {
+        return $avgDays . ' T ' . $avgHours . ' Std';
+    }
+    if ($avgHours > 0) {
+        return $avgHours . ' Std ' . $avgMinutes . ' Min';
+    }
+
+    return max(1, $avgMinutes) . ' Min';
 }
+$avgAdminProcessingText = format_duration_seconds($dashboard['avg_admin_processing_seconds']);
+$avgStudentResponseText = format_duration_seconds($dashboard['avg_student_response_seconds']);
 
 $countStmt = $mysqli->prepare("SELECT COUNT(*) AS total FROM requests {$whereSql}");
 if (!$countStmt) {
@@ -1925,7 +1944,8 @@ tr:hover {
             <span class="dashboard-stat warn <?= (int) $dashboard['waiting_mail'] === 0 ? 'zero' : '' ?>">Mail <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_mail'])?></span></span>
             <span class="dashboard-stat done <?= (int) $dashboard['done_requests'] === 0 ? 'zero' : '' ?>">Erledigt <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['done_requests'])?></span></span>
             <span class="dashboard-stat info <?= (int) $dashboard['school_year_total'] === 0 ? 'zero' : '' ?>">Schuljahr <?=htmlspecialchars($schoolYearLabel)?> <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['school_year_total'])?></span></span>
-            <span class="dashboard-stat info <?= $avgProcessingText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Bearbeitungszeit</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgProcessingText)?></span></span>
+            <span class="dashboard-stat info <?= $avgAdminProcessingText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Admin-Zeit</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgAdminProcessingText)?></span></span>
+            <span class="dashboard-stat info <?= $avgStudentResponseText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Schüler-Response</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgStudentResponseText)?></span></span>
         </div>
 
         <div id="mailPreview" class="preview-card hidden">
