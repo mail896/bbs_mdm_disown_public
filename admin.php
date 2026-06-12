@@ -932,6 +932,7 @@ $result = $result->get_result();
 <base href="<?=htmlspecialchars(DISOWN_BASE_HREF)?>">
 <?php endif; ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <title>iPad-Freigaben</title>
 <style>
 :root {
