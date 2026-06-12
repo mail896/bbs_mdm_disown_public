@@ -1649,7 +1649,7 @@ tr:hover {
                 <a class="tool-link" href="https://your-school.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
                     <img class="tool-logo" src="logo_jamf.png" alt="Jamf">
                 </a>
-                <a class="tool-link" href="https://school.apple.com" target="_blank" rel="noopener noreferrer" title="Apple School Manager in neuem Fenster öffnen">
+                <a class="tool-link" href="https://school.apple.com" onclick="openAsmPortal(); return false;" title="Apple School Manager öffnen">
                     <img class="tool-logo" src="logo_asm.png" alt="ASM">
                 </a>
                 <a class="button button-secondary audit-log-link" href="audit_log.php">Audit-Log</a>
@@ -2138,7 +2138,7 @@ function submitBulkAction(action) {
     }
 
     if (action === 'bulk_asm_done') {
-        window.open('https://school.apple.com', '_blank', 'noopener');
+        openAsmPortal();
     }
     if (action === 'bulk_mail_send' && !confirm(`${actionCount} vorbereitete Mail(s) jetzt senden?`)) {
         return;
@@ -2267,7 +2267,43 @@ function sendMail() {
 }
 
 function openAsmBeforeSubmit() {
-    window.open('https://school.apple.com', '_blank', 'noopener');
+    openAsmPortal();
+}
+
+function copyAsmLinkToClipboard() {
+    const asmUrl = 'https://school.apple.com';
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(asmUrl).catch(() => {});
+        return;
+    }
+
+    const tempInput = document.createElement('textarea');
+    tempInput.value = asmUrl;
+    tempInput.setAttribute('readonly', '');
+    tempInput.style.position = 'fixed';
+    tempInput.style.left = '-9999px';
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    try {
+        document.execCommand('copy');
+    } catch (error) {
+        // Best effort only.
+    }
+    document.body.removeChild(tempInput);
+}
+
+function openAsmPortal() {
+    const asmUrl = 'https://school.apple.com';
+    const isFirefox = /Firefox\//.test(navigator.userAgent);
+
+    if (isFirefox) {
+        copyAsmLinkToClipboard();
+        window.location.href = 'googlechrome://navigate?url=' + encodeURIComponent(asmUrl);
+        alert('Apple School Manager wird in Chrome geöffnet. Falls Chrome nicht reagiert, ist der Link in der Zwischenablage und kann in Safari oder Chrome eingefügt werden.');
+        return;
+    }
+
+    window.open(asmUrl, '_blank', 'noopener');
 }
 
 function updateMailRecipients() {
