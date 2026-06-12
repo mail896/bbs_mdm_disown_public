@@ -272,7 +272,7 @@ is intended for both the admin portal and the audit log.
 IServ issuer:
 
 ```text
-https://bbs-einbeck.de
+https://mein-iserv.de
 ```
 
 Redirect URIs for the IServ SSO client:

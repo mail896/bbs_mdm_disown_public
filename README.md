@@ -272,7 +272,7 @@ Produktionsumgebung ist OIDC fuer Adminportal und Audit-Log vorgesehen.
 IServ-Issuer:
 
 ```text
-https://bbs-einbeck.de
+https://mein-iserv.de
 ```
 
 Redirect URIs fuer den IServ-SSO-Client:

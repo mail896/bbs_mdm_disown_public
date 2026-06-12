@@ -5,16 +5,16 @@ represented in Git.
 
 ## Paths
 
-- Production app: `/var/www/sicher.bbs-einbeck.de/disown`
-- Development app: `/var/www/sicher.bbs-einbeck.de/disown-dev`
-- Public repository working copy: `/var/www/sicher.bbs-einbeck.de/disown-public`
+- Production app: `/var/www/example.org/disown`
+- Development app: `/var/www/example.org/disown-dev`
+- Public repository working copy: `/var/www/example.org/disown-public`
 - Runtime config: `/etc/disown`
 - Backups: `/root/disown-backups`
 
 For Codex work, open the workspace at:
 
 ```bash
-/var/www/sicher.bbs-einbeck.de
+/var/www/example.org
 ```
 
 This keeps production, development, and the public repository in one workspace
@@ -51,26 +51,26 @@ other::---
 The Apache vHost protects internal paths with `<Directory>` rules in:
 
 ```bash
-/etc/apache2/sites-enabled/sicher.bbs-einbeck.de.conf
+/etc/apache2/sites-enabled/example.org.conf
 ```
 
 Production paths that must not be web-accessible:
 
-- `/var/www/sicher.bbs-einbeck.de/disown/vendor`
-- `/var/www/sicher.bbs-einbeck.de/disown/config`
-- `/var/www/sicher.bbs-einbeck.de/disown/.git`
-- `/var/www/sicher.bbs-einbeck.de/disown/.codex`
-- `/var/www/sicher.bbs-einbeck.de/disown/.agents`
-- `/var/www/sicher.bbs-einbeck.de/disown/templates`
+- `/var/www/example.org/disown/vendor`
+- `/var/www/example.org/disown/config`
+- `/var/www/example.org/disown/.git`
+- `/var/www/example.org/disown/.codex`
+- `/var/www/example.org/disown/.agents`
+- `/var/www/example.org/disown/templates`
 
 Development paths should use the same protection:
 
-- `/var/www/sicher.bbs-einbeck.de/disown-dev/vendor`
-- `/var/www/sicher.bbs-einbeck.de/disown-dev/config`
-- `/var/www/sicher.bbs-einbeck.de/disown-dev/.git`
-- `/var/www/sicher.bbs-einbeck.de/disown-dev/.codex`
-- `/var/www/sicher.bbs-einbeck.de/disown-dev/.agents`
-- `/var/www/sicher.bbs-einbeck.de/disown-dev/templates`
+- `/var/www/example.org/disown-dev/vendor`
+- `/var/www/example.org/disown-dev/config`
+- `/var/www/example.org/disown-dev/.git`
+- `/var/www/example.org/disown-dev/.codex`
+- `/var/www/example.org/disown-dev/.agents`
+- `/var/www/example.org/disown-dev/templates`
 
 The public repository working copy is only a local Git workspace. It is located
 under the webroot for convenience, but its directory permissions intentionally
@@ -81,18 +81,18 @@ prevent web access. A request to `/disown-public/` should return `403 Forbidden`
 The local Linux user `kloke` is intentionally excluded from all Disown working
 copies:
 
-- `/var/www/sicher.bbs-einbeck.de/disown`
-- `/var/www/sicher.bbs-einbeck.de/disown-dev`
-- `/var/www/sicher.bbs-einbeck.de/disown-public`
+- `/var/www/example.org/disown`
+- `/var/www/example.org/disown-dev`
+- `/var/www/example.org/disown-public`
 
 Use explicit ACLs so the restriction survives later group permission changes:
 
 ```bash
-setfacl -R -m u:kloke:--- /var/www/sicher.bbs-einbeck.de/disown
-setfacl -R -m u:kloke:--- /var/www/sicher.bbs-einbeck.de/disown-dev
-setfacl -R -m u:kloke:--- /var/www/sicher.bbs-einbeck.de/disown-public
+setfacl -R -m u:kloke:--- /var/www/example.org/disown
+setfacl -R -m u:kloke:--- /var/www/example.org/disown-dev
+setfacl -R -m u:kloke:--- /var/www/example.org/disown-public
 
-find /var/www/sicher.bbs-einbeck.de/disown /var/www/sicher.bbs-einbeck.de/disown-dev /var/www/sicher.bbs-einbeck.de/disown-public \
+find /var/www/example.org/disown /var/www/example.org/disown-dev /var/www/example.org/disown-public \
   -type d -exec setfacl -m d:u:kloke:--- {} +
 ```
 
@@ -107,22 +107,22 @@ apachectl configtest && systemctl reload apache2
 Public app should return `200 OK`:
 
 ```bash
-curl -k -I https://sicher.bbs-einbeck.de/disown/
+curl -k -I https://example.org/disown/
 ```
 
 Admin should request Basic Auth and return `401 Unauthorized` without login:
 
 ```bash
-curl -k -I https://sicher.bbs-einbeck.de/disown/admin
+curl -k -I https://example.org/disown/admin
 ```
 
 Internal paths should return `403 Forbidden`:
 
 ```bash
-curl -k -I https://sicher.bbs-einbeck.de/disown/db.php
-curl -k -I https://sicher.bbs-einbeck.de/disown/vendor/autoload.php
-curl -k -I https://sicher.bbs-einbeck.de/disown/config/notify.example.conf
-curl -k -I https://sicher.bbs-einbeck.de/disown/.git/config
+curl -k -I https://example.org/disown/db.php
+curl -k -I https://example.org/disown/vendor/autoload.php
+curl -k -I https://example.org/disown/config/notify.example.conf
+curl -k -I https://example.org/disown/.git/config
 ```
 
 CLI DB check:
@@ -151,14 +151,14 @@ of Git.
 The IServ issuer is:
 
 ```text
-https://bbs-einbeck.de
+https://mein-iserv.de
 ```
 
 The IServ SSO client needs these redirect URIs:
 
 ```text
-https://sicher.bbs-einbeck.de/disown/oidc_callback.php
-https://sicher.bbs-einbeck.de/disown-dev/oidc_callback.php
+https://example.org/disown/oidc_callback.php
+https://example.org/disown-dev/oidc_callback.php
 ```
 
 Recommended scopes:
