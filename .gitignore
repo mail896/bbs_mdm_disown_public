@@ -1,0 +1,16 @@
+db.php
+vendor/
+.env
+*.log
+*.sqlite
+*.sqlite3
+*.sql
+*.bak
+*.pre-jamf
+*.before-jamf
+*.tar
+*.tar.gz
+*.zip
+composer.phar
+/config/*.conf
+!/config/*.example.conf

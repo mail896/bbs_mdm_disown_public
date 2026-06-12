@@ -1,0 +1,75 @@
+Hallo {{name}},
+
+Ihr Antrag zur Freigabe Ihres iPads wurde erfolgreich bearbeitet.
+
+Das iPad wird jetzt nicht mehr von der BBS Einbeck verwaltet.
+
+Folgendes wurde bereits durchgeführt:
+
+- Alle schulischen Profile wurden entfernt.
+- Alle Einschränkungen der Schule wurden aufgehoben.
+- Die Verwaltung über Jamf School wurde beendet.
+
+Gerät:
+{{device_name}}
+
+Seriennummer:
+{{serial}}
+
+Wichtig:
+
+Falls in den Einstellungen an einigen Stellen noch „Berufsbildende Schulen Einbeck“ angezeigt wird, ist das nur eine Anzeige und hat keine Auswirkung mehr.
+
+Wenn Sie das iPad vollständig ohne Hinweise auf die Schule nutzen möchten, können Sie das Gerät zurücksetzen und anschließend neu einrichten.
+
+Achtung:
+
+Stellen Sie dabei kein altes Backup wieder her, das erstellt wurde, als das iPad noch von der Schule verwaltet wurde. Andernfalls können alte Schul-Einstellungen oder Profile erneut übernommen werden.
+
+Mit freundlichen Grüßen
+
+BBS Einbeck  
+Team Mobile Device Management
+
+
+
+
+
+--- english ---
+
+
+
+
+
+Hello {{name}},
+
+Your request to release your iPad has been completed successfully.
+
+The iPad is no longer managed by BBS Einbeck.
+
+The following actions have already been completed:
+
+* All school management profiles have been removed.
+* All school restrictions have been removed.
+* Device management through Jamf School has been ended.
+
+Device:
+{{device_name}}
+
+Serial number:
+{{serial}}
+
+Important:
+
+If “Berufsbildende Schulen Einbeck” is still shown in some settings, this is only a display entry and has no effect on the device anymore.
+
+If you want to use the iPad completely without any references to the school, you may erase the device and set it up again.
+
+Please note:
+
+Do not restore an old backup that was created while the iPad was still managed by the school. Otherwise, old school settings or profiles may be restored.
+
+Kind regards,
+
+BBS Einbeck
+Mobile Device Management Team

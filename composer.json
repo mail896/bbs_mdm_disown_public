@@ -1,0 +1,7 @@
+{
+    "description": "Workflow tool for releasing school-managed iPads from Jamf and Apple School Manager.",
+    "license": "MIT",
+    "require": {
+        "phpmailer/phpmailer": "^7.1"
+    }
+}
