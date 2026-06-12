@@ -4,6 +4,14 @@ require __DIR__ . '/auth.php';
 $currentAdminUser = disown_current_admin_user();
 $oidcLogoutUrl = disown_oidc_logout_url();
 
+if ($currentAdminUser !== '') {
+    disown_log_auth_event(
+        'AUTH_LOGOUT',
+        $currentAdminUser,
+        'method=' . (disown_oidc_enabled() ? 'oidc' : 'basic')
+    );
+}
+
 if (disown_oidc_enabled()) {
     $_SESSION = [];
 

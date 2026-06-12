@@ -83,6 +83,53 @@ function disown_current_admin_user(): string
     return '';
 }
 
+function disown_log_audit_action($mysqli, int $requestId, string $action, string $adminUser = '', ?string $details = null): void
+{
+    $adminUser = trim($adminUser) !== '' ? trim($adminUser) : disown_current_admin_user();
+    if ($adminUser === '') {
+        $adminUser = 'unknown';
+    }
+
+    $action = substr(trim($action), 0, 64);
+    $adminUser = substr($adminUser, 0, 64);
+
+    if ($requestId < 0 || $action === '') {
+        return;
+    }
+
+    try {
+        $stmt = $mysqli->prepare(
+            "INSERT INTO request_audit_log (request_id, action, admin_user, details)
+             VALUES (?, ?, ?, ?)"
+        );
+        if (!$stmt) {
+            return;
+        }
+
+        $stmt->bind_param('isss', $requestId, $action, $adminUser, $details);
+        $stmt->execute();
+        $stmt->close();
+    } catch (Throwable $e) {
+        return;
+    }
+}
+
+function disown_log_auth_event(string $action, string $adminUser = '', ?string $details = null): void
+{
+    global $mysqli;
+
+    try {
+        if (!isset($mysqli)) {
+            require_once __DIR__ . '/db.php';
+        }
+        if (isset($mysqli)) {
+            disown_log_audit_action($mysqli, 0, $action, $adminUser, $details);
+        }
+    } catch (Throwable $e) {
+        return;
+    }
+}
+
 function disown_require_admin(): void
 {
     if (!disown_oidc_enabled()) {
@@ -142,6 +189,7 @@ function disown_oidc_handle_callback(): void
     $state = (string) ($_GET['state'] ?? '');
     $code = (string) ($_GET['code'] ?? '');
     if ($state === '' || $code === '' || !hash_equals((string) ($_SESSION['oidc_state'] ?? ''), $state)) {
+        disown_log_auth_event('AUTH_LOGIN_ERROR', 'unknown', 'method=oidc; reason=invalid_state');
         http_response_code(400);
         exit('OIDC-Status ungültig.');
     }
@@ -166,6 +214,7 @@ function disown_oidc_handle_callback(): void
 
     $accessToken = (string) ($tokenResponse['access_token'] ?? '');
     if ($accessToken === '') {
+        disown_log_auth_event('AUTH_LOGIN_ERROR', 'unknown', 'method=oidc; reason=missing_access_token');
         http_response_code(401);
         exit('OIDC access_token fehlt.');
     }
@@ -184,12 +233,22 @@ function disown_oidc_handle_callback(): void
     $user = disown_normalize_oidc_user($claims);
     if (!disown_oidc_user_allowed($user, $config)) {
         unset($_SESSION['oidc_user']);
+        disown_log_auth_event(
+            'AUTH_LOGIN_DENIED',
+            (string) ($user['display'] ?? 'unknown'),
+            'method=oidc; roles=' . implode(',', $user['roles'] ?? [])
+        );
         http_response_code(403);
         exit('Dieser IServ-Benutzer ist für DISOWN nicht berechtigt.');
     }
 
     session_regenerate_id(true);
     $_SESSION['oidc_user'] = $user + ['authorized' => true];
+    disown_log_auth_event(
+        'AUTH_LOGIN_SUCCESS',
+        (string) $user['display'],
+        'method=oidc; roles=' . implode(',', $user['roles'] ?? [])
+    );
     unset($_SESSION['oidc_state'], $_SESSION['oidc_nonce'], $_SESSION['oidc_code_verifier']);
 
     $returnTo = (string) ($_SESSION['oidc_return_to'] ?? disown_admin_base_path() . '/admin.php');

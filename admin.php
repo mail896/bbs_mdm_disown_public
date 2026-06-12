@@ -101,29 +101,7 @@ function admin_url(array $params = []): string
 
 function log_request_action($mysqli, int $requestId, string $action, ?string $details = null): void
 {
-    $adminUser = disown_current_admin_user();
-    if ($adminUser === '') {
-        $adminUser = 'unknown';
-    }
-
-    $action = substr(trim($action), 0, 64);
-    $adminUser = substr($adminUser, 0, 64);
-
-    if ($requestId < 0 || $action === '') {
-        return;
-    }
-
-    $stmt = $mysqli->prepare(
-        "INSERT INTO request_audit_log (request_id, action, admin_user, details)
-         VALUES (?, ?, ?, ?)"
-    );
-    if (!$stmt) {
-        return;
-    }
-
-    $stmt->bind_param('isss', $requestId, $action, $adminUser, $details);
-    $stmt->execute();
-    $stmt->close();
+    disown_log_audit_action($mysqli, $requestId, $action, disown_current_admin_user(), $details);
 }
 
 function normalize_bulk_ids($rawIds): array
