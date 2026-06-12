@@ -9,16 +9,15 @@ represented in Git.
 - Development app: `/var/www/example.org/disown-dev`
 - Public repository working copy: `/var/www/example.org/disown-public`
 - Runtime config: `/etc/disown`
-- Backups: `/root/disown-backups`
+- Backups: `/secure/disown-backups`
 
-For Codex work, open the workspace at:
+For maintenance work, open the workspace at:
 
 ```bash
 /var/www/example.org
 ```
 
-This keeps production, development, and the public repository in one workspace
-and avoids temporary export directories under `/tmp`.
+This keeps production, development, and repository worktrees in one workspace.
 
 ## Runtime configuration
 
@@ -32,14 +31,14 @@ The file must be readable by the PHP/Apache user and by the maintenance user:
 
 ```bash
 setfacl -m u:www-data:r /etc/disown/db.conf
-setfacl -m u:marc:r /etc/disown/db.conf
+setfacl -m u:deploy-user:r /etc/disown/db.conf
 ```
 
 Expected ACL shape:
 
 ```text
 user:www-data:r--
-user:marc:r--
+user:deploy-user:r--
 other::---
 ```
 
@@ -78,8 +77,7 @@ prevent web access. A request to `/disown-public/` should return `403 Forbidden`
 
 ## Local user restrictions
 
-The local Linux user `kloke` is intentionally excluded from all Disown working
-copies:
+If a local Linux user must be excluded from Disown, use explicit deny ACLs:
 
 - `/var/www/example.org/disown`
 - `/var/www/example.org/disown-dev`
@@ -88,12 +86,12 @@ copies:
 Use explicit ACLs so the restriction survives later group permission changes:
 
 ```bash
-setfacl -R -m u:kloke:--- /var/www/example.org/disown
-setfacl -R -m u:kloke:--- /var/www/example.org/disown-dev
-setfacl -R -m u:kloke:--- /var/www/example.org/disown-public
+setfacl -R -m u:blocked-user:--- /var/www/example.org/disown
+setfacl -R -m u:blocked-user:--- /var/www/example.org/disown-dev
+setfacl -R -m u:blocked-user:--- /var/www/example.org/disown-public
 
 find /var/www/example.org/disown /var/www/example.org/disown-dev /var/www/example.org/disown-public \
-  -type d -exec setfacl -m d:u:kloke:--- {} +
+  -type d -exec setfacl -m d:u:blocked-user:--- {} +
 ```
 
 After Apache changes:
@@ -110,10 +108,11 @@ Public app should return `200 OK`:
 curl -k -I https://example.org/disown/
 ```
 
-Admin should request Basic Auth and return `401 Unauthorized` without login:
+Admin should redirect unauthenticated users to the configured login flow:
 
 ```bash
 curl -k -I https://example.org/disown/admin
+# expected: 302 redirect to the identity provider, or 401 if Basic Auth is used as fallback
 ```
 
 Internal paths should return `403 Forbidden`:
@@ -178,7 +177,7 @@ Suggested file permissions:
 ```bash
 chown nobody:nogroup /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
 chmod 640 /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
-setfacl -m u:www-data:r,u:marc:r /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
+setfacl -m u:www-data:r,u:deploy-user:r /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
 ```
 
 ## Vendor directory
@@ -195,8 +194,7 @@ of the server deployment process.
 Before production changes, run:
 
 ```bash
-sudo -n /usr/local/sbin/backup-disown.sh
+/usr/local/sbin/backup-disown.sh
 ```
 
-The backup script stores a code archive and a database dump in
-`/root/disown-backups`.
+The backup script should store a code archive and a database dump outside the web root.
