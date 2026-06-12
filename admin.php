@@ -21,9 +21,9 @@ $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '1.3-dev' : '1.3';
 $appVersionDate = '11. Juni 2026';
 $validFilters = ['open', 'scheduled', 'done', 'all'];
-$filter = (string) ($_GET['filter'] ?? 'all');
+$filter = (string) ($_GET ?? 'open');
 if (!in_array($filter, $validFilters, true)) {
-    $filter = 'all';
+    $filter = 'open';
 }
 $filterLabels = [
     'open' => 'Offen',
