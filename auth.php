@@ -49,6 +49,10 @@ function disown_oidc_config(): array
     $config['OIDC_SCOPES'] = trim((string) ($config['OIDC_SCOPES'] ?? 'openid email profile'));
     $config['OIDC_ALLOWED_EMAILS'] = disown_split_config_list((string) ($config['OIDC_ALLOWED_EMAILS'] ?? ''));
     $config['OIDC_ALLOWED_ROLES'] = disown_split_config_list((string) ($config['OIDC_ALLOWED_ROLES'] ?? ''));
+    $config['OIDC_VIEWER_ROLES'] = disown_split_config_list((string) ($config['OIDC_VIEWER_ROLES'] ?? ''));
+    if (!$config['OIDC_VIEWER_ROLES']) {
+        $config['OIDC_VIEWER_ROLES'] = ['MDM_VIEWERS'];
+    }
 
     return $config;
 }
@@ -81,6 +85,41 @@ function disown_current_admin_user(): string
     }
 
     return '';
+}
+
+function disown_current_access_level(): string
+{
+    return (string) ($_SESSION['oidc_user']['access_level'] ?? 'admin');
+}
+
+function disown_current_user_roles(): array
+{
+    $roles = $_SESSION['oidc_user']['roles'] ?? [];
+    return is_array($roles) ? $roles : [];
+}
+
+function disown_can_write(): bool
+{
+    if (!disown_oidc_enabled()) {
+        return true;
+    }
+
+    return disown_current_access_level() === 'admin';
+}
+
+function disown_require_write(): void
+{
+    if (disown_can_write()) {
+        return;
+    }
+
+    disown_log_auth_event(
+        'AUTH_WRITE_DENIED',
+        disown_current_admin_user(),
+        'method=oidc; roles=' . implode(',', disown_current_user_roles())
+    );
+    http_response_code(403);
+    exit('Nur lesender Zugriff. Diese Aktion ist nicht erlaubt.');
 }
 
 function disown_log_audit_action($mysqli, int $requestId, string $action, string $adminUser = '', ?string $details = null): void
@@ -141,7 +180,135 @@ function disown_require_admin(): void
         return;
     }
 
+    if (($_GET['login'] ?? '') !== '1') {
+        disown_render_login_page();
+    }
+
     disown_oidc_start_login();
+}
+
+function disown_render_login_page(): void
+{
+    $loginUrl = disown_login_url();
+    $basePath = rtrim(disown_admin_base_path(), '/');
+    $logoUrl = $basePath . '/logo.png';
+    $siteImageUrl = $basePath . '/images/Site-Image.png';
+    $faviconUrl = $basePath . '/favicon.svg';
+    ?>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="<?=htmlspecialchars($faviconUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>">
+<title>iPad-Management · Anmeldung</title>
+<style>
+:root {
+    color-scheme: light;
+    font-family: Inter, Arial, sans-serif;
+    color: #111827;
+}
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        linear-gradient(90deg, rgba(248, 250, 252, 0.96) 0%, rgba(248, 250, 252, 0.84) 42%, rgba(248, 250, 252, 0.48) 100%),
+        url("<?=htmlspecialchars($siteImageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>") center center / cover no-repeat fixed;
+}
+.login-page {
+    align-items: stretch;
+    display: grid;
+    min-height: 100vh;
+    padding: clamp(24px, 5vw, 72px);
+}
+.login-panel {
+    align-self: center;
+    max-width: 520px;
+}
+.site-logo {
+    display: block;
+    height: auto;
+    margin-bottom: clamp(28px, 6vh, 56px);
+    max-width: min(300px, 58vw);
+}
+.login-title {
+    font-size: clamp(2.4rem, 6vw, 4.8rem);
+    line-height: 1;
+    margin: 0;
+}
+.login-copy {
+    color: #475569;
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
+    line-height: 1.45;
+    margin: 18px 0 32px;
+}
+.login-button {
+    align-items: center;
+    background: #2563eb;
+    border-radius: 999px;
+    box-shadow: 0 16px 36px rgba(37, 99, 235, 0.24);
+    color: #ffffff;
+    display: inline-flex;
+    font-size: 1.05rem;
+    font-weight: 800;
+    justify-content: center;
+    min-height: 56px;
+    padding: 0 1.45rem;
+    text-decoration: none;
+}
+.login-button:hover {
+    background: #1d4ed8;
+}
+.login-note {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-top: 18px;
+}
+@media (max-width: 760px) {
+    body {
+        background:
+            linear-gradient(to bottom, rgba(248, 250, 252, 0.96) 0%, rgba(248, 250, 252, 0.84) 54%, rgba(248, 250, 252, 0.56) 100%),
+            url("<?=htmlspecialchars($siteImageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>") center bottom / auto 78vh no-repeat fixed;
+    }
+    .login-page {
+        padding: 28px 22px;
+    }
+}
+</style>
+</head>
+<body>
+    <main class="login-page">
+        <section class="login-panel" aria-label="Anmeldung">
+            <img class="site-logo" src="<?=htmlspecialchars($logoUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>" alt="BBS Einbeck">
+            <h1 class="login-title">iPad-Management</h1>
+            <p class="login-copy">Melden Sie sich mit Ihrem IServ-Konto an, um Anträge, ADE-Aufnahmen und Audit-Log einzusehen.</p>
+            <a class="login-button" href="<?=htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>">Mit IServ anmelden</a>
+            <p class="login-note">Die Berechtigungen werden über IServ-Rollen gesteuert.</p>
+        </section>
+    </main>
+</body>
+</html>
+<?php
+    exit;
+}
+
+function disown_login_url(): string
+{
+    $params = $_GET;
+    $params['login'] = '1';
+    return strtok((string) ($_SERVER['REQUEST_URI'] ?? 'admin.php'), '?') . '?' . http_build_query($params);
+}
+
+function disown_return_url_without_login(): string
+{
+    $path = strtok((string) ($_SERVER['REQUEST_URI'] ?? disown_admin_base_path() . '/admin.php'), '?');
+    $params = $_GET;
+    unset($params['login']);
+
+    return $path . ($params ? '?' . http_build_query($params) : '');
 }
 
 function disown_oidc_start_login(): void
@@ -162,7 +329,7 @@ function disown_oidc_start_login(): void
     $_SESSION['oidc_state'] = $state;
     $_SESSION['oidc_nonce'] = $nonce;
     $_SESSION['oidc_code_verifier'] = $verifier;
-    $_SESSION['oidc_return_to'] = $_SERVER['REQUEST_URI'] ?? disown_admin_base_path() . '/admin.php';
+    $_SESSION['oidc_return_to'] = disown_return_url_without_login();
 
     $query = http_build_query([
         'response_type' => 'code',
@@ -231,7 +398,8 @@ function disown_oidc_handle_callback(): void
 
     $claims = array_merge($idTokenClaims, $userinfo);
     $user = disown_normalize_oidc_user($claims);
-    if (!disown_oidc_user_allowed($user, $config)) {
+    $accessLevel = disown_oidc_user_access_level($user, $config);
+    if ($accessLevel === null) {
         unset($_SESSION['oidc_user']);
         disown_log_auth_event(
             'AUTH_LOGIN_DENIED',
@@ -243,11 +411,11 @@ function disown_oidc_handle_callback(): void
     }
 
     session_regenerate_id(true);
-    $_SESSION['oidc_user'] = $user + ['authorized' => true];
+    $_SESSION['oidc_user'] = $user + ['authorized' => true, 'access_level' => $accessLevel];
     disown_log_auth_event(
         'AUTH_LOGIN_SUCCESS',
         (string) $user['display'],
-        'method=oidc; roles=' . implode(',', $user['roles'] ?? [])
+        'method=oidc; access=' . $accessLevel . '; roles=' . implode(',', $user['roles'] ?? [])
     );
     unset($_SESSION['oidc_state'], $_SESSION['oidc_nonce'], $_SESSION['oidc_code_verifier']);
 
@@ -360,17 +528,27 @@ function disown_claim_to_list($claim): array
 
 function disown_oidc_user_allowed(array $user, array $config): bool
 {
+    return disown_oidc_user_access_level($user, $config) !== null;
+}
+
+function disown_oidc_user_access_level(array $user, array $config): ?string
+{
     $allowedEmails = array_map('strtolower', $config['OIDC_ALLOWED_EMAILS'] ?? []);
     if ($allowedEmails && in_array(strtolower((string) ($user['email'] ?? '')), $allowedEmails, true)) {
-        return true;
+        return 'admin';
     }
 
     $allowedRoles = $config['OIDC_ALLOWED_ROLES'] ?? [];
     if ($allowedRoles && array_intersect($allowedRoles, $user['roles'] ?? [])) {
-        return true;
+        return 'admin';
     }
 
-    return !$allowedEmails && !$allowedRoles;
+    $viewerRoles = $config['OIDC_VIEWER_ROLES'] ?? [];
+    if ($viewerRoles && array_intersect($viewerRoles, $user['roles'] ?? [])) {
+        return 'viewer';
+    }
+
+    return !$allowedEmails && !$allowedRoles ? 'admin' : null;
 }
 
 function disown_http_get_json(string $url, array $headers = []): array

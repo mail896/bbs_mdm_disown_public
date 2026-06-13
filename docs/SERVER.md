@@ -172,6 +172,16 @@ Recommended grant type:
 Authorization code
 ```
 
+Recommended role split:
+
+```text
+OIDC_ALLOWED_ROLES="MDM_ADMINS"
+OIDC_VIEWER_ROLES="MDM_VIEWERS"
+```
+
+Users with the viewer role can read, filter, and export the admin portal,
+ADE enrollments, and audit log. Write actions remain server-side blocked.
+
 Suggested file permissions:
 
 ```bash

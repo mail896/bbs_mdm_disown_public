@@ -2,9 +2,9 @@
 
 [Deutsche README](README.md)
 
-Web application used by Example School to release school-managed iPads from Jamf and Apple School Manager.
+Web application for iPad management around release requests, ADE enrollments, Jamf, and Apple School Manager.
 
-The application reflects a local school workflow: students submit a release request from an iPad Web Clip, the MDM team processes the request in the admin portal, and every relevant step is documented.
+The application reflects local MDM workflows: students submit release requests from an iPad Web Clip, the MDM team processes requests in the admin portal, reviews ADE enrollments, and documents relevant steps.
 
 ## Screenshots
 
@@ -32,6 +32,8 @@ The application reflects a local school workflow: students submit a release requ
 - requested release date, with past dates blocked
 - duplicate protection for open requests with the same serial number
 - admin portal with search, filters, and process display
+- login landing page for IServ/OIDC authentication
+- separate admin and read-only roles
 - workflow: request -> Jamf -> ASM -> mail -> completed
 - Jamf unenroll via API
 - manual ASM/ADE confirmation
@@ -311,7 +313,7 @@ The private key for the Apple School Manager API is stored outside the web root.
 ### IServ OpenID Connect
 
 The admin area can be protected with IServ/OpenID Connect. In production, OIDC
-is intended for both the admin portal and the audit log.
+is intended for the admin portal, ADE enrollments, and the audit log.
 
 IServ issuer:
 
@@ -354,11 +356,24 @@ config/oidc.example.conf
 Never commit the client secret. Development and production can use separate
 configuration files so OIDC can be tested in DEV first.
 
+The OIDC login supports two access levels:
+
+- admin role: may execute Jamf, ASM, mail, bulk, and template actions
+- viewer role: may read, filter, and export the admin portal, ADE enrollments, and audit log
+
+Example roles:
+
+```text
+OIDC_ALLOWED_ROLES="MDM_ADMINS"
+OIDC_VIEWER_ROLES="MDM_VIEWERS"
+```
+
 ## Security
 
 - admin portal and audit log are protected by IServ OpenID Connect
+- write actions are blocked server-side for read-only users
 - DEV and PROD can use separate OIDC configuration files
-- Apache Basic Auth can be used as fallback/legacy protection, but is not the current target mode for 1.4
+- Apache Basic Auth can be used as fallback/legacy protection, but is not the current target mode
 - PHP writes successful logins, denied logins, login errors, and logout events to the audit log
 - admin POST actions use CSRF checks
 - database operations with user input use prepared statements
@@ -421,7 +436,7 @@ Backups are stored outside the web root.
 Current documented state:
 
 ```text
-Version 1.5
+Version 1.6
 Date: 13 June 2026
 ```
 
@@ -432,6 +447,7 @@ Important releases:
 - 1.3: scheduled requests and admin notifications by cron
 - 1.4: IServ OIDC for the admin area, authentication audit events, and favicon
 - 1.5: ADE enrollments with ASM/Jamf correlation, filters, CSV export, and cron sync
+- 1.6: login landing page, iPad management portal name, and read-only role
 
 ## Git Workflow
 

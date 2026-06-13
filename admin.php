@@ -19,9 +19,11 @@ $bulkAsmSerials = [];
 $bulkLastIds = [];
 $bulkLastStep = '';
 $currentAdminUser = disown_current_admin_user();
+$canWrite = disown_can_write();
+$accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.4-dev' : '1.4';
-$appVersionDate = '12. Juni 2026';
+$appVersion = $isDevMode ? '1.6-dev' : '1.6';
+$appVersionDate = '13. Juni 2026';
 $validFilters = ['open', 'scheduled', 'done', 'all'];
 $filter = (string) ($_GET['filter'] ?? 'open');
 if (!in_array($filter, $validFilters, true)) {
@@ -184,6 +186,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
         die('Ungültiges Formular. Bitte lade die Seite neu und versuche es erneut.');
     }
+    disown_require_write();
 
     if (isset($_POST['template_save'])) {
         $templateContent = $_POST['template_content'] ?? '';
@@ -426,7 +429,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                          WHERE id = ?"
                     );
                     if ($updateStmt) {
-                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'system');
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'admin');
                         $updateStmt->bind_param('ssi', $recipient, $completedBy, $requestId);
                         $updateStmt->execute();
                         $updateStmt->close();
@@ -567,7 +570,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                              WHERE id = ?"
                         );
                         if ($updateStmt) {
-                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'system';
+                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'admin';
                             $updateStmt->bind_param('ssi', $sendRecipientList, $completedBy, $sendRequestId);
                             $updateStmt->execute();
                             $updateStmt->close();
@@ -933,7 +936,7 @@ $result = $result->get_result();
 <?php endif; ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<title>iPad-Freigaben</title>
+<title>iPad-Management</title>
 <style>
 :root {
     color-scheme: light;
@@ -948,7 +951,9 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
-    background: #f3f5f9;
+    background:
+        linear-gradient(rgba(243, 245, 249, 0.84), rgba(243, 245, 249, 0.92)),
+        url("images/Site-Image.png") center top / min(1717px, 118vw) auto no-repeat fixed;
 }
 .page {
     max-width: 1180px;
@@ -1049,11 +1054,25 @@ body {
     margin: 0;
 }
 .card {
-    background: white;
+    background: rgba(255, 255, 255, 0.94);
     border: 1px solid #e2e8f0;
     border-radius: 18px;
     padding: 20px;
+    overflow: hidden;
+    position: relative;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+.card::before {
+    background: url("images/Site-Image.png") center top / min(1500px, 115vw) auto no-repeat;
+    content: "";
+    inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    position: absolute;
+}
+.card > * {
+    position: relative;
+    z-index: 1;
 }
 .table-wrap {
     overflow-x: auto;
@@ -1185,6 +1204,9 @@ table {
     gap: 8px;
     justify-content: flex-end;
     margin: 0 0 14px;
+}
+.pagination-top {
+    margin: 8px 0 72px;
 }
 .pagination-bottom {
     margin: 14px 0 0;
@@ -1563,9 +1585,26 @@ tr:hover {
     color: #991b1b;
     border: 1px solid #fecaca;
 }
+.readonly-banner {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 14px;
+    color: #1e40af;
+    line-height: 1.45;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+}
+.readonly-banner strong {
+    color: #1d4ed8;
+}
 .status-secondary {
     background: #e2e8f0;
     color: #334155;
+}
+.status-muted {
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 700;
 }
 .email-link {
     color: #2563eb;
@@ -1635,23 +1674,24 @@ tr:hover {
 <div class="page">
     <div class="header">
         <div>
-            <h1 class="page-title">iPad-Freigaben</h1>
+            <h1 class="page-title">iPad-Management</h1>
             <p>Offene und erledigte Anträge anzeigen. Schließe Anträge direkt hier ab.</p>
             <p class="hint-text">Der automatische Jamf-Unenroll entfernt die MDM-Verwaltung. Die ADE/ASM-Freigabe erfolgt anschließend manuell.</p>
         </div>
         <div class="header-actions">
             <div class="logo-actions">
-                <img src="logo.png" alt="Example School" class="site-logo">
+                <img src="logo.png" alt="BBS Einbeck" class="site-logo">
                 <a class="refresh-link" href="<?=htmlspecialchars($refreshUrl)?>" title="Seite aktualisieren" aria-label="Seite aktualisieren">↻</a>
             </div>
-            <a class="admin-user" href="logout.php">👤 <?=htmlspecialchars($currentAdminUser)?></a>
+            <a class="admin-user" href="logout.php">👤 <?=htmlspecialchars($currentAdminUser)?> · <?=htmlspecialchars($accessLabel)?></a>
             <div class="tool-links" aria-label="Admin-Werkzeuge">
-                <a class="tool-link" href="https://your-school.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
+                <a class="tool-link" href="https://bbseinbeck.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
                     <img class="tool-logo" src="logo_jamf.png" alt="Jamf">
                 </a>
                 <a class="tool-link" href="https://school.apple.com" onclick="openAsmPortal(); return false;" title="Apple School Manager öffnen">
                     <img class="tool-logo" src="logo_asm.png" alt="ASM">
                 </a>
+                <a class="button button-secondary audit-log-link" href="ade.php">ADE-Aufnahmen</a>
                 <a class="button button-secondary audit-log-link" href="audit_log.php">Audit-Log</a>
             </div>
         </div>
@@ -1663,8 +1703,16 @@ tr:hover {
         <label for="searchInput" class="search-label">Suche</label>
         <input id="searchInput" name="q" type="search" class="search-input" placeholder="Name, Klasse, IServ-Benutzer, E-Mail oder Seriennummer" value="<?=htmlspecialchars($searchTerm)?>">
         <button type="submit" class="button button-secondary">Suchen</button>
-        <button type="button" class="button button-secondary" onclick="toggleTemplateEditor()">Vorlage bearbeiten</button>
+        <?php if ($canWrite): ?>
+            <button type="button" class="button button-secondary" onclick="toggleTemplateEditor()">Vorlage bearbeiten</button>
+        <?php endif; ?>
     </form>
+
+    <?php if (!$canWrite): ?>
+        <div class="readonly-banner">
+            <strong>Nur-Lese-Zugriff:</strong> Sie können Anträge, ADE-Aufnahmen und Audit-Log ansehen, filtern und exportieren. Jamf-, ASM-, Mail-, Bulk- und Vorlagenaktionen sind deaktiviert.
+        </div>
+    <?php endif; ?>
 
     <div class="filter-bar">
         <a class="button filter-link <?= $filter === 'open' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'open', 'page' => 1, 'export' => null]))?>">Offen</a>
@@ -1685,24 +1733,26 @@ tr:hover {
         <span class="dashboard-stat info <?= $avgStudentResponseText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Schüler-Response</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgStudentResponseText)?></span></span>
     </div>
 
-    <form method="post" id="bulkActionForm" class="hidden">
-        <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-        <input type="hidden" name="bulk_action" id="bulkActionInput" value="">
-        <div id="bulkIdsInput"></div>
-        <div id="bulkLastIdsInput" data-last-bulk-step="<?=htmlspecialchars($bulkLastStep)?>">
-            <?php foreach ($bulkLastIds as $bulkLastId): ?>
-                <input type="hidden" data-last-bulk-id value="<?=htmlspecialchars((string) $bulkLastId)?>">
-            <?php endforeach; ?>
-        </div>
-    </form>
+    <?php if ($canWrite): ?>
+        <form method="post" id="bulkActionForm" class="hidden">
+            <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+            <input type="hidden" name="bulk_action" id="bulkActionInput" value="">
+            <div id="bulkIdsInput"></div>
+            <div id="bulkLastIdsInput" data-last-bulk-step="<?=htmlspecialchars($bulkLastStep)?>">
+                <?php foreach ($bulkLastIds as $bulkLastId): ?>
+                    <input type="hidden" data-last-bulk-id value="<?=htmlspecialchars((string) $bulkLastId)?>">
+                <?php endforeach; ?>
+            </div>
+        </form>
 
-    <div class="bulk-toolbar" aria-label="Massenverarbeitung">
-        <span class="bulk-status" id="bulkSelectionStatus">Keine Anträge ausgewählt</span>
-        <button type="button" id="bulkJamfButton" class="button button-secondary" onclick="submitBulkAction('bulk_jamf_unenroll')" disabled>Jamf für Auswahl</button>
-        <button type="button" id="bulkCopyButton" class="button button-secondary" onclick="copyBulkAsmList()" disabled>Liste kopieren</button>
-        <button type="button" id="bulkAsmButton" class="button button-secondary" onclick="submitBulkAction('bulk_asm_done')" disabled>ASM bestätigen</button>
-        <button type="button" id="bulkMailButton" class="button button-secondary" onclick="submitBulkAction('bulk_mail_send')" disabled>Mail für Auswahl</button>
-    </div>
+        <div class="bulk-toolbar" aria-label="Massenverarbeitung">
+            <span class="bulk-status" id="bulkSelectionStatus">Keine Anträge ausgewählt</span>
+            <button type="button" id="bulkJamfButton" class="button button-secondary" onclick="submitBulkAction('bulk_jamf_unenroll')" disabled>Jamf für Auswahl</button>
+            <button type="button" id="bulkCopyButton" class="button button-secondary" onclick="copyBulkAsmList()" disabled>Liste kopieren</button>
+            <button type="button" id="bulkAsmButton" class="button button-secondary" onclick="submitBulkAction('bulk_asm_done')" disabled>ASM bestätigen</button>
+            <button type="button" id="bulkMailButton" class="button button-secondary" onclick="submitBulkAction('bulk_mail_send')" disabled>Mail für Auswahl</button>
+        </div>
+    <?php endif; ?>
 
     <div id="bulkAsmList" class="preview-card bulk-asm-list <?= $bulkAsmSerials ? '' : 'hidden' ?>">
         <div class="preview-header">
@@ -1718,7 +1768,7 @@ tr:hover {
         </div>
     </div>
 
-    <nav class="pagination" aria-label="Seitennavigation oben">
+    <nav class="pagination pagination-top" aria-label="Seitennavigation oben">
         <a class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>" data-page-link href="<?=htmlspecialchars(admin_url(['page' => 1, 'export' => null]))?>">« Erste</a>
         <a class="pagination-link <?= $page <= 1 ? 'disabled' : '' ?>" data-page-link href="<?=htmlspecialchars(admin_url(['page' => max(1, $page - 1), 'export' => null]))?>">‹ Zurück</a>
         <span class="pagination-current">Seite <?=htmlspecialchars((string) $page)?> von <?=htmlspecialchars((string) $totalPages)?></span>
@@ -1751,6 +1801,7 @@ tr:hover {
         <div class="message error"><?=htmlspecialchars($bulkError)?></div>
     <?php endif; ?>
 
+    <?php if ($canWrite): ?>
     <div id="templateEditor" class="preview-card hidden">
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
@@ -1761,12 +1812,17 @@ tr:hover {
             </div>
         </form>
     </div>
+    <?php endif; ?>
 
     <div class="card table-wrap">
         <table id="requestsTable">
             <thead>
                 <tr>
-                    <th class="select-cell"><input type="checkbox" id="selectAllRequests" aria-label="Alle sichtbaren Anträge auswählen"></th>
+                    <th class="select-cell">
+                        <?php if ($canWrite): ?>
+                            <input type="checkbox" id="selectAllRequests" aria-label="Alle sichtbaren Anträge auswählen">
+                        <?php endif; ?>
+                    </th>
                     <th>ID</th>
                     <th>Datum</th>
                     <th>Person</th>
@@ -1789,7 +1845,7 @@ tr:hover {
                         $bulkJamfDone = !empty($row['jamf_unenrolled']);
                         $bulkAsmDone = !empty($row['asm_manual_done']);
                         $bulkIsHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
-                        $bulkSelectable = !$bulkIsHistoryImport && !$bulkMailSent;
+                        $bulkSelectable = $canWrite && !$bulkIsHistoryImport && !$bulkMailSent;
                     ?>
                     <td class="select-cell">
                         <?php if ($bulkSelectable): ?>
@@ -1864,7 +1920,11 @@ tr:hover {
                     </td>
                     <td class="action-cell">
                         <div class="action-buttons">
-                            <?php if (!$isHistoryImport && !$jamfUnenrolled): ?>
+                            <?php if (!$canWrite): ?>
+                                <span class="status-muted">Nur Ansicht</span>
+                            <?php endif; ?>
+
+                            <?php if ($canWrite && !$isHistoryImport && !$jamfUnenrolled): ?>
                                 <form method="post" class="action-form">
                                     <input type="hidden" name="unenroll" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="unenroll_serial" value="<?=htmlspecialchars($row['serial'])?>">
@@ -1873,7 +1933,7 @@ tr:hover {
                                 </form>
                             <?php endif; ?>
 
-                            <?php if (!$isHistoryImport && $jamfUnenrolled && !$asmManualDone): ?>
+                            <?php if ($canWrite && !$isHistoryImport && $jamfUnenrolled && !$asmManualDone): ?>
                                 <form method="post" class="action-form" onsubmit="openAsmBeforeSubmit()">
                                     <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="asm_serial" value="<?=htmlspecialchars($row['serial'])?>">
@@ -1882,7 +1942,7 @@ tr:hover {
                                 </form>
                             <?php endif; ?>
 
-                            <?php if (!$isHistoryImport && $asmManualDone && !$mailSent): ?>
+                            <?php if ($canWrite && !$isHistoryImport && $asmManualDone && !$mailSent): ?>
                                 <button type="button" class="button button-primary" onclick="showMailPreview(this)"
                                     data-id="<?=htmlspecialchars($row['id'])?>"
                                     data-name="<?=htmlspecialchars($row['full_name'])?>"
@@ -1909,6 +1969,7 @@ tr:hover {
             <a class="pagination-link <?= $page >= $totalPages ? 'disabled' : '' ?>" data-page-link href="<?=htmlspecialchars(admin_url(['page' => $totalPages, 'export' => null]))?>">Letzte »</a>
         </nav>
 
+        <?php if ($canWrite): ?>
         <div id="mailPreview" class="preview-card hidden">
             <div class="preview-header">
                 <div>
@@ -1955,9 +2016,10 @@ tr:hover {
                 </div>
             </form>
         </div>
+        <?php endif; ?>
     </div>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:maintainer@example.org">Maintainer</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 Project maintainer · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="admin.php?filter=<?=htmlspecialchars(rawurlencode($filter))?>&amp;export=requests_csv" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>

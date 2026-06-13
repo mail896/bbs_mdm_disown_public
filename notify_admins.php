@@ -16,7 +16,7 @@ $appUrlDefault = $isDevMode
     : 'https://example.org/disown/admin';
 $statePathDefault = $isDevMode
     ? '/tmp/disown-dev-notify-state.json'
-    : '/var/lib/disown/notify-state.json';
+    : '/tmp/disown-notify-state.json';
 
 $notifyConfig = [];
 if (is_readable($notifyConfigPath)) {
@@ -31,9 +31,9 @@ $statePath = trim((string) (getenv('DISOWN_NOTIFY_STATE_FILE') ?: ($notifyConfig
 
 if ($sendTestMail) {
     $subjectPrefix = $isDevMode ? '[DEV] ' : '';
-    $subject = $subjectPrefix . 'iPad-Freigaben: Test der Admin-Benachrichtigung';
+    $subject = $subjectPrefix . 'iPad-Management: Test der Admin-Benachrichtigung';
     $body = implode(PHP_EOL, [
-        'iPad-Freigaben - Testmail',
+        'iPad-Management - Testmail',
         'Stand: ' . date('d.m.Y H:i'),
         '',
         'Diese Mail prüft nur den Versand der Admin-Benachrichtigung.',
@@ -91,27 +91,30 @@ $scheduledRequests = $scheduledStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $scheduledStmt->close();
 
 $subjectPrefix = $isDevMode ? '[DEV] ' : '';
-$subject = $subjectPrefix . 'iPad-Freigaben: ' . count($dueRequests) . ' fällig, ' . count($scheduledRequests) . ' terminiert';
+$subject = $subjectPrefix . 'iPad-Management: ' . count($dueRequests) . ' fällig, ' . count($scheduledRequests) . ' terminiert';
 $body = build_notification_body($dueRequests, $scheduledRequests, $appUrl, $today);
 
 if ($previewOnly) {
     echo "Vorschau: Es wurde keine Mail versendet und kein Status gespeichert." . PHP_EOL . PHP_EOL;
+    if (!$dueRequests) {
+        echo "Hinweis: Ohne heute fällige Anträge würde der reguläre Lauf keine Mail versenden." . PHP_EOL . PHP_EOL;
+    }
     echo "Betreff: " . $subject . PHP_EOL . PHP_EOL;
     echo $body . PHP_EOL;
     exit(0);
 }
 
-$fingerprint = build_notification_fingerprint($dueRequests, $scheduledRequests);
+$fingerprint = build_notification_fingerprint($dueRequests);
 $stateHandle = open_state_handle($statePath);
 $state = read_notification_state($stateHandle);
 
-if (!$dueRequests && !$scheduledRequests) {
+if (!$dueRequests) {
     write_notification_state($stateHandle, $statePath, [
         'fingerprint' => $fingerprint,
         'last_checked_at' => date(DATE_ATOM),
         'last_sent_at' => $state['last_sent_at'] ?? null,
     ]);
-    echo "Keine offenen oder terminierten Anträge gefunden." . PHP_EOL;
+    echo "Keine heute fälligen Anträge gefunden. Spätere Termine lösen keine Mail aus." . PHP_EOL;
     exit(0);
 }
 
@@ -165,7 +168,7 @@ exit(0);
 function build_notification_body(array $dueRequests, array $scheduledRequests, string $appUrl, string $today): string
 {
     $lines = [];
-    $lines[] = 'iPad-Freigaben - Admin-Hinweis';
+    $lines[] = 'iPad-Management - Admin-Hinweis';
     $lines[] = 'Stand: ' . date('d.m.Y H:i');
     $lines[] = '';
     $lines[] = 'Adminportal:';
@@ -265,7 +268,7 @@ function build_notification_html(string $body): string
     return $html . '</div>';
 }
 
-function build_notification_fingerprint(array $dueRequests, array $scheduledRequests): string
+function build_notification_fingerprint(array $dueRequests): string
 {
     $normalize = static function (array $request): array {
         return [
@@ -280,7 +283,6 @@ function build_notification_fingerprint(array $dueRequests, array $scheduledRequ
 
     $payload = [
         'due' => array_map($normalize, $dueRequests),
-        'scheduled' => array_map($normalize, $scheduledRequests),
     ];
 
     return hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));

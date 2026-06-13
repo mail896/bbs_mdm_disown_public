@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<title>iPad-Freigabe</title>
+<title>iPad-Management</title>
 <style>
 :root {
     font-family: Inter, Arial, sans-serif;
@@ -115,7 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 body {
     margin: 0;
     min-height: 100vh;
-    background: #f4f6fb;
+    background:
+        linear-gradient(rgba(244, 246, 251, 0.70), rgba(244, 246, 251, 0.86)),
+        url("images/Site-Image.png") center bottom / min(1700px, 130vw) auto no-repeat fixed;
 }
 .page {
     width: min(100% - 28px, 1240px);
@@ -123,14 +125,30 @@ body {
     padding: 14px 0;
 }
 .card {
-    background: white;
+    background: rgba(255, 255, 255, 0.94);
     border: 1px solid #e5e7eb;
     border-radius: 20px;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 28px);
+    overflow: hidden;
     padding: 24px 30px;
+    position: relative;
+}
+.card::before {
+    background: url("images/Site-Image.png") center bottom -20px / min(1280px, 112vw) auto no-repeat;
+    content: "";
+    inset: 0;
+    opacity: 0.30;
+    pointer-events: none;
+    position: absolute;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, transparent 44%, rgba(0, 0, 0, 0.50) 56%, #000 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, transparent 44%, rgba(0, 0, 0, 0.50) 56%, #000 100%);
+}
+.card > * {
+    position: relative;
+    z-index: 1;
 }
 .card-header {
     display: flex;
@@ -357,10 +375,10 @@ body {
     <div class="card">
 	        <div class="card-header">
 	            <div>
-	                <h1 class="page-title">iPad-Freigabe</h1>
-	                <p class="description">Sie verlassen die Example School?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
+	                <h1 class="page-title">iPad-Management</h1>
+	                <p class="description">Sie verlassen Ihre Schule?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
 	            </div>
-	            <img src="logo.png" alt="Example School" class="site-logo">
+	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
 	        </div>
 
             <div class="warning-box">
