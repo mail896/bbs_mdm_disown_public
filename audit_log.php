@@ -4,6 +4,11 @@ disown_require_admin();
 require 'db.php';
 
 $currentAdminUser = disown_current_admin_user();
+$appBasePath = rtrim(disown_admin_base_path(), '/');
+$adminPath = $appBasePath . '/admin.php';
+$auditLogPath = $appBasePath . '/audit_log.php';
+$logoutPath = $appBasePath . '/logout.php';
+$faviconPath = $appBasePath . '/favicon.svg';
 
 $filterUser = trim((string) ($_GET['user'] ?? ''));
 $filterAction = trim((string) ($_GET['action'] ?? ''));
@@ -31,7 +36,7 @@ if ($filterAction !== '') {
     $exportParams['action'] = $filterAction;
 }
 $exportParams['export'] = 'csv';
-$exportUrl = 'audit_log.php?' . http_build_query($exportParams);
+$exportUrl = $auditLogPath . '?' . http_build_query($exportParams);
 $hasFilters = $filterUser !== '' || $filterAction !== '';
 
 if (($_GET['export'] ?? '') === 'csv') {
@@ -101,7 +106,7 @@ $result = $stmt->get_result();
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/svg+xml" href="<?=htmlspecialchars($faviconPath)?>">
 <title>Audit-Log</title>
 <style>
 :root {
@@ -281,9 +286,9 @@ tr:hover {
             <p class="hint-text">Neueste Einträge zuerst, maximal 500 Einträge.</p>
         </div>
         <div class="header-actions">
-            <a class="admin-user" href="logout.php"><span class="admin-user-icon">👤</span><span class="admin-user-name"><?=htmlspecialchars($currentAdminUser)?></span></a>
+            <a class="admin-user" href="<?=htmlspecialchars($logoutPath)?>"><span class="admin-user-icon">👤</span><span class="admin-user-name"><?=htmlspecialchars($currentAdminUser)?></span></a>
             <a class="button button-secondary export-link" href="<?=htmlspecialchars($exportUrl)?>">CSV exportieren</a>
-            <a class="button button-secondary" href="admin.php">Zurück zur Übersicht</a>
+            <a class="button button-secondary" href="<?=htmlspecialchars($adminPath)?>">Zurück zur Übersicht</a>
         </div>
     </div>
 
@@ -296,7 +301,7 @@ tr:hover {
             <?php if ($filterAction !== ''): ?>
                 <span class="filter-pill">Aktion: <?=htmlspecialchars($filterAction)?></span>
             <?php endif; ?>
-            <a class="filter-pill" href="audit_log.php">Filter zurücksetzen</a>
+            <a class="filter-pill" href="<?=htmlspecialchars($auditLogPath)?>">Filter zurücksetzen</a>
         </div>
     <?php endif; ?>
 
@@ -315,8 +320,8 @@ tr:hover {
                 <?php while ($row = $result->fetch_assoc()): ?>
                     <tr>
                         <td class="nowrap"><?=htmlspecialchars(date('d.m.Y H:i:s', strtotime($row['created_at'])))?></td>
-                        <td class="nowrap"><a class="table-link" href="audit_log.php?user=<?=htmlspecialchars(rawurlencode($row['admin_user']))?>"><?=htmlspecialchars($row['admin_user'])?></a></td>
-                        <td class="nowrap"><a class="table-link" href="audit_log.php?action=<?=htmlspecialchars(rawurlencode($row['action']))?>"><?=htmlspecialchars($row['action'])?></a></td>
+                        <td class="nowrap"><a class="table-link" href="<?=htmlspecialchars($auditLogPath)?>?user=<?=htmlspecialchars(rawurlencode($row['admin_user']))?>"><?=htmlspecialchars($row['admin_user'])?></a></td>
+                        <td class="nowrap"><a class="table-link" href="<?=htmlspecialchars($auditLogPath)?>?action=<?=htmlspecialchars(rawurlencode($row['action']))?>"><?=htmlspecialchars($row['action'])?></a></td>
                         <td class="nowrap"><?=htmlspecialchars($row['request_id'])?></td>
                         <td class="details"><?=htmlspecialchars($row['details'] ?? '')?></td>
                     </tr>

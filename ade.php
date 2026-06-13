@@ -6,6 +6,11 @@ require __DIR__ . '/db.php';
 $currentAdminUser = disown_current_admin_user();
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '1.6-dev' : '1.6';
+$appBasePath = rtrim(disown_admin_base_path(), '/');
+$adminPath = $appBasePath . '/admin.php';
+$adePath = $appBasePath . '/ade.php';
+$logoutPath = $appBasePath . '/logout.php';
+$faviconPath = $appBasePath . '/favicon.svg';
 
 $q = trim((string) ($_GET['q'] ?? ''));
 $status = trim((string) ($_GET['status'] ?? 'all'));
@@ -54,7 +59,7 @@ $exportParams = [
     'days' => $days,
     'export' => 'csv',
 ];
-$exportUrl = 'ade.php?' . http_build_query(array_filter($exportParams, static fn ($value) => $value !== '' && $value !== null));
+$exportUrl = $adePath . '?' . http_build_query(array_filter($exportParams, static fn ($value) => $value !== '' && $value !== null));
 $orderSql = $status === 'updated'
     ? 'ORDER BY asm_updated_at DESC, id DESC'
     : 'ORDER BY asm_added_at DESC, id DESC';
@@ -197,7 +202,8 @@ function ade_display_value(?string $value): string
 
 function ade_url(array $params): string
 {
-    return 'ade.php?' . http_build_query(array_filter($params, static fn ($value) => $value !== '' && $value !== null));
+    $basePath = rtrim(disown_admin_base_path(), '/');
+    return $basePath . '/ade.php?' . http_build_query(array_filter($params, static fn ($value) => $value !== '' && $value !== null));
 }
 ?>
 <!doctype html>
@@ -205,7 +211,7 @@ function ade_url(array $params): string
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/svg+xml" href="<?=ade_h($faviconPath)?>">
 <title>ADE-Aufnahmen</title>
 <style>
 :root {
@@ -469,9 +475,9 @@ tr:last-child td {
             <p class="hint-text">Neue und erneut zugewiesene ASM/ADE-Geräte mit Jamf-Abgleich anzeigen.</p>
         </div>
         <div class="header-actions">
-            <a class="admin-user" href="logout.php">👤 <?=ade_h($currentAdminUser ?: 'Admin')?></a>
+            <a class="admin-user" href="<?=ade_h($logoutPath)?>">👤 <?=ade_h($currentAdminUser ?: 'Admin')?></a>
             <div>
-                <a class="button button-secondary" href="admin.php">Adminportal</a>
+                <a class="button button-secondary" href="<?=ade_h($adminPath)?>">Adminportal</a>
                 <a class="button button-primary" href="<?=ade_h($exportUrl)?>">CSV exportieren</a>
             </div>
         </div>
@@ -505,7 +511,7 @@ tr:last-child td {
             <input type="hidden" name="status" value="<?=ade_h($status)?>">
             <input type="hidden" name="page" value="1">
             <button class="button-primary" type="submit">Suchen</button>
-            <a class="button button-secondary" href="ade.php">Zurücksetzen</a>
+            <a class="button button-secondary" href="<?=ade_h($adePath)?>">Zurücksetzen</a>
         </div>
     </form>
 

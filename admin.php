@@ -24,6 +24,16 @@ $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '1.6-dev' : '1.6';
 $appVersionDate = '13. Juni 2026';
+$appBasePath = rtrim(disown_admin_base_path(), '/');
+$adminPath = $appBasePath . '/admin.php';
+$adePath = $appBasePath . '/ade.php';
+$auditLogPath = $appBasePath . '/audit_log.php';
+$logoutPath = $appBasePath . '/logout.php';
+$faviconPath = $appBasePath . '/favicon.svg';
+$logoPath = $appBasePath . '/logo.png';
+$jamfLogoPath = $appBasePath . '/logo_jamf.png';
+$asmLogoPath = $appBasePath . '/logo_asm.png';
+$siteImagePath = $appBasePath . '/images/Site-Image.png';
 $validFilters = ['open', 'scheduled', 'done', 'all'];
 $filter = (string) ($_GET['filter'] ?? 'open');
 if (!in_array($filter, $validFilters, true)) {
@@ -38,7 +48,7 @@ $filterLabels = [
 $searchTerm = trim((string) ($_GET['q'] ?? ''));
 $perPage = 25;
 $page = max(1, (int) ($_GET['page'] ?? 1));
-$refreshUrl = 'admin.php?' . http_build_query([
+$refreshUrl = $adminPath . '?' . http_build_query([
     'filter' => $filter,
     'q' => $searchTerm,
     'page' => $page,
@@ -98,7 +108,8 @@ function admin_url(array $params = []): string
         }
     }
 
-    return 'admin.php' . ($query ? '?' . http_build_query($query) : '');
+    $basePath = rtrim(disown_admin_base_path(), '/');
+    return $basePath . '/admin.php' . ($query ? '?' . http_build_query($query) : '');
 }
 
 function log_request_action($mysqli, int $requestId, string $action, ?string $details = null): void
@@ -509,7 +520,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
 
             $_SESSION['flash_mail_message'] = 'DEV-Modus: E-Mail wurde nicht versendet, aber als gesendet markiert für ' . htmlspecialchars($sendRecipientList) . '.';
-            header('Location: admin.php');
+            header('Location: ' . $adminPath);
             exit;
         } else {
             $mailConfig = parse_ini_file('/etc/disown/mail.conf');
@@ -587,7 +598,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
 
                     $_SESSION['flash_mail_message'] = 'E-Mail erfolgreich gesendet an ' . htmlspecialchars($sendRecipientList) . '.';
-                    header('Location: admin.php');
+                    header('Location: ' . $adminPath);
                     exit;
                 } catch (Exception $e) {
                     if ($sendRequestId > 0) {
@@ -935,7 +946,7 @@ $result = $result->get_result();
 <base href="<?=htmlspecialchars(DISOWN_BASE_HREF)?>">
 <?php endif; ?>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/svg+xml" href="<?=htmlspecialchars($faviconPath)?>">
 <title>iPad-Management</title>
 <style>
 :root {
@@ -953,7 +964,7 @@ body {
     min-height: 100vh;
     background:
         linear-gradient(rgba(243, 245, 249, 0.84), rgba(243, 245, 249, 0.92)),
-        url("images/Site-Image.png") center top / min(1717px, 118vw) auto no-repeat fixed;
+        url("<?=htmlspecialchars($siteImagePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>") center top / min(1717px, 118vw) auto no-repeat fixed;
 }
 .page {
     max-width: 1180px;
@@ -1063,7 +1074,7 @@ body {
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 .card::before {
-    background: url("images/Site-Image.png") center top / min(1500px, 115vw) auto no-repeat;
+    background: url("<?=htmlspecialchars($siteImagePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')?>") center top / min(1500px, 115vw) auto no-repeat;
     content: "";
     inset: 0;
     opacity: 0.04;
@@ -1680,24 +1691,24 @@ tr:hover {
         </div>
         <div class="header-actions">
             <div class="logo-actions">
-                <img src="logo.png" alt="BBS Einbeck" class="site-logo">
+                <img src="<?=htmlspecialchars($logoPath)?>" alt="BBS Einbeck" class="site-logo">
                 <a class="refresh-link" href="<?=htmlspecialchars($refreshUrl)?>" title="Seite aktualisieren" aria-label="Seite aktualisieren">↻</a>
             </div>
-            <a class="admin-user" href="logout.php">👤 <?=htmlspecialchars($currentAdminUser)?> · <?=htmlspecialchars($accessLabel)?></a>
+            <a class="admin-user" href="<?=htmlspecialchars($logoutPath)?>">👤 <?=htmlspecialchars($currentAdminUser)?> · <?=htmlspecialchars($accessLabel)?></a>
             <div class="tool-links" aria-label="Admin-Werkzeuge">
                 <a class="tool-link" href="https://bbseinbeck.jamfcloud.com/" target="_blank" rel="noopener noreferrer" title="Jamf in neuem Fenster öffnen">
-                    <img class="tool-logo" src="logo_jamf.png" alt="Jamf">
+                    <img class="tool-logo" src="<?=htmlspecialchars($jamfLogoPath)?>" alt="Jamf">
                 </a>
                 <a class="tool-link" href="https://school.apple.com" onclick="openAsmPortal(); return false;" title="Apple School Manager öffnen">
-                    <img class="tool-logo" src="logo_asm.png" alt="ASM">
+                    <img class="tool-logo" src="<?=htmlspecialchars($asmLogoPath)?>" alt="ASM">
                 </a>
-                <a class="button button-secondary audit-log-link" href="ade.php">ADE-Aufnahmen</a>
-                <a class="button button-secondary audit-log-link" href="audit_log.php">Audit-Log</a>
+                <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($adePath)?>">ADE-Aufnahmen</a>
+                <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($auditLogPath)?>">Audit-Log</a>
             </div>
         </div>
     </div>
 
-    <form class="search-toolbar" method="get" action="admin.php">
+    <form class="search-toolbar" method="get" action="<?=htmlspecialchars($adminPath)?>">
         <input type="hidden" name="filter" value="<?=htmlspecialchars($filter)?>">
         <input type="hidden" name="page" value="1">
         <label for="searchInput" class="search-label">Suche</label>
@@ -2020,7 +2031,7 @@ tr:hover {
     </div>
     <footer class="page-footer">
         <span>&copy; 2026 Project maintainer · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
-        <a class="footer-export-link" href="admin.php?filter=<?=htmlspecialchars(rawurlencode($filter))?>&amp;export=requests_csv" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
+        <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>
 
