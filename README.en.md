@@ -42,6 +42,8 @@ The application reflects a local school workflow: students submit a release requ
 - filters for open, completed, and scheduled requests
 - audit log with CSV export
 - scheduled admin notifications by cron
+- ADE enrollments overview with ASM/Jamf correlation, search, filters, and CSV export
+- automatic ADE sync by cron for DEV and PROD
 - development mode for tests without real Jamf or mail effects
 
 ## Production System
@@ -64,6 +66,7 @@ Important paths:
 /disown/          student request / Web Clip entry
 /disown/admin    admin portal
 /disown/audit    audit log
+/disown/ade.php  ADE enrollments
 /disown/logout.php
 ```
 
@@ -216,6 +219,37 @@ php notify_admins.php --force
 
 The notification script does not modify requests. Jamf, ASM, and mail remain admin portal actions.
 
+## ADE Enrollments
+
+The `ade.php` page shows devices that were added to Apple School Manager/ADE or updated recently. It is a read-only admin page and does not modify devices or requests.
+
+The data is combined from two sources:
+
+- Apple School Manager: serial number, added date, updated date, model, order number, MDM assignment
+- Jamf School: device name, asset tag, owner, model, enrollment/trash state
+
+The page provides:
+
+- search by serial number, name, asset tag, owner, or order
+- filters for all, missing in Jamf, trash, enrolled, and recently updated
+- date range filters for 7, 30, 90, 365 days, or all data
+- CSV export
+
+The sync runs as a CLI script:
+
+```bash
+php sync_ade_enrollments.php --days=90
+```
+
+Example staggered cron jobs for DEV and PROD:
+
+```cron
+17 7,13 * * * webuser /usr/bin/php /var/www/example.org/disown-dev/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync-dev.log 2>&1
+29 7,13 * * * webuser /usr/bin/php /var/www/example.org/disown/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync-prod.log 2>&1
+```
+
+The ADE sync reads ASM/Jamf and only writes to the local `ade_enrollments` table.
+
 ## Configuration
 
 Sensitive configuration is stored outside the web root.
@@ -263,6 +297,16 @@ Example file in the repository:
 ```text
 config/notify.example.conf
 ```
+
+### Apple School Manager API
+
+Path:
+
+```text
+/etc/disown/asm.conf
+```
+
+The private key for the Apple School Manager API is stored outside the web root. The application uses it only for the read-only ADE sync.
 
 ### IServ OpenID Connect
 
@@ -319,7 +363,7 @@ configuration files so OIDC can be tested in DEV first.
 - admin POST actions use CSRF checks
 - database operations with user input use prepared statements
 - HTML output is escaped
-- Jamf, mail, notify, and OIDC configuration files are stored outside the web root
+- Jamf, mail, notify, ASM, and OIDC configuration files are stored outside the web root
 - `db.php`, SQL dumps, and backups are not versioned
 - admin actions are written to the audit log
 - Linux file permissions and ACLs can additionally exclude local users from the project
@@ -377,8 +421,8 @@ Backups are stored outside the web root.
 Current documented state:
 
 ```text
-Version 1.4
-Date: 12 June 2026
+Version 1.5
+Date: 13 June 2026
 ```
 
 Important releases:
@@ -387,6 +431,7 @@ Important releases:
 - 1.2: bulk processing for Jamf, ASM, and mail
 - 1.3: scheduled requests and admin notifications by cron
 - 1.4: IServ OIDC for the admin area, authentication audit events, and favicon
+- 1.5: ADE enrollments with ASM/Jamf correlation, filters, CSV export, and cron sync
 
 ## Git Workflow
 
@@ -403,8 +448,11 @@ Before production deployment:
 php -l index.php
 php -l admin.php
 php -l audit_log.php
+php -l ade.php
+php -l ade_api.php
 php -l jamf.php
 php -l notify_admins.php
+php -l sync_ade_enrollments.php
 php -l logout.php
 ```
 
@@ -425,8 +473,11 @@ Important files:
 index.php                         student Web Clip and request form
 admin.php                         admin portal
 audit_log.php                     audit log
+ade.php                           ADE enrollments
+ade_api.php                       ASM/Jamf helpers for ADE enrollments
 jamf.php                          Jamf API integration
 notify_admins.php                 admin notification script
+sync_ade_enrollments.php          CLI sync for ADE enrollments
 auth.php                          authentication and OIDC helpers
 oidc_callback.php                 OIDC callback
 logout.php                        logout page

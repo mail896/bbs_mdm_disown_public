@@ -22,7 +22,6 @@ Die Anwendung bildet den lokalen Verwaltungsprozess ab: Schuelerinnen und Schuel
 
 ![Mailvorschau](images/Demo02_dsgvo.jpg)
 
-
 ## Funktionsumfang
 
 - Antrag per Seriennummer aus dem iPad-Webclip
@@ -43,6 +42,8 @@ Die Anwendung bildet den lokalen Verwaltungsprozess ab: Schuelerinnen und Schuel
 - Filter fuer offene, erledigte und terminierte Antraege
 - Audit-Log mit CSV-Export
 - Admin-Benachrichtigung per Cron fuer faellige und terminierte Antraege
+- ADE-Aufnahmen als eigene Leseseite mit ASM/Jamf-Abgleich, Suche, Filtern und CSV-Export
+- automatischer ADE-Sync per Cron fuer DEV und PROD
 - DEV-Modus fuer Tests ohne echte Jamf- und Mail-Auswirkungen
 
 ## Produktivsystem
@@ -65,6 +66,7 @@ Wichtige Pfade:
 /disown/          Antrag/Webclip
 /disown/admin    Adminportal
 /disown/audit    Audit-Log
+/disown/ade.php  ADE-Aufnahmen
 /disown/logout.php
 ```
 
@@ -217,6 +219,37 @@ php notify_admins.php --force
 
 Die Benachrichtigung veraendert keine Antraege. Jamf, ASM und Mail bleiben Aktionen im Adminportal.
 
+## ADE-Aufnahmen
+
+Die Seite `ade.php` zeigt Geraete, die in Apple School Manager/ADE aufgenommen oder kuerzlich aktualisiert wurden. Sie ist eine reine Leseseite fuer Admins und veraendert keine Geraete und keine Antraege.
+
+Die Daten werden aus zwei Quellen zusammengefuehrt:
+
+- Apple School Manager: Seriennummer, Hinzufuegedatum, Aktualisierungsdatum, Modell, Bestellnummer, MDM-Zuweisung
+- Jamf School: Geraetename, Asset Tag, Owner, Modell, Enrollment-/Trash-Status
+
+Die Seite bietet:
+
+- Suche nach Seriennummer, Name, Asset Tag, Owner oder Order
+- Filter fuer alle, nicht in Jamf, Trash, enrolled und kuerzlich aktualisiert
+- Zeitraumfilter fuer 7, 30, 90, 365 Tage oder alle Daten
+- CSV-Export
+
+Der Sync laeuft per CLI-Skript:
+
+```bash
+php sync_ade_enrollments.php --days=90
+```
+
+Beispiel fuer zeitversetzte Cronjobs in DEV und PROD:
+
+```cron
+17 7,13 * * * webuser /usr/bin/php /var/www/example.org/disown-dev/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync-dev.log 2>&1
+29 7,13 * * * webuser /usr/bin/php /var/www/example.org/disown/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync-prod.log 2>&1
+```
+
+Der ADE-Sync liest ASM/Jamf und schreibt nur in die lokale Tabelle `ade_enrollments`.
+
 ## Konfiguration
 
 Sensible Konfiguration liegt ausserhalb des Webroots.
@@ -264,6 +297,16 @@ Beispiel im Repository:
 ```text
 config/notify.example.conf
 ```
+
+### Apple School Manager API
+
+Pfad:
+
+```text
+/etc/disown/asm.conf
+```
+
+Der private Schluessel fuer die Apple School Manager API liegt ausserhalb des Webroots. Die Anwendung nutzt ihn nur fuer den lesenden ADE-Sync.
 
 ### IServ OpenID Connect
 
@@ -321,7 +364,7 @@ Entwicklungssystem getestet werden kann.
 - Admin-POST-Aktionen nutzen CSRF-Pruefung.
 - Datenbankzugriffe mit Eingaben nutzen Prepared Statements.
 - HTML-Ausgaben werden escaped.
-- Jamf-, Mail-, Notify- und OIDC-Konfiguration liegen ausserhalb des Webroots.
+- Jamf-, Mail-, Notify-, ASM- und OIDC-Konfiguration liegen ausserhalb des Webroots.
 - `db.php`, SQL-Dumps und Backups werden nicht versioniert.
 - Audit-Log dokumentiert Adminaktionen.
 - Linux-Dateirechte und ACLs koennen zusaetzlich lokale Benutzer aus dem Projekt ausschliessen.
@@ -379,8 +422,8 @@ Backups liegen ausserhalb des Webroots.
 Aktueller dokumentierter Stand:
 
 ```text
-Version 1.4
-Stand: 12. Juni 2026
+Version 1.5
+Stand: 13. Juni 2026
 ```
 
 Wichtige Releases:
@@ -389,6 +432,7 @@ Wichtige Releases:
 - 1.2: Bulk-Verarbeitung fuer Jamf, ASM und Mail
 - 1.3: terminierte Antraege und Admin-Benachrichtigung per Cron
 - 1.4: IServ-OIDC fuer Adminbereich, Auth-Audit-Events und Favicon
+- 1.5: ADE-Aufnahmen mit ASM/Jamf-Abgleich, Filtern, CSV-Export und Cron-Sync
 
 ## Git-Workflow
 
@@ -405,8 +449,11 @@ Vor produktivem Deploy:
 php -l index.php
 php -l admin.php
 php -l audit_log.php
+php -l ade.php
+php -l ade_api.php
 php -l jamf.php
 php -l notify_admins.php
+php -l sync_ade_enrollments.php
 php -l logout.php
 ```
 
@@ -427,8 +474,11 @@ Wichtige Dateien:
 index.php                         Schueler-Webclip und Antrag
 admin.php                         Adminportal
 audit_log.php                     Audit-Log
+ade.php                           ADE-Aufnahmen
+ade_api.php                       ASM/Jamf-Helfer fuer ADE-Aufnahmen
 jamf.php                          Jamf-API-Integration
 notify_admins.php                 Admin-Benachrichtigung
+sync_ade_enrollments.php          CLI-Sync fuer ADE-Aufnahmen
 auth.php                          Authentifizierung und OIDC-Helfer
 oidc_callback.php                 OIDC-Callback
 logout.php                        Logout-Seite
