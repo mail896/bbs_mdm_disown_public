@@ -726,7 +726,7 @@ $dashboard = [
 ];
 $dashboardStmt = $mysqli->prepare(
     "SELECT
-         COALESCE(SUM(CASE WHEN {$openCondition} THEN 1 ELSE 0 END), 0) AS open_requests,
+         COALESCE(SUM(CASE WHEN {$dueCondition} THEN 1 ELSE 0 END), 0) AS open_requests,
          COALESCE(SUM(CASE WHEN {$scheduledCondition} THEN 1 ELSE 0 END), 0) AS scheduled_requests,
          COALESCE(SUM(CASE WHEN {$doneCondition} THEN 1 ELSE 0 END), 0) AS done_requests,
          COALESCE(SUM(CASE WHEN ({$dueCondition}) AND jamf_unenrolled = 0 THEN 1 ELSE 0 END), 0) AS waiting_jamf,
@@ -752,7 +752,7 @@ $dashboardStmt = $mysqli->prepare(
          END) AS avg_student_response_seconds,
          COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END), 0) AS school_year_total,
          COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? AND {$doneCondition} THEN 1 ELSE 0 END), 0) AS school_year_done,
-         COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? AND ({$openCondition}) THEN 1 ELSE 0 END), 0) AS school_year_open
+         COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? AND ({$dueCondition}) THEN 1 ELSE 0 END), 0) AS school_year_open
      FROM requests"
 );
 if ($dashboardStmt) {
