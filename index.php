@@ -4,10 +4,16 @@ require 'jamf.php';
 
 $serial = trim($_GET['serial'] ?? $_POST['serial'] ?? '');
 $jamf = $serial ? jamf_lookup_by_serial($serial) : null;
-$today = date('Y-m-d');
+$localTimezone = new DateTimeZone('Europe/Berlin');
+$todayDate = new DateTimeImmutable('today', $localTimezone);
+$today = $todayDate->format('Y-m-d');
 $className = trim((string) ($_POST['class_name'] ?? ''));
 $privateEmail = trim((string) ($_POST['private_email'] ?? ''));
 $requestedReleaseDate = trim((string) ($_POST['requested_release_date'] ?? $today));
+$requestedReleaseDate = $requestedReleaseDate !== '' ? $requestedReleaseDate : $today;
+$requestedReleaseDateObject = DateTimeImmutable::createFromFormat('!Y-m-d', $requestedReleaseDate, $localTimezone);
+$requestedReleaseDateValid = $requestedReleaseDateObject instanceof DateTimeImmutable
+    && $requestedReleaseDateObject->format('Y-m-d') === $requestedReleaseDate;
 $understandingConfirmed = isset($_POST['understanding_confirmed']);
 
 $message = '';
@@ -26,10 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($privateEmail !== '' && !filter_var($privateEmail, FILTER_VALIDATE_EMAIL)) {
         $message = 'Bitte geben Sie eine gültige private E-Mail-Adresse ein oder lassen Sie das Feld leer.';
         $messageType = 'error';
-    } elseif ($requestedReleaseDate === '' || $requestedReleaseDate < $today) {
+    } elseif (!$requestedReleaseDateValid || $requestedReleaseDateObject < $todayDate) {
         $message = 'Bitte wählen Sie ein Freigabedatum aus, das nicht in der Vergangenheit liegt.';
         $messageType = 'error';
     } else {
+        $requestedReleaseDate = $requestedReleaseDateObject->format('Y-m-d');
         $existingStmt = $mysqli->prepare(
             "SELECT id, created_at, status
              FROM requests
