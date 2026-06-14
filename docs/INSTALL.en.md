@@ -144,6 +144,10 @@ OIDC_VIEWER_ROLES="MDM_VIEWERS"
 
 Viewer users can read, filter, and export. Write actions are blocked server-side.
 
+The application expects a signed OIDC `id_token` and verifies its signature via
+the `jwks_uri` from the provider metadata. The IServ provider must support
+`id_token_signing_alg_values_supported` with `RS256`.
+
 ## 5a. Prepare Web Clip Tokens
 
 The student page can validate signed Web Clip URLs:

@@ -150,6 +150,10 @@ OIDC_VIEWER_ROLES="MDM_VIEWERS"
 Viewer duerfen lesen, filtern und exportieren. Schreibaktionen bleiben
 serverseitig blockiert.
 
+Die Anwendung erwartet ein signiertes OIDC `id_token` und prueft dessen
+Signatur ueber die `jwks_uri` aus der IServ-Metadatenantwort. Der IServ-Provider
+muss `id_token_signing_alg_values_supported` mit `RS256` unterstuetzen.
+
 ## 5a. WebClip-Token vorbereiten
 
 Die Studentenseite kann signierte WebClip-URLs pruefen:

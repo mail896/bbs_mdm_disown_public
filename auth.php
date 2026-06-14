@@ -391,11 +391,16 @@ function disown_oidc_handle_callback(): void
         'Authorization: Bearer ' . $accessToken,
     ]);
 
-    $idTokenClaims = [];
-    if (!empty($tokenResponse['id_token'])) {
-        $idTokenClaims = disown_decode_jwt_payload((string) $tokenResponse['id_token']);
-        disown_validate_id_token_claims($idTokenClaims, $config);
+    $idToken = (string) ($tokenResponse['id_token'] ?? '');
+    if ($idToken === '') {
+        disown_log_auth_event('AUTH_LOGIN_ERROR', 'unknown', 'method=oidc; reason=missing_id_token');
+        http_response_code(401);
+        exit('OIDC id_token fehlt.');
     }
+
+    disown_validate_id_token_signature($idToken, $metadata);
+    $idTokenClaims = disown_decode_jwt_payload($idToken);
+    disown_validate_id_token_claims($idTokenClaims, $config);
 
     $claims = array_merge($idTokenClaims, $userinfo);
     $user = disown_normalize_oidc_user($claims);
@@ -457,6 +462,145 @@ function disown_oidc_metadata(string $issuer): array
     }
 
     return $metadataCache[$issuer] = $metadata;
+}
+
+
+function disown_validate_id_token_signature(string $jwt, array $metadata): void
+{
+    $header = disown_decode_jwt_header($jwt);
+    $algorithm = (string) ($header['alg'] ?? '');
+    if ($algorithm !== 'RS256') {
+        http_response_code(401);
+        exit('OIDC id_token Signaturalgorithmus ist ungültig.');
+    }
+
+    $jwksUri = (string) ($metadata['jwks_uri'] ?? '');
+    if ($jwksUri === '') {
+        http_response_code(500);
+        exit('OIDC jwks_uri fehlt.');
+    }
+
+    $key = disown_oidc_find_jwk(disown_http_get_json($jwksUri), (string) ($header['kid'] ?? ''));
+    if (!$key) {
+        http_response_code(401);
+        exit('OIDC Signaturschlüssel wurde nicht gefunden.');
+    }
+
+    $publicKey = disown_rsa_jwk_to_pem($key);
+    if ($publicKey === '') {
+        http_response_code(401);
+        exit('OIDC Signaturschlüssel ist ungültig.');
+    }
+
+    $parts = explode('.', $jwt);
+    if (count($parts) !== 3) {
+        http_response_code(401);
+        exit('OIDC id_token ist ungültig.');
+    }
+
+    $signature = disown_base64url_decode($parts[2]);
+    $valid = openssl_verify($parts[0] . '.' . $parts[1], $signature, $publicKey, OPENSSL_ALGO_SHA256);
+    if ($valid !== 1) {
+        http_response_code(401);
+        exit('OIDC id_token Signatur ist ungültig.');
+    }
+}
+
+function disown_oidc_find_jwk(array $jwks, string $kid): ?array
+{
+    $keys = $jwks['keys'] ?? [];
+    if (!is_array($keys)) {
+        return null;
+    }
+
+    $rsaKeys = [];
+    foreach ($keys as $key) {
+        if (!is_array($key) || ($key['kty'] ?? '') !== 'RSA') {
+            continue;
+        }
+        if ($kid !== '' && ($key['kid'] ?? '') === $kid) {
+            return $key;
+        }
+        $rsaKeys[] = $key;
+    }
+
+    return $kid === '' && count($rsaKeys) === 1 ? $rsaKeys[0] : null;
+}
+
+function disown_rsa_jwk_to_pem(array $jwk): string
+{
+    if (empty($jwk['n']) || empty($jwk['e']) || !is_string($jwk['n']) || !is_string($jwk['e'])) {
+        return '';
+    }
+
+    $modulus = disown_base64url_decode($jwk['n']);
+    $exponent = disown_base64url_decode($jwk['e']);
+    if ($modulus === '' || $exponent === '') {
+        return '';
+    }
+
+    $rsaPublicKey = disown_der_sequence(
+        disown_der_integer($modulus) .
+        disown_der_integer($exponent)
+    );
+    $algorithmIdentifier = disown_der_sequence(
+        "\x06\x09\x2A\x86\x48\x86\xF7\x0D\x01\x01\x01" .
+        "\x05\x00"
+    );
+    $subjectPublicKeyInfo = disown_der_sequence($algorithmIdentifier . disown_der_bit_string($rsaPublicKey));
+
+    return "-----BEGIN PUBLIC KEY-----\n" .
+        chunk_split(base64_encode($subjectPublicKeyInfo), 64, "\n") .
+        "-----END PUBLIC KEY-----\n";
+}
+
+function disown_der_sequence(string $value): string
+{
+    return "\x30" . disown_der_length(strlen($value)) . $value;
+}
+
+function disown_der_integer(string $value): string
+{
+    $value = ltrim($value, "\x00");
+    if ($value === '') {
+        $value = "\x00";
+    }
+    if ((ord($value[0]) & 0x80) !== 0) {
+        $value = "\x00" . $value;
+    }
+
+    return "\x02" . disown_der_length(strlen($value)) . $value;
+}
+
+function disown_der_bit_string(string $value): string
+{
+    return "\x03" . disown_der_length(strlen($value) + 1) . "\x00" . $value;
+}
+
+function disown_der_length(int $length): string
+{
+    if ($length < 0x80) {
+        return chr($length);
+    }
+
+    $bytes = '';
+    while ($length > 0) {
+        $bytes = chr($length & 0xff) . $bytes;
+        $length >>= 8;
+    }
+
+    return chr(0x80 | strlen($bytes)) . $bytes;
+}
+
+function disown_decode_jwt_header(string $jwt): array
+{
+    $parts = explode('.', $jwt);
+    if (count($parts) !== 3) {
+        return [];
+    }
+
+    $header = json_decode(disown_base64url_decode($parts[0]), true);
+    return is_array($header) ? $header : [];
 }
 
 function disown_normalize_oidc_user(array $claims): array
@@ -605,18 +749,28 @@ function disown_decode_json_response($body, array $headers, string $url): array
 function disown_decode_jwt_payload(string $jwt): array
 {
     $parts = explode('.', $jwt);
-    if (count($parts) < 2) {
+    if (count($parts) !== 3) {
         return [];
     }
 
-    $payload = base64_decode(strtr($parts[1], '-_', '+/'));
-    $claims = json_decode((string) $payload, true);
+    $claims = json_decode(disown_base64url_decode($parts[1]), true);
     return is_array($claims) ? $claims : [];
 }
 
 function disown_base64url(string $value): string
 {
     return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function disown_base64url_decode(string $value): string
+{
+    $padding = strlen($value) % 4;
+    if ($padding > 0) {
+        $value .= str_repeat('=', 4 - $padding);
+    }
+
+    $decoded = base64_decode(strtr($value, '-_', '+/'), true);
+    return is_string($decoded) ? $decoded : '';
 }
 
 function disown_admin_base_path(): string

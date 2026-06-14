@@ -394,6 +394,11 @@ Der Client Secret darf nicht ins Repository. Fuer DEV und PROD koennen
 getrennte Konfigurationsdateien genutzt werden, damit OIDC zuerst im
 Entwicklungssystem getestet werden kann.
 
+Die Anwendung prueft das OIDC `id_token` gegen die vom IServ veroeffentlichte
+`jwks_uri`. Der Provider muss signierte ID Tokens mit `RS256` und eine
+OpenID-Connect-Metadatenantwort unter `/.well-known/openid-configuration`
+bereitstellen.
+
 Der OIDC-Login unterstuetzt zwei Berechtigungsstufen:
 
 - Admin-Rolle: darf Jamf-, ASM-, Mail-, Bulk- und Vorlagenaktionen ausfuehren
@@ -409,6 +414,7 @@ OIDC_VIEWER_ROLES="MDM_VIEWERS"
 ## Sicherheit
 
 - Adminportal und Audit-Log sind per IServ OpenID Connect geschuetzt.
+- OIDC `id_token`-Signaturen werden per IServ-JWKS und `RS256` geprueft.
 - Schreibaktionen werden bei Nur-Lesen-Benutzern serverseitig blockiert.
 - DEV und PROD koennen getrennte OIDC-Konfigurationen nutzen.
 - Apache Basic Auth kann als Fallback/Altbetrieb dienen, ist aber nicht der aktuelle Zielbetrieb.

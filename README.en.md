@@ -393,6 +393,10 @@ config/oidc.example.conf
 Never commit the client secret. Development and production can use separate
 configuration files so OIDC can be tested in DEV first.
 
+The application verifies the OIDC `id_token` against the provider's published
+`jwks_uri`. The provider must issue signed ID tokens with `RS256` and expose
+OpenID Connect metadata at `/.well-known/openid-configuration`.
+
 The OIDC login supports two access levels:
 
 - admin role: may execute Jamf, ASM, mail, bulk, and template actions
@@ -408,6 +412,7 @@ OIDC_VIEWER_ROLES="MDM_VIEWERS"
 ## Security
 
 - admin portal and audit log are protected by IServ OpenID Connect
+- OIDC `id_token` signatures are verified via provider JWKS and `RS256`
 - write actions are blocked server-side for read-only users
 - DEV and PROD can use separate OIDC configuration files
 - Apache Basic Auth can be used as fallback/legacy protection, but is not the current target mode
