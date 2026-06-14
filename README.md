@@ -20,11 +20,11 @@ Die Anwendung bildet lokale MDM-Prozesse ab: Schuelerinnen und Schueler stellen 
 
 ### Mobile-View
 
-![iPad-Management Mobile 01](images/Demo-iPad-Managemnt-BBS-mobile-01.jpeg)
-
-![iPad-Management Mobile 02](images/Demo-iPad-Managemnt-BBS-mobile-02.jpeg)
-
-![iPad-Management Mobile 03](images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg)
+<p>
+  <img src="images/Demo-iPad-Managemnt-BBS-mobile-01.jpeg" alt="iPad-Management Mobile 01" width="220">
+  <img src="images/Demo-iPad-Managemnt-BBS-mobile-02.jpeg" alt="iPad-Management Mobile 02" width="220">
+  <img src="images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg" alt="iPad-Management Mobile 03" width="220">
+</p>
 
 ## Release-Stand
 

@@ -20,11 +20,11 @@ The application reflects local MDM workflows: students submit release requests f
 
 ### Mobile View
 
-![iPad Management mobile 01](images/Demo-iPad-Managemnt-BBS-mobile-01.jpeg)
-
-![iPad Management mobile 02](images/Demo-iPad-Managemnt-BBS-mobile-02.jpeg)
-
-![iPad Management mobile 03](images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg)
+<p>
+  <img src="images/Demo-iPad-Managemnt-BBS-mobile-01.jpeg" alt="iPad Management mobile 01" width="220">
+  <img src="images/Demo-iPad-Managemnt-BBS-mobile-02.jpeg" alt="iPad Management mobile 02" width="220">
+  <img src="images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg" alt="iPad Management mobile 03" width="220">
+</p>
 
 ## Release Status
 
