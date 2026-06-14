@@ -52,6 +52,7 @@ smtp_from=$(ask "SMTP from address" "$smtp_user")
 smtp_encryption=$(ask "SMTP encryption (tls, ssl, none)" "tls")
 
 notify_to=$(ask "Admin notification recipients, comma separated" "admin@example.org")
+serial_token_secret=$(ask "Web Clip serial token secret" "")
 
 oidc_issuer=$(ask "OIDC issuer" "https://mein-iserv.de")
 oidc_client_id=$(ask "OIDC client id" "")
@@ -74,6 +75,12 @@ DB_HOST=$db_host
 DB_USER=$db_user
 DB_PASSWORD=$db_password
 DB_NAME=$db_name
+EOF
+
+write_header "$OUT_DIR/app.conf"
+cat >> "$OUT_DIR/app.conf" <<EOF
+REQUIRE_SERIAL_TOKEN=0
+SERIAL_TOKEN_SECRET=$serial_token_secret
 EOF
 
 write_header "$OUT_DIR/mail.conf"

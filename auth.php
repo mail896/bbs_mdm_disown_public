@@ -1,8 +1,9 @@
 <?php
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once __DIR__ . '/security.php';
+
+disown_send_security_headers();
+disown_secure_session_start();
 
 function disown_is_dev_mode(): bool
 {
@@ -51,7 +52,7 @@ function disown_oidc_config(): array
     $config['OIDC_ALLOWED_ROLES'] = disown_split_config_list((string) ($config['OIDC_ALLOWED_ROLES'] ?? ''));
     $config['OIDC_VIEWER_ROLES'] = disown_split_config_list((string) ($config['OIDC_VIEWER_ROLES'] ?? ''));
     if (!$config['OIDC_VIEWER_ROLES']) {
-        $config['OIDC_VIEWER_ROLES'] = ['MDM_VIEWERS'];
+        $config['OIDC_VIEWER_ROLES'] = ['IPAD_MDM_VIEWERS', 'ROLE_IPAD_MDM_VIEWERS'];
     }
 
     return $config;

@@ -68,6 +68,7 @@ Review the generated files before copying them to `/etc/disown`.
 Minimum files:
 
 ```text
+/etc/disown/app.conf
 /etc/disown/db.conf
 /etc/disown/mail.conf
 /etc/disown/jamf.conf
@@ -142,6 +143,28 @@ OIDC_VIEWER_ROLES="MDM_VIEWERS"
 ```
 
 Viewer users can read, filter, and export. Write actions are blocked server-side.
+
+## 5a. Prepare Web Clip Tokens
+
+The student page can validate signed Web Clip URLs:
+
+```text
+https://example.org/disown/?serial=SERIAL&token=TOKEN
+```
+
+The token is calculated from the serial number and `SERIAL_TOKEN_SECRET`. Safe
+rollout:
+
+1. Create `/etc/disown/app.conf` with a strong `SERIAL_TOKEN_SECRET`.
+2. Keep `REQUIRE_SERIAL_TOKEN=0` while old Web Clips still only pass `serial=...`.
+3. Deploy new Web Clips with `token=...`.
+4. Only then set `REQUIRE_SERIAL_TOKEN=1`.
+
+Generate a token for one serial number:
+
+```bash
+php scripts/generate_webclip_token.php C02EXAMPLESN
+```
 
 ## 6. Web Server Protection
 

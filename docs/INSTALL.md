@@ -70,6 +70,7 @@ Die generierten Dateien danach pruefen und als root nach `/etc/disown` kopieren.
 Minimal benoetigt:
 
 ```text
+/etc/disown/app.conf
 /etc/disown/db.conf
 /etc/disown/mail.conf
 /etc/disown/jamf.conf
@@ -148,6 +149,29 @@ OIDC_VIEWER_ROLES="MDM_VIEWERS"
 
 Viewer duerfen lesen, filtern und exportieren. Schreibaktionen bleiben
 serverseitig blockiert.
+
+## 5a. WebClip-Token vorbereiten
+
+Die Studentenseite kann signierte WebClip-URLs pruefen:
+
+```text
+https://example.org/disown/?serial=SERIAL&token=TOKEN
+```
+
+Der Token wird aus der Seriennummer und `SERIAL_TOKEN_SECRET` berechnet. Fuer
+den sicheren Rollout:
+
+1. `/etc/disown/app.conf` mit starkem `SERIAL_TOKEN_SECRET` anlegen.
+2. `REQUIRE_SERIAL_TOKEN=0` lassen, solange alte WebClips noch nur `serial=...`
+   uebergeben.
+3. Neue WebClips mit `token=...` ausrollen.
+4. Erst danach `REQUIRE_SERIAL_TOKEN=1` setzen.
+
+Token fuer eine Seriennummer erzeugen:
+
+```bash
+php scripts/generate_webclip_token.php C02EXAMPLESN
+```
 
 ## 6. Webserver absichern
 

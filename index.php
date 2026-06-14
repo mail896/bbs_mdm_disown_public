@@ -1,9 +1,18 @@
 <?php
+require_once __DIR__ . '/security.php';
 require 'db.php';
 require 'jamf.php';
 
+disown_send_security_headers();
+
 $serial = trim($_GET['serial'] ?? $_POST['serial'] ?? '');
-$jamf = $serial ? jamf_lookup_by_serial($serial) : null;
+$serialToken = trim((string) ($_GET['token'] ?? $_POST['token'] ?? ''));
+$appConfig = disown_load_config('app');
+$serialTokenSecret = trim((string) ($appConfig['SERIAL_TOKEN_SECRET'] ?? ''));
+$requireSerialToken = filter_var($appConfig['REQUIRE_SERIAL_TOKEN'] ?? false, FILTER_VALIDATE_BOOL);
+$serialTokenValid = $serialTokenSecret !== '' && disown_serial_token_valid($serial, $serialToken, $serialTokenSecret);
+$serialTokenRequiredButMissing = $requireSerialToken && !$serialTokenValid;
+$jamf = ($serial && !$serialTokenRequiredButMissing) ? jamf_lookup_by_serial($serial) : null;
 $localTimezone = new DateTimeZone('Europe/Berlin');
 $todayDate = new DateTimeImmutable('today', $localTimezone);
 $today = $todayDate->format('Y-m-d');
@@ -20,7 +29,10 @@ $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$jamf) {
+    if ($serialTokenRequiredButMissing) {
+        $message = 'Dieser WebClip ist nicht mehr gültig. Bitte öffnen Sie den aktuellen iPad-Freigabe-WebClip.';
+        $messageType = 'error';
+    } elseif (!$jamf) {
         $message = 'Gerät wurde in Jamf nicht gefunden.';
         $messageType = 'error';
     } elseif (!$understandingConfirmed) {
@@ -337,13 +349,18 @@ body {
     margin: clamp(14px, 2vh, 24px) 0 0;
 }
 @media (max-width: 560px) {
+    body {
+        background-attachment: scroll;
+        background-position: center bottom;
+        font-size: 15px;
+    }
     .page {
         width: auto;
-        padding: 14px;
+        padding: 10px;
     }
     .card {
         min-height: auto;
-        padding: 20px;
+        padding: 18px;
     }
     .card-header {
         flex-direction: column-reverse;
@@ -367,6 +384,27 @@ body {
         gap: 14px;
         margin-top: 0;
     }
+    .warning-box {
+        font-size: 0.86rem;
+        padding: 10px 12px;
+    }
+    .field-value,
+    .form-input {
+        min-height: 46px;
+    }
+}
+@supports (height: 100dvh) {
+    body {
+        min-height: 100dvh;
+    }
+    .card {
+        min-height: calc(100dvh - 28px);
+    }
+    @media (max-width: 560px) {
+        .card {
+            min-height: auto;
+        }
+    }
 }
 </style>
 </head>
@@ -376,7 +414,7 @@ body {
 	        <div class="card-header">
 	            <div>
 	                <h1 class="page-title">iPad-Management</h1>
-	                <p class="description">Sie verlassen Ihre Schule?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
+	                <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
 	            </div>
 	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
 	        </div>
@@ -394,6 +432,10 @@ body {
         <?php if (!$serial): ?>
             <div class="message info">
                 Bitte öffnen Sie den Webclip auf Ihrem iPad. Die Seriennummer wird automatisch übergeben.
+            </div>
+        <?php elseif ($serialTokenRequiredButMissing): ?>
+            <div class="message error">
+                Dieser WebClip ist nicht mehr gültig. Bitte öffnen Sie den aktuellen iPad-Freigabe-WebClip.
             </div>
         <?php elseif (!$jamf): ?>
             <div class="message error">
@@ -423,6 +465,7 @@ body {
 
 	            <form method="post" class="request-form">
 	                <input type="hidden" name="serial" value="<?=htmlspecialchars($jamf['serial'])?>">
+	                <input type="hidden" name="token" value="<?=htmlspecialchars($serialToken)?>">
 	                <?php if ($messageType === 'success'): ?>
 	                    <button type="button" class="button" onclick="window.close()">Fenster schließen</button>
 	                <?php else: ?>

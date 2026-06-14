@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
 $root = dirname(__DIR__);
 $errors = 0;
 $warnings = 0;
@@ -68,6 +73,7 @@ check_file_readable($root . '/logo_jamf.png', false);
 check_file_readable($root . '/logo_asm.png', false);
 
 $runtimeConfigs = [
+    '/etc/disown/app.conf' => false,
     '/etc/disown/db.conf' => true,
     '/etc/disown/mail.conf' => false,
     '/etc/disown/jamf.conf' => false,
@@ -79,6 +85,24 @@ $runtimeConfigs = [
 echo "\nRuntime-Konfiguration\n";
 foreach ($runtimeConfigs as $path => $required) {
     check_file_readable($path, $required);
+}
+
+$appConfigPath = '/etc/disown/app.conf';
+if (is_readable($appConfigPath)) {
+    $appConfig = parse_ini_file($appConfigPath);
+    if (!is_array($appConfig)) {
+        warn('app.conf kann nicht gelesen werden.');
+    } else {
+        $requireSerialToken = filter_var($appConfig['REQUIRE_SERIAL_TOKEN'] ?? false, FILTER_VALIDATE_BOOL);
+        $serialSecret = trim((string) ($appConfig['SERIAL_TOKEN_SECRET'] ?? ''));
+        if ($requireSerialToken && $serialSecret === '') {
+            fail('REQUIRE_SERIAL_TOKEN ist aktiv, aber SERIAL_TOKEN_SECRET fehlt.');
+        } elseif ($serialSecret === '' || $serialSecret === 'change-me-long-random-secret') {
+            warn('SERIAL_TOKEN_SECRET fehlt oder ist noch der Platzhalter. Alte WebClips funktionieren weiter, solange REQUIRE_SERIAL_TOKEN=0 ist.');
+        } else {
+            ok('WebClip-Token-Secret konfiguriert.');
+        }
+    }
 }
 
 echo "\nDatenbank\n";

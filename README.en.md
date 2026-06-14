@@ -520,12 +520,14 @@ templates/mail_release.txt        mail template
 config/notify.example.conf        example notify configuration
 config/oidc.example.conf          example OIDC configuration
 config/db.example.conf            example database configuration
+config/app.example.conf           example app / Web Clip token configuration
 config/mail.example.conf          example SMTP configuration
 config/jamf.example.conf          example Jamf configuration
 config/asm.example.conf           example ASM configuration
 docs/INSTALL.en.md                installation guide
 scripts/install.sh                interactive setup helper without /etc writes
 scripts/check_requirements.php    installation and runtime check
+scripts/generate_webclip_token.php generate a Web Clip token for one serial number
 images/                           anonymized screenshots
 ```
 

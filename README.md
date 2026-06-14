@@ -521,12 +521,14 @@ templates/mail_release.txt        Mailvorlage
 config/notify.example.conf        Beispiel fuer Notify-Konfiguration
 config/oidc.example.conf          Beispiel fuer OIDC-Konfiguration
 config/db.example.conf            Beispiel fuer Datenbank-Konfiguration
+config/app.example.conf           Beispiel fuer App-/WebClip-Token-Konfiguration
 config/mail.example.conf          Beispiel fuer SMTP-Konfiguration
 config/jamf.example.conf          Beispiel fuer Jamf-Konfiguration
 config/asm.example.conf           Beispiel fuer ASM-Konfiguration
 docs/INSTALL.md                   Installationsanleitung
 scripts/install.sh                interaktiver Setup-Helfer ohne /etc-Schreibzugriff
 scripts/check_requirements.php    Installations- und Laufzeitcheck
+scripts/generate_webclip_token.php WebClip-Token fuer Seriennummer erzeugen
 images/                           anonymisierte Screenshots
 ```
 
