@@ -26,6 +26,24 @@ Die Anwendung bildet lokale MDM-Prozesse ab: Schuelerinnen und Schueler stellen 
   <img src="images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg" alt="iPad-Management Mobile 03" width="220">
 </p>
 
+## WebClip / Schuelerseite
+
+Der Einstieg fuer Schuelerinnen und Schueler ist ein iPad-WebClip. Fuer den normalen Betrieb wird ein gemeinsamer WebClip fuer alle Geraete verwendet; die Seriennummer wird durch Jamf/MDM als Variable eingesetzt.
+
+Produktiv:
+
+```text
+https://example.org/disown/?serial=%SerialNumber%
+```
+
+DEV/Test:
+
+```text
+https://example.org/disown-dev/?serial=%SerialNumber%
+```
+
+Die optionale Token-Funktion in `config/app.example.conf` ist fuer Spezialfaelle vorbereitet. Im Standardbetrieb bleibt `REQUIRE_SERIAL_TOKEN=0`, damit ein einzelner massentauglicher WebClip funktioniert.
+
 ## Release-Stand
 
 Aktueller dokumentierter Stand:

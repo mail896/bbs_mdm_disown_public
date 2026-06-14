@@ -54,6 +54,22 @@ composer install --no-dev --optimize-autoloader
 Der Ordnername `disown-dev` aktiviert den DEV-Modus. Dort werden Jamf-Unenroll
 und Mailversand simuliert.
 
+## 1a. WebClip-URL
+
+Der Standardbetrieb nutzt einen einzigen WebClip fuer alle iPads. Die Seriennummer wird vom MDM/Jamf als Variable in die URL eingesetzt:
+
+```text
+https://example.org/disown/?serial=%SerialNumber%
+```
+
+Fuer ein Entwicklungssystem entsprechend:
+
+```text
+https://example.org/disown-dev/?serial=%SerialNumber%
+```
+
+Die optionale Token-Funktion ist vorbereitet, wird fuer diesen massentauglichen Standard-WebClip aber nicht erzwungen. `REQUIRE_SERIAL_TOKEN` sollte dafuer auf `0` bleiben.
+
 ## 2. Setup-Assistent ausfuehren
 
 Der Assistent schreibt keine Dateien nach `/etc`. Er erzeugt lokale Vorschlaege

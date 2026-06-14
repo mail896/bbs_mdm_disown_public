@@ -26,6 +26,24 @@ The application reflects local MDM workflows: students submit release requests f
   <img src="images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg" alt="iPad Management mobile 03" width="220">
 </p>
 
+## Web Clip / Student Page
+
+Students enter the workflow through an iPad Web Clip. In normal operation, one shared Web Clip is deployed to all devices; Jamf/MDM expands the serial number variable.
+
+Production:
+
+```text
+https://example.org/disown/?serial=%SerialNumber%
+```
+
+DEV/test:
+
+```text
+https://example.org/disown-dev/?serial=%SerialNumber%
+```
+
+The optional token feature in `config/app.example.conf` is prepared for special cases. In the default setup, keep `REQUIRE_SERIAL_TOKEN=0` so one mass-deployable Web Clip continues to work.
+
 ## Release Status
 
 Current documented state:

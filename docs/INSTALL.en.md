@@ -52,6 +52,22 @@ composer install --no-dev --optimize-autoloader
 The directory name `disown-dev` enables development mode. Jamf unenroll and
 mail delivery are simulated there.
 
+## 1a. Web Clip URL
+
+The default setup uses one shared Web Clip for all iPads. The MDM/Jamf expands the serial number variable in the URL:
+
+```text
+https://example.org/disown/?serial=%SerialNumber%
+```
+
+For a development system:
+
+```text
+https://example.org/disown-dev/?serial=%SerialNumber%
+```
+
+The optional token feature is available, but it is not enforced for this mass-deployable default Web Clip. Keep `REQUIRE_SERIAL_TOKEN=0` for this setup.
+
 ## 2. Run The Setup Helper
 
 The helper does not write to `/etc`. It creates reviewable runtime config files
