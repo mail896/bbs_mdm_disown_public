@@ -1,26 +1,49 @@
-# School MDM Disown
+# BBS MDM Disown
 
 [Deutsche README](README.md)
 
-Web application for iPad management around release requests, ADE enrollments, Jamf, and Apple School Manager.
+Web application used by BBS Einbeck for iPad management around release requests, ADE enrollments, Jamf, and Apple School Manager.
 
 The application reflects local MDM workflows: students submit release requests from an iPad Web Clip, the MDM team processes requests in the admin portal, reviews ADE enrollments, and documents relevant steps.
 
 ## Screenshots
 
-### Student Web Clip
+### Desktop
 
-![Web Clip start](images/WebClip%2000.jpeg)
+![iPad Management desktop 01](images/Demo-iPad-Managemnt-BBS-01.png)
 
-![Web Clip request form](images/WebClip%2001.jpeg)
+![iPad Management desktop 02](images/Demo-iPad-Managemnt-BBS-02.png)
 
-![Web Clip confirmation](images/WebClip%2002.jpeg)
+![iPad Management desktop 03](images/Demo-iPad-Managemnt-BBS-03.png)
 
-### Admin Portal
+![iPad Management desktop 04](images/Demo-iPad-Managemnt-BBS-04.png)
 
-![Admin portal overview](images/Demo01_dsgvo.jpg)
+### Mobile View
 
-![Mail preview](images/Demo02_dsgvo.jpg)
+![iPad Management mobile 01](images/Demo-iPad-Managemnt-BBS-mobile-01.jpeg)
+
+![iPad Management mobile 02](images/Demo-iPad-Managemnt-BBS-mobile-02.jpeg)
+
+![iPad Management mobile 03](images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg)
+
+## Release Status
+
+Current documented state:
+
+```text
+Version 1.7
+Date: 13 June 2026
+```
+
+Important releases:
+
+- 1.1: corrected workflow, private email, class, requested date, editable mail
+- 1.2: bulk processing for Jamf, ASM, and mail
+- 1.3: scheduled requests and admin notifications by cron
+- 1.4: IServ OIDC for the admin area, authentication audit events, and favicon
+- 1.5: ADE enrollments with ASM/Jamf correlation, filters, CSV export, and cron sync
+- 1.6: login landing page, iPad management portal name, and read-only role
+- 1.7: improved mobile layouts for admin, ADE enrollments, and audit log, including polished mobile mini cards for requests
 
 ## Features
 
@@ -42,6 +65,7 @@ The application reflects local MDM workflows: students submit release requests f
 - bulk processing for Jamf, ASM, and mail
 - copyable ASM serial number list
 - filters for open, completed, and scheduled requests
+- responsive mobile view with compact mini cards for requests
 - audit log with CSV export
 - scheduled admin notifications by cron
 - ADE enrollments overview with ASM/Jamf correlation, search, filters, and CSV export
@@ -430,24 +454,6 @@ The script creates:
 - database dump
 
 Backups are stored outside the web root.
-
-## Release Status
-
-Current documented state:
-
-```text
-Version 1.6
-Date: 13 June 2026
-```
-
-Important releases:
-
-- 1.1: corrected workflow, private email, class, requested date, editable mail
-- 1.2: bulk processing for Jamf, ASM, and mail
-- 1.3: scheduled requests and admin notifications by cron
-- 1.4: IServ OIDC for the admin area, authentication audit events, and favicon
-- 1.5: ADE enrollments with ASM/Jamf correlation, filters, CSV export, and cron sync
-- 1.6: login landing page, iPad management portal name, and read-only role
 
 ## Git Workflow
 

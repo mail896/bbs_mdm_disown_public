@@ -1,26 +1,49 @@
-# School MDM Disown
+# BBS MDM Disown
 
 [English README](README.en.md)
 
-Webanwendung fuer das iPad-Management rund um Freigabe, ADE-Aufnahmen, Jamf und Apple School Manager.
+Webanwendung der BBS Einbeck fuer das iPad-Management rund um Freigabe, ADE-Aufnahmen, Jamf und Apple School Manager.
 
 Die Anwendung bildet lokale MDM-Prozesse ab: Schuelerinnen und Schueler stellen ueber einen iPad-Webclip einen Freigabeantrag, das MDM-Team bearbeitet die Freigabe im Adminportal, prueft ADE-Aufnahmen und dokumentiert relevante Schritte nachvollziehbar.
 
 ## Screenshots
 
-### Schueler-Webclip
+### Desktop
 
-![Webclip Einstieg](images/WebClip%2000.jpeg)
+![iPad-Management Desktop 01](images/Demo-iPad-Managemnt-BBS-01.png)
 
-![Webclip Antrag](images/WebClip%2001.jpeg)
+![iPad-Management Desktop 02](images/Demo-iPad-Managemnt-BBS-02.png)
 
-![Webclip Bestaetigung](images/WebClip%2002.jpeg)
+![iPad-Management Desktop 03](images/Demo-iPad-Managemnt-BBS-03.png)
 
-### Adminportal
+![iPad-Management Desktop 04](images/Demo-iPad-Managemnt-BBS-04.png)
 
-![Adminportal Uebersicht](images/Demo01_dsgvo.jpg)
+### Mobile-View
 
-![Mailvorschau](images/Demo02_dsgvo.jpg)
+![iPad-Management Mobile 01](images/Demo-iPad-Managemnt-BBS-mobile-01.jpeg)
+
+![iPad-Management Mobile 02](images/Demo-iPad-Managemnt-BBS-mobile-02.jpeg)
+
+![iPad-Management Mobile 03](images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg)
+
+## Release-Stand
+
+Aktueller dokumentierter Stand:
+
+```text
+Version 1.7
+Stand: 13. Juni 2026
+```
+
+Wichtige Releases:
+
+- 1.1: neuer fachlicher Workflow, private E-Mail, Klasse, Wunschdatum, editierbare Mail
+- 1.2: Bulk-Verarbeitung fuer Jamf, ASM und Mail
+- 1.3: terminierte Antraege und Admin-Benachrichtigung per Cron
+- 1.4: IServ-OIDC fuer Adminbereich, Auth-Audit-Events und Favicon
+- 1.5: ADE-Aufnahmen mit ASM/Jamf-Abgleich, Filtern, CSV-Export und Cron-Sync
+- 1.6: Login-Landingpage, iPad-Management-Portalname und Nur-Lesen-Rolle
+- 1.7: mobile Darstellung fuer Admin, ADE-Aufnahmen und Audit-Log verbessert, inklusive polierter Mobile-Mini-Kacheln fuer Antraege
 
 ## Funktionsumfang
 
@@ -42,6 +65,7 @@ Die Anwendung bildet lokale MDM-Prozesse ab: Schuelerinnen und Schueler stellen 
 - Bulk-Verarbeitung fuer Jamf, ASM und Mail
 - ASM-Seriennummernliste zum Kopieren
 - Filter fuer offene, erledigte und terminierte Antraege
+- responsive Mobile-Ansicht mit kompakten Mini-Kacheln fuer Antraege
 - Audit-Log mit CSV-Export
 - Admin-Benachrichtigung per Cron fuer faellige und terminierte Antraege
 - ADE-Aufnahmen als eigene Leseseite mit ASM/Jamf-Abgleich, Suche, Filtern und CSV-Export
@@ -431,24 +455,6 @@ Das Skript erstellt:
 - Datenbankdump
 
 Backups liegen ausserhalb des Webroots.
-
-## Release-Stand
-
-Aktueller dokumentierter Stand:
-
-```text
-Version 1.6
-Stand: 13. Juni 2026
-```
-
-Wichtige Releases:
-
-- 1.1: neuer fachlicher Workflow, private E-Mail, Klasse, Wunschdatum, editierbare Mail
-- 1.2: Bulk-Verarbeitung fuer Jamf, ASM und Mail
-- 1.3: terminierte Antraege und Admin-Benachrichtigung per Cron
-- 1.4: IServ-OIDC fuer Adminbereich, Auth-Audit-Events und Favicon
-- 1.5: ADE-Aufnahmen mit ASM/Jamf-Abgleich, Filtern, CSV-Export und Cron-Sync
-- 1.6: Login-Landingpage, iPad-Management-Portalname und Nur-Lesen-Rolle
 
 ## Git-Workflow
 
