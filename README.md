@@ -26,6 +26,14 @@ Die Anwendung bildet lokale MDM-Prozesse ab: Schuelerinnen und Schueler stellen 
   <img src="images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg" alt="iPad-Management Mobile 03" width="220">
 </p>
 
+### WebClip auf dem iPad
+
+<p>
+  <img src="images/WebClip%2000.jpeg" alt="WebClip Start 00" width="340">
+  <img src="images/WebClip%2001.jpeg" alt="WebClip Start 01" width="340">
+  <img src="images/WebClip%2002.jpeg" alt="WebClip Start 02" width="340">
+</p>
+
 ## WebClip / Schuelerseite
 
 Der Einstieg fuer Schuelerinnen und Schueler ist ein iPad-WebClip. Fuer den normalen Betrieb wird ein gemeinsamer WebClip fuer alle Geraete verwendet; die Seriennummer wird durch Jamf/MDM als Variable eingesetzt.

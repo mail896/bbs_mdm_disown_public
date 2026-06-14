@@ -26,6 +26,14 @@ The application reflects local MDM workflows: students submit release requests f
   <img src="images/Demo-iPad-Managemnt-BBS-mobile-03.jpeg" alt="iPad Management mobile 03" width="220">
 </p>
 
+### Web Clip on iPad
+
+<p>
+  <img src="images/WebClip%2000.jpeg" alt="Web Clip start 00" width="340">
+  <img src="images/WebClip%2001.jpeg" alt="Web Clip start 01" width="340">
+  <img src="images/WebClip%2002.jpeg" alt="Web Clip start 02" width="340">
+</p>
+
 ## Web Clip / Student Page
 
 Students enter the workflow through an iPad Web Clip. In normal operation, one shared Web Clip is deployed to all devices; Jamf/MDM expands the serial number variable.
