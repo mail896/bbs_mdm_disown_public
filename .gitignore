@@ -14,3 +14,4 @@ vendor/
 composer.phar
 /config/*.conf
 !/config/*.example.conf
+generated-config/

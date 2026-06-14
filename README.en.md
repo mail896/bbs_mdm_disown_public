@@ -207,6 +207,19 @@ After bulk Jamf processing, the portal displays a comma-separated serial number 
 
 ## Installation
 
+Detailed installation notes:
+
+```text
+docs/INSTALL.en.md
+```
+
+For a fresh installation, two helper scripts are available:
+
+```text
+scripts/install.sh              generates local example runtime config files
+scripts/check_requirements.php  checks PHP, extensions, config, and database
+```
+
 PHP dependencies are installed with Composer:
 
 ```bash
@@ -506,6 +519,13 @@ logout.php                        logout page
 templates/mail_release.txt        mail template
 config/notify.example.conf        example notify configuration
 config/oidc.example.conf          example OIDC configuration
+config/db.example.conf            example database configuration
+config/mail.example.conf          example SMTP configuration
+config/jamf.example.conf          example Jamf configuration
+config/asm.example.conf           example ASM configuration
+docs/INSTALL.en.md                installation guide
+scripts/install.sh                interactive setup helper without /etc writes
+scripts/check_requirements.php    installation and runtime check
 images/                           anonymized screenshots
 ```
 

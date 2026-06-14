@@ -207,6 +207,19 @@ Nach Bulk-Jamf wird eine kommagetrennte Seriennummernliste fuer ASM angezeigt. D
 
 ## Installation
 
+Ausfuehrliche Installationshinweise:
+
+```text
+docs/INSTALL.md
+```
+
+Fuer eine neue Installation gibt es zwei Helfer:
+
+```text
+scripts/install.sh              erzeugt lokale Beispielkonfigurationen
+scripts/check_requirements.php  prueft PHP, Extensions, Config und Datenbank
+```
+
 PHP-Abhaengigkeiten werden ueber Composer installiert:
 
 ```bash
@@ -507,6 +520,13 @@ logout.php                        Logout-Seite
 templates/mail_release.txt        Mailvorlage
 config/notify.example.conf        Beispiel fuer Notify-Konfiguration
 config/oidc.example.conf          Beispiel fuer OIDC-Konfiguration
+config/db.example.conf            Beispiel fuer Datenbank-Konfiguration
+config/mail.example.conf          Beispiel fuer SMTP-Konfiguration
+config/jamf.example.conf          Beispiel fuer Jamf-Konfiguration
+config/asm.example.conf           Beispiel fuer ASM-Konfiguration
+docs/INSTALL.md                   Installationsanleitung
+scripts/install.sh                interaktiver Setup-Helfer ohne /etc-Schreibzugriff
+scripts/check_requirements.php    Installations- und Laufzeitcheck
 images/                           anonymisierte Screenshots
 ```
 
