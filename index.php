@@ -12,14 +12,7 @@ $serialTokenSecret = trim((string) ($appConfig['SERIAL_TOKEN_SECRET'] ?? ''));
 $requireSerialToken = filter_var($appConfig['REQUIRE_SERIAL_TOKEN'] ?? false, FILTER_VALIDATE_BOOL);
 $serialTokenValid = $serialTokenSecret !== '' && disown_serial_token_valid($serial, $serialToken, $serialTokenSecret);
 $serialTokenRequiredButMissing = $requireSerialToken && !$serialTokenValid;
-$userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
-$isLikelyIpadRequest = stripos($userAgent, 'iPad') !== false
-    || (
-        stripos($userAgent, 'Macintosh') !== false
-        && stripos($userAgent, 'Mobile/') !== false
-        && stripos($userAgent, 'Safari') !== false
-    );
-$jamf = ($serial && !$serialTokenRequiredButMissing && $isLikelyIpadRequest) ? jamf_lookup_by_serial($serial) : null;
+$jamf = ($serial && !$serialTokenRequiredButMissing) ? jamf_lookup_by_serial($serial) : null;
 $jamfHasOwner = $jamf && (
     trim((string) ($jamf['username'] ?? '')) !== ''
     || trim((string) ($jamf['email'] ?? '')) !== ''
@@ -41,10 +34,7 @@ $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$isLikelyIpadRequest) {
-        $message = 'Bitte öffnen Sie diese Seite über den iPad-WebClip.';
-        $messageType = 'error';
-    } elseif ($serialTokenRequiredButMissing) {
+    if ($serialTokenRequiredButMissing) {
         $message = 'Dieser WebClip ist nicht mehr gültig. Bitte öffnen Sie den aktuellen iPad-Freigabe-WebClip.';
         $messageType = 'error';
     } elseif (!$jamf) {
@@ -452,10 +442,6 @@ body {
         <?php if (!$serial): ?>
             <div class="message info">
                 Bitte öffnen Sie den Webclip auf Ihrem iPad. Die Seriennummer wird automatisch übergeben.
-            </div>
-        <?php elseif (!$isLikelyIpadRequest): ?>
-            <div class="message error">
-                Bitte öffnen Sie diese Seite über den iPad-WebClip.
             </div>
         <?php elseif ($serialTokenRequiredButMissing): ?>
             <div class="message error">
