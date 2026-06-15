@@ -12,7 +12,19 @@ $serialTokenSecret = trim((string) ($appConfig['SERIAL_TOKEN_SECRET'] ?? ''));
 $requireSerialToken = filter_var($appConfig['REQUIRE_SERIAL_TOKEN'] ?? false, FILTER_VALIDATE_BOOL);
 $serialTokenValid = $serialTokenSecret !== '' && disown_serial_token_valid($serial, $serialToken, $serialTokenSecret);
 $serialTokenRequiredButMissing = $requireSerialToken && !$serialTokenValid;
-$jamf = ($serial && !$serialTokenRequiredButMissing) ? jamf_lookup_by_serial($serial) : null;
+$userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+$isLikelyIpadRequest = stripos($userAgent, 'iPad') !== false
+    || (
+        stripos($userAgent, 'Macintosh') !== false
+        && stripos($userAgent, 'Mobile/') !== false
+        && stripos($userAgent, 'Safari') !== false
+    );
+$jamf = ($serial && !$serialTokenRequiredButMissing && $isLikelyIpadRequest) ? jamf_lookup_by_serial($serial) : null;
+$jamfHasOwner = $jamf && (
+    trim((string) ($jamf['username'] ?? '')) !== ''
+    || trim((string) ($jamf['email'] ?? '')) !== ''
+    || trim((string) ($jamf['full_name'] ?? '')) !== ''
+);
 $localTimezone = new DateTimeZone('Europe/Berlin');
 $todayDate = new DateTimeImmutable('today', $localTimezone);
 $today = $todayDate->format('Y-m-d');
@@ -29,11 +41,17 @@ $message = '';
 $messageType = 'info';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($serialTokenRequiredButMissing) {
+    if (!$isLikelyIpadRequest) {
+        $message = 'Bitte öffnen Sie diese Seite über den iPad-WebClip.';
+        $messageType = 'error';
+    } elseif ($serialTokenRequiredButMissing) {
         $message = 'Dieser WebClip ist nicht mehr gültig. Bitte öffnen Sie den aktuellen iPad-Freigabe-WebClip.';
         $messageType = 'error';
     } elseif (!$jamf) {
         $message = 'Gerät wurde in Jamf nicht gefunden.';
+        $messageType = 'error';
+    } elseif (!$jamfHasOwner) {
+        $message = 'Dieses iPad ist in Jamf keinem Benutzer zugeordnet. Bitte wenden Sie sich an das MDM-Team.';
         $messageType = 'error';
     } elseif (!$understandingConfirmed) {
         $message = 'Bitte bestätigen Sie zuerst, dass Sie die Folgen der iPad-Freigabe verstanden haben.';
@@ -420,7 +438,9 @@ body {
 	        </div>
 
             <div class="warning-box">
-                <strong>Achtung:</strong> Bei der Freigabe werden schulisch bereitgestellte Apps, Profile und Einstellungen vom iPad entfernt, zum Beispiel Goodnotes, IServ, Microsoft Office und weitere schulisch verteilte Apps. Sichern Sie wichtige Daten vorher selbst. Ein normales iCloud-iPad-Backup ist dafür nicht geeignet.
+                <strong>Achtung:</strong><br>
+                Bei der Freigabe werden schulisch bereitgestellte Apps, Profile und Einstellungen vom iPad entfernt, zum Beispiel Goodnotes, IServ, Microsoft Office und weitere schulisch verteilte Apps und WLAN Netze.<br>
+                Sichern Sie wichtige Daten vorher selbst. Ein normales iCloud-iPad-Backup ist dafür nicht geeignet.
             </div>
 
         <?php if ($message): ?>
@@ -433,6 +453,10 @@ body {
             <div class="message info">
                 Bitte öffnen Sie den Webclip auf Ihrem iPad. Die Seriennummer wird automatisch übergeben.
             </div>
+        <?php elseif (!$isLikelyIpadRequest): ?>
+            <div class="message error">
+                Bitte öffnen Sie diese Seite über den iPad-WebClip.
+            </div>
         <?php elseif ($serialTokenRequiredButMissing): ?>
             <div class="message error">
                 Dieser WebClip ist nicht mehr gültig. Bitte öffnen Sie den aktuellen iPad-Freigabe-WebClip.
@@ -441,9 +465,13 @@ body {
             <div class="message error">
                 Dieses Gerät wurde in Jamf nicht gefunden. Bitte prüfen Sie das iPad oder kontaktieren Sie den Support.
             </div>
+        <?php elseif (!$jamfHasOwner): ?>
+            <div class="message error">
+                Dieses iPad ist in Jamf keinem Benutzer zugeordnet. Bitte wenden Sie sich an das MDM-Team.
+            </div>
         <?php endif; ?>
 
-        <?php if ($serial && $jamf): ?>
+        <?php if ($serial && $jamf && $jamfHasOwner): ?>
             <div class="field-list">
                 <div class="field">
                     <span class="field-label">IServ-Benutzer</span>
