@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<title>iPad-Management</title>
+<title>iPad-Freigabe</title>
 <style>
 :root {
     font-family: Inter, Arial, sans-serif;
@@ -421,7 +421,7 @@ body {
     <div class="card">
 	        <div class="card-header">
 	            <div>
-	                <h1 class="page-title">iPad-Management</h1>
+	                <h1 class="page-title">iPad-Freigabe</h1>
 	                <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
 	            </div>
 	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
