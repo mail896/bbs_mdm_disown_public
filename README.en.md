@@ -431,9 +431,12 @@ The OIDC login supports two access levels:
 Example roles:
 
 ```text
-OIDC_ALLOWED_ROLES="MDM_ADMINS"
+OIDC_ALLOWED_ROLES="MDM_ADMINS,ROLE_MDM_ADMINS"
 OIDC_VIEWER_ROLES="MDM_VIEWERS"
 ```
+
+Depending on the setup, IServ may emit roles with a `ROLE_` prefix in the token.
+Add the admin and viewer roles in both forms when needed.
 
 ## Security
 

@@ -159,9 +159,12 @@ https://example.org/disown-dev/oidc_callback.php
 Beispielrollen:
 
 ```ini
-OIDC_ALLOWED_ROLES="MDM_ADMINS"
+OIDC_ALLOWED_ROLES="MDM_ADMINS,ROLE_MDM_ADMINS"
 OIDC_VIEWER_ROLES="MDM_VIEWERS"
 ```
+
+IServ kann Rollen im Token mit `ROLE_`-Praefix liefern. Hinterlegen Sie die
+Admin- und Viewer-Rollen bei Bedarf in beiden Formen.
 
 Viewer duerfen lesen, filtern und exportieren. Schreibaktionen bleiben
 serverseitig blockiert.

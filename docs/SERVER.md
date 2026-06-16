@@ -5,19 +5,20 @@ represented in Git.
 
 ## Paths
 
-- Production app: `/var/www/example.org/disown`
-- Development app: `/var/www/example.org/disown-dev`
-- Public repository working copy: `/var/www/example.org/disown-public`
+- Production app: `/var/www/sicher.bbs-einbeck.de/disown`
+- Development app: `/var/www/sicher.bbs-einbeck.de/disown-dev`
+- Public repository working copy: `/var/www/sicher.bbs-einbeck.de/disown-public`
 - Runtime config: `/etc/disown`
-- Backups: `/secure/disown-backups`
+- Backups: `/root/disown-backups`
 
-For maintenance work, open the workspace at:
+For Codex work, open the workspace at:
 
 ```bash
-/var/www/example.org
+/var/www/sicher.bbs-einbeck.de
 ```
 
-This keeps production, development, and repository worktrees in one workspace.
+This keeps production, development, and the public repository in one workspace
+and avoids temporary export directories under `/tmp`.
 
 ## Runtime configuration
 
@@ -31,14 +32,14 @@ The file must be readable by the PHP/Apache user and by the maintenance user:
 
 ```bash
 setfacl -m u:www-data:r /etc/disown/db.conf
-setfacl -m u:deploy-user:r /etc/disown/db.conf
+setfacl -m u:marc:r /etc/disown/db.conf
 ```
 
 Expected ACL shape:
 
 ```text
 user:www-data:r--
-user:deploy-user:r--
+user:marc:r--
 other::---
 ```
 
@@ -50,26 +51,26 @@ other::---
 The Apache vHost protects internal paths with `<Directory>` rules in:
 
 ```bash
-/etc/apache2/sites-enabled/example.org.conf
+/etc/apache2/sites-enabled/sicher.bbs-einbeck.de.conf
 ```
 
 Production paths that must not be web-accessible:
 
-- `/var/www/example.org/disown/vendor`
-- `/var/www/example.org/disown/config`
-- `/var/www/example.org/disown/.git`
-- `/var/www/example.org/disown/.codex`
-- `/var/www/example.org/disown/.agents`
-- `/var/www/example.org/disown/templates`
+- `/var/www/sicher.bbs-einbeck.de/disown/vendor`
+- `/var/www/sicher.bbs-einbeck.de/disown/config`
+- `/var/www/sicher.bbs-einbeck.de/disown/.git`
+- `/var/www/sicher.bbs-einbeck.de/disown/.codex`
+- `/var/www/sicher.bbs-einbeck.de/disown/.agents`
+- `/var/www/sicher.bbs-einbeck.de/disown/templates`
 
 Development paths should use the same protection:
 
-- `/var/www/example.org/disown-dev/vendor`
-- `/var/www/example.org/disown-dev/config`
-- `/var/www/example.org/disown-dev/.git`
-- `/var/www/example.org/disown-dev/.codex`
-- `/var/www/example.org/disown-dev/.agents`
-- `/var/www/example.org/disown-dev/templates`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev/vendor`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev/config`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev/.git`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev/.codex`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev/.agents`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev/templates`
 
 The public repository working copy is only a local Git workspace. It is located
 under the webroot for convenience, but its directory permissions intentionally
@@ -77,21 +78,22 @@ prevent web access. A request to `/disown-public/` should return `403 Forbidden`
 
 ## Local user restrictions
 
-If a local Linux user must be excluded from Disown, use explicit deny ACLs:
+The local Linux user `kloke` is intentionally excluded from all Disown working
+copies:
 
-- `/var/www/example.org/disown`
-- `/var/www/example.org/disown-dev`
-- `/var/www/example.org/disown-public`
+- `/var/www/sicher.bbs-einbeck.de/disown`
+- `/var/www/sicher.bbs-einbeck.de/disown-dev`
+- `/var/www/sicher.bbs-einbeck.de/disown-public`
 
 Use explicit ACLs so the restriction survives later group permission changes:
 
 ```bash
-setfacl -R -m u:blocked-user:--- /var/www/example.org/disown
-setfacl -R -m u:blocked-user:--- /var/www/example.org/disown-dev
-setfacl -R -m u:blocked-user:--- /var/www/example.org/disown-public
+setfacl -R -m u:kloke:--- /var/www/sicher.bbs-einbeck.de/disown
+setfacl -R -m u:kloke:--- /var/www/sicher.bbs-einbeck.de/disown-dev
+setfacl -R -m u:kloke:--- /var/www/sicher.bbs-einbeck.de/disown-public
 
-find /var/www/example.org/disown /var/www/example.org/disown-dev /var/www/example.org/disown-public \
-  -type d -exec setfacl -m d:u:blocked-user:--- {} +
+find /var/www/sicher.bbs-einbeck.de/disown /var/www/sicher.bbs-einbeck.de/disown-dev /var/www/sicher.bbs-einbeck.de/disown-public \
+  -type d -exec setfacl -m d:u:kloke:--- {} +
 ```
 
 After Apache changes:
@@ -105,23 +107,22 @@ apachectl configtest && systemctl reload apache2
 Public app should return `200 OK`:
 
 ```bash
-curl -k -I https://example.org/disown/
+curl -k -I https://sicher.bbs-einbeck.de/disown/
 ```
 
-Admin should redirect unauthenticated users to the configured login flow:
+Admin should request Basic Auth and return `401 Unauthorized` without login:
 
 ```bash
-curl -k -I https://example.org/disown/admin
-# expected: 302 redirect to the identity provider, or 401 if Basic Auth is used as fallback
+curl -k -I https://sicher.bbs-einbeck.de/disown/admin
 ```
 
 Internal paths should return `403 Forbidden`:
 
 ```bash
-curl -k -I https://example.org/disown/db.php
-curl -k -I https://example.org/disown/vendor/autoload.php
-curl -k -I https://example.org/disown/config/notify.example.conf
-curl -k -I https://example.org/disown/.git/config
+curl -k -I https://sicher.bbs-einbeck.de/disown/db.php
+curl -k -I https://sicher.bbs-einbeck.de/disown/vendor/autoload.php
+curl -k -I https://sicher.bbs-einbeck.de/disown/config/notify.example.conf
+curl -k -I https://sicher.bbs-einbeck.de/disown/.git/config
 ```
 
 CLI DB check:
@@ -150,14 +151,14 @@ of Git.
 The IServ issuer is:
 
 ```text
-https://mein-iserv.de
+https://bbs-einbeck.de
 ```
 
 The IServ SSO client needs these redirect URIs:
 
 ```text
-https://example.org/disown/oidc_callback.php
-https://example.org/disown-dev/oidc_callback.php
+https://sicher.bbs-einbeck.de/disown/oidc_callback.php
+https://sicher.bbs-einbeck.de/disown-dev/oidc_callback.php
 ```
 
 Recommended scopes:
@@ -175,8 +176,8 @@ Authorization code
 Recommended role split:
 
 ```text
-OIDC_ALLOWED_ROLES="MDM_ADMINS"
-OIDC_VIEWER_ROLES="MDM_VIEWERS"
+OIDC_ALLOWED_ROLES="IPAD_MDM_ADMINS,ROLE_IPAD_MDM_ADMINS"
+OIDC_VIEWER_ROLES="IPAD_MDM_VIEWERS"
 ```
 
 Users with the viewer role can read, filter, and export the admin portal,
@@ -187,7 +188,7 @@ Suggested file permissions:
 ```bash
 chown nobody:nogroup /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
 chmod 640 /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
-setfacl -m u:www-data:r,u:deploy-user:r /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
+setfacl -m u:www-data:r,u:marc:r /etc/disown/oidc.conf /etc/disown/oidc-dev.conf
 ```
 
 ## Vendor directory
@@ -204,7 +205,8 @@ of the server deployment process.
 Before production changes, run:
 
 ```bash
-/usr/local/sbin/backup-disown.sh
+sudo -n /usr/local/sbin/backup-disown.sh
 ```
 
-The backup script should store a code archive and a database dump outside the web root.
+The backup script stores a code archive and a database dump in
+`/root/disown-backups`.

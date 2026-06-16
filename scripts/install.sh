@@ -57,7 +57,7 @@ serial_token_secret=$(ask "Web Clip serial token secret" "")
 oidc_issuer=$(ask "OIDC issuer" "https://mein-iserv.de")
 oidc_client_id=$(ask "OIDC client id" "")
 oidc_client_secret=$(ask "OIDC client secret" "")
-oidc_admin_roles=$(ask "OIDC admin roles, comma separated" "MDM_ADMINS")
+oidc_admin_roles=$(ask "OIDC admin roles, comma separated" "MDM_ADMINS,ROLE_MDM_ADMINS")
 oidc_viewer_roles=$(ask "OIDC viewer roles, comma separated" "MDM_VIEWERS")
 
 jamf_url=$(ask "Jamf School URL" "https://schoolname.jamfcloud.com")

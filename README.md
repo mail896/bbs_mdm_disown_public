@@ -433,9 +433,13 @@ Der OIDC-Login unterstuetzt zwei Berechtigungsstufen:
 Beispielrollen:
 
 ```text
-OIDC_ALLOWED_ROLES="MDM_ADMINS"
+OIDC_ALLOWED_ROLES="MDM_ADMINS,ROLE_MDM_ADMINS"
 OIDC_VIEWER_ROLES="MDM_VIEWERS"
 ```
+
+IServ liefert Rollen im Token je nach Kontext auch mit `ROLE_`-Praefix.
+Deshalb sollte die Admin- bzw. Viewer-Rolle bei Bedarf in beiden Formen
+hinterlegt werden.
 
 ## Sicherheit
 
