@@ -5,7 +5,7 @@ require __DIR__ . '/db.php';
 
 $currentAdminUser = disown_current_admin_user();
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.6-dev' : '1.6';
+$appVersion = $isDevMode ? '1.8-dev' : '1.8';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -465,6 +465,94 @@ tr:last-child td {
         grid-template-columns: 1fr;
     }
 }
+@media (max-width: 640px) {
+    .page {
+        padding: 14px 10px;
+    }
+    .header {
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+    .header-actions > div {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+    .button,
+    .button-primary,
+    .button-secondary {
+        width: 100%;
+    }
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 8px;
+    }
+    .stat {
+        border-right: 0;
+        justify-content: space-between;
+        padding: 8px;
+    }
+    .toolbar {
+        padding: 12px;
+    }
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tab {
+        text-align: center;
+    }
+    .table-wrap {
+        overflow-x: visible;
+        padding: 10px;
+    }
+    table,
+    thead,
+    tbody,
+    tr,
+    td {
+        display: block;
+        width: 100%;
+    }
+    table {
+        min-width: 0;
+    }
+    thead {
+        display: none;
+    }
+    tbody tr {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        margin-bottom: 12px;
+        padding: 10px 12px;
+    }
+    td {
+        border-bottom: 0;
+        display: grid;
+        gap: 6px;
+        grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
+        padding: 8px 0;
+    }
+    td::before {
+        color: #64748b;
+        content: attr(data-label);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+    .mono,
+    .subline {
+        overflow-wrap: anywhere;
+    }
+    .pagination {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
 </style>
 </head>
 <body>
@@ -540,20 +628,20 @@ tr:last-child td {
                 <tbody>
                     <?php foreach ($rows as $row): ?>
                         <tr>
-                            <td>
+                            <td data-label="ASM">
                                 <?=ade_h(ade_display_datetime($row['asm_added_at'] ?? null))?>
                                 <div class="subline">aktualisiert: <?=ade_h(ade_display_datetime($row['asm_updated_at'] ?? null))?></div>
                             </td>
-                            <td>
+                            <td data-label="Seriennummer">
                                 <div class="mono"><?=ade_h($row['serial'])?></div>
                                 <div class="subline"><?=ade_h(ade_display_value($row['asm_model'] ?? null))?></div>
                             </td>
-                            <td>
+                            <td data-label="ASM-Ziel">
                                 <strong><?=ade_h(ade_display_value($row['asm_mdm_server_name'] ?? null))?></strong>
                                 <div class="subline">Order: <?=ade_h(ade_display_value($row['asm_order_number'] ?? null))?></div>
                                 <div class="subline">Quelle: <?=ade_h(ade_display_value($row['asm_purchase_source_type'] ?? null))?></div>
                             </td>
-                            <td>
+                            <td data-label="Jamf">
                                 <?php if (($row['jamf_state'] ?? '') !== 'missing'): ?>
                                     <strong><?=ade_h(ade_display_value($row['jamf_device_name'] ?? null))?></strong>
                                     <div class="subline">Asset: <?=ade_h(ade_display_value($row['jamf_asset_tag'] ?? null))?></div>
@@ -566,7 +654,7 @@ tr:last-child td {
                                     <span class="muted">n/a</span>
                                 <?php endif; ?>
                             </td>
-                            <td>
+                            <td data-label="Status">
                                 <?php if (($row['jamf_state'] ?? '') === 'active'): ?>
                                     <span class="badge badge-ok">Enrolled</span>
                                 <?php elseif (($row['jamf_state'] ?? '') === 'trash'): ?>
@@ -591,7 +679,7 @@ tr:last-child td {
 
     <footer class="footer">
         Stand: <?=ade_h(ade_display_datetime($summary['last_sync_at'] ?? null))?> ·
-        © 2026 Project maintainer · Version <?=ade_h($appVersion)?> · ADE-Aufnahmen
+        © 2026 Marc Schulz · Version <?=ade_h($appVersion)?> · ADE-Aufnahmen
     </footer>
 </div>
 <script>

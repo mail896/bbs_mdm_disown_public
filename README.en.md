@@ -57,8 +57,8 @@ The optional token feature in `config/app.example.conf` is prepared for special 
 Current documented state:
 
 ```text
-Version 1.7
-Date: 13 June 2026
+Version 1.8
+Date: 18 June 2026
 ```
 
 Important releases:
@@ -70,6 +70,7 @@ Important releases:
 - 1.5: ADE enrollments with ASM/Jamf correlation, filters, CSV export, and cron sync
 - 1.6: login landing page, iPad management portal name, and read-only role
 - 1.7: improved mobile layouts for admin, ADE enrollments, and audit log, including polished mobile mini cards for requests
+- 1.8: KUK devices as a Jamf-only read-only page with local sync, owner history, problem-device view, and local mail contact markers
 
 ## Features
 
@@ -96,6 +97,9 @@ Important releases:
 - scheduled admin notifications by cron
 - ADE enrollments overview with ASM/Jamf correlation, search, filters, and CSV export
 - automatic ADE sync by cron for DEV and PROD
+- KUK devices overview as a Jamf-only read-only page with search, filters, CSV export, problem-device view, and local sync
+- local owner history for KUK devices starting with the KUK sync rollout
+- local contact markers for KUK inactivity and iOS advisory mails without modifying Jamf
 - development mode for tests without real Jamf or mail effects
 
 ## Production System
@@ -119,6 +123,7 @@ Important paths:
 /disown/admin    admin portal
 /disown/audit    audit log
 /disown/ade.php  ADE enrollments
+/disown/kuk.php  KUK devices
 /disown/logout.php
 ```
 
@@ -314,6 +319,39 @@ Example staggered cron jobs for DEV and PROD:
 ```
 
 The ADE sync reads ASM/Jamf and only writes to the local `ade_enrollments` table.
+
+## KUK Devices
+
+The `kuk.php` page shows colleague iPads from Jamf School. Jamf is the only data source for this view; Apple School Manager is not queried.
+
+A device is included when at least one condition matches:
+
+- the asset tag starts with `LK-`
+- the Jamf group is exactly `LK - Leihgeräte`
+
+Devices without an owner are intentionally shown. The page provides search, filters, pagination with 25 rows per page, and CSV export. Admins and viewers may view, filter, and export. The manual sync button only updates local tables and does not modify Jamf devices; it is available to write-enabled admins.
+
+Local tables:
+
+- `kuk_devices`: current Jamf state for KUK devices
+- `kuk_owner_history`: local owner history built from sync changes after the KUK rollout
+- `kuk_device_workflow`: local timestamps for sent inactivity and iOS advisory mails
+
+The KUK page provides operational filters for all devices, oldest iOS versions, missing owners, oldest check-ins, and problem devices. In the iOS and check-in views, admins can create a mail preview. DEV simulates sending; PROD sends through SMTP. Mail markers remain local and are not written to Jamf.
+
+The sync runs as a CLI script:
+
+```bash
+php sync_kuk_devices.php
+```
+
+Example daily DEV cron job:
+
+```cron
+43 6 * * * webuser /usr/bin/php /var/www/example.org/disown-dev/sync_kuk_devices.php >> /var/log/disown/kuk-sync-dev.log 2>&1
+```
+
+The KUK sync reads Jamf and only writes to the local `kuk_devices`, `kuk_owner_history`, and `kuk_device_workflow` tables.
 
 ## Configuration
 
@@ -544,9 +582,12 @@ admin.php                         admin portal
 audit_log.php                     audit log
 ade.php                           ADE enrollments
 ade_api.php                       ASM/Jamf helpers for ADE enrollments
+kuk.php                           KUK devices
+kuk_api.php                       Jamf helpers for KUK devices
 jamf.php                          Jamf API integration
 notify_admins.php                 admin notification script
 sync_ade_enrollments.php          CLI sync for ADE enrollments
+sync_kuk_devices.php              CLI sync for KUK devices
 auth.php                          authentication and OIDC helpers
 oidc_callback.php                 OIDC callback
 logout.php                        logout page

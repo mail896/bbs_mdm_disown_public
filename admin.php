@@ -1,6 +1,4 @@
 <?php
-session_start();
-
 require __DIR__ . '/auth.php';
 disown_require_admin();
 require 'db.php';
@@ -22,11 +20,12 @@ $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.7-dev' : '1.7';
-$appVersionDate = '13. Juni 2026';
+$appVersion = $isDevMode ? '1.8-dev' : '1.8';
+$appVersionDate = '18. Juni 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
+$kukPath = $appBasePath . '/kuk/';
 $auditLogPath = $appBasePath . '/audit_log.php';
 $logoutPath = $appBasePath . '/logout.php';
 $faviconPath = $appBasePath . '/favicon.svg';
@@ -189,9 +188,9 @@ if ($mailTemplate === false || $mailTemplate === null) {
         "Gerät:\n{{device_name}}\n\n" .
         "Seriennummer:\n{{serial}}\n\n" .
         "Bitte beachten Sie, dass schulische Profile, Apps und Konfigurationen nach der Freigabe nicht mehr zur Verfügung stehen.\n\n" .
-        "Mit freundlichen Grüßen\n\nExample School";
+        "Mit freundlichen Grüßen\n\nBBS Einbeck";
 }
-$mailSubject = 'iPad-Freigabe Example School';
+$mailSubject = 'iPad-Freigabe BBS Einbeck';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
@@ -400,7 +399,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                                 $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                             }
                             $mail->CharSet = 'UTF-8';
-                            $mail->setFrom($mailConfig['MAIL_FROM'], 'Example School, Team Mobile Device Management');
+                            $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
                             $mail->addAddress($recipient);
                             $mail->Subject = $mailSubject;
 
@@ -440,7 +439,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                          WHERE id = ?"
                     );
                     if ($updateStmt) {
-                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'admin');
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
                         $updateStmt->bind_param('ssi', $recipient, $completedBy, $requestId);
                         $updateStmt->execute();
                         $updateStmt->close();
@@ -549,7 +548,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                     }
                     $mail->CharSet = 'UTF-8';
-                    $mail->setFrom($mailConfig['MAIL_FROM'], 'Example School, Team Mobile Device Management');
+                    $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
                     foreach ($sendRecipients as $recipient) {
                         $mail->addAddress($recipient);
                     }
@@ -581,7 +580,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                              WHERE id = ?"
                         );
                         if ($updateStmt) {
-                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'admin';
+                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
                             $updateStmt->bind_param('ssi', $sendRecipientList, $completedBy, $sendRequestId);
                             $updateStmt->execute();
                             $updateStmt->close();
@@ -976,14 +975,20 @@ body {
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 16px;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 20px;
+}
+.header > div:first-child {
+    flex: 1 1 560px;
+    min-width: 0;
 }
 .header-actions {
     display: flex;
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-end;
     gap: 10px;
+    margin-left: auto;
 }
 .logo-actions {
     align-items: flex-start;
@@ -1934,6 +1939,7 @@ tr:hover {
                     <img class="tool-logo" src="<?=htmlspecialchars($asmLogoPath)?>" alt="ASM">
                 </a>
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($adePath)?>">ADE-Aufnahmen</a>
+                <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($kukPath)?>">KUK-Geräte</a>
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($auditLogPath)?>">Audit-Log</a>
             </div>
         </div>
@@ -2089,7 +2095,7 @@ tr:hover {
                         $bulkIsHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
                         $bulkSelectable = $canWrite && !$bulkIsHistoryImport && !$bulkMailSent;
                     ?>
-                    <td class="select-cell">
+                    <td class="select-cell" data-label="">
                         <?php if ($bulkSelectable): ?>
                             <input type="checkbox"
                                 class="bulk-select"
@@ -2103,15 +2109,15 @@ tr:hover {
                                 aria-label="Antrag <?=htmlspecialchars($row['id'])?> auswählen">
                         <?php endif; ?>
                     </td>
-                    <td class="nowrap-cell"><?=htmlspecialchars($row['id'])?></td>
-                    <td class="date-cell">
+                    <td class="nowrap-cell" data-label="ID"><?=htmlspecialchars($row['id'])?></td>
+                    <td class="date-cell" data-label="Datum">
                         <span><?=date('d.m.Y', strtotime($row['created_at']))?></span>
                         <span><?=date('H:i', strtotime($row['created_at']))?></span>
                             <?php if (!empty($row['requested_release_date'])): ?>
                                 <span class="status-secondary">Wunsch: <?=htmlspecialchars(date('d.m.Y', strtotime($row['requested_release_date'])))?></span>
                             <?php endif; ?>
                     </td>
-                    <td class="person-cell">
+                    <td class="person-cell" data-label="Person">
                         <div class="person-name"><?=htmlspecialchars($row['full_name'])?></div>
                         <div class="person-subtitle"><?=htmlspecialchars($row['username'])?></div>
                             <?php if (!empty($row['class_name'])): ?>
@@ -2122,11 +2128,11 @@ tr:hover {
                                 <div class="person-subtitle">Privat: <a class="email-link" href="mailto:<?=rawurlencode($row['private_email'])?>"><?=htmlspecialchars($row['private_email'])?></a></div>
                             <?php endif; ?>
                     </td>
-                    <td class="device-cell">
+                    <td class="device-cell" data-label="Gerät">
                         <div><?=htmlspecialchars($row['device_name'])?></div>
                         <div class="serial-cell"><?=htmlspecialchars($row['serial'])?></div>
                     </td>
-                    <td class="status-cell">
+                    <td class="status-cell" data-label="Status">
                         <?php
                             $statusRaw = (string) ($row['status'] ?? '');
                             $status = trim(strtolower($statusRaw));
@@ -2160,7 +2166,7 @@ tr:hover {
                             <div class="process-warning">🟠 Mail vor Abschluss versendet</div>
                         <?php endif; ?>
                     </td>
-                    <td class="action-cell">
+                    <td class="action-cell" data-label="Aktion">
                         <div class="action-buttons">
                             <?php if (!$canWrite): ?>
                                 <span class="status-muted">Nur Ansicht</span>
@@ -2261,7 +2267,7 @@ tr:hover {
         <?php endif; ?>
     </div>
     <footer class="page-footer">
-        <span>&copy; 2026 Project maintainer · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>

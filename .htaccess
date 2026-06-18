@@ -2,9 +2,10 @@ RewriteEngine On
 RedirectMatch 403 ^/disown(?:-dev)?/(vendor|config|migrations|scripts|tools|templates|generated-config)(/|$)
 RedirectMatch 403 ^/disown(?:-dev)?/\.(git|codex|agents)(/|$)
 RewriteRule ^(vendor|config|migrations|scripts|tools|templates|generated-config)(/|$) - [F,L]
-RewriteRule (^|/)(composer\.(json|lock)|.*\.(sql|bak|log|tar|tar\.gz|zip|phar|pem|key|conf))$ - [F,L]
+RewriteRule (^|/)(PROJECT_STATE\.(md|ya?ml)|composer\.(json|lock)|.*\.(sql|bak|log|tar|tar\.gz|zip|phar|pem|key|conf))$ - [F,L]
 RewriteRule ^admin/?$ admin.php [L]
 RewriteRule ^audit/?$ audit_log.php [L]
+RewriteRule ^kuk/?$ kuk.php [L]
 
 <If "%{REQUEST_URI} =~ m#^/disown(?:-dev)?/(vendor|config|migrations|scripts|tools|templates|generated-config|\.git|\.codex|\.agents)(/|$)#">
     Require all denied
@@ -17,6 +18,10 @@ RewriteRule ^audit/?$ audit_log.php [L]
 <Files "security.php">
     Require all denied
 </Files>
+
+<FilesMatch "^PROJECT_STATE\.(md|ya?ml)$">
+    Require all denied
+</FilesMatch>
 
 <FilesMatch "^\.">
     Require all denied

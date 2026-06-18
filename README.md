@@ -57,8 +57,8 @@ Die optionale Token-Funktion in `config/app.example.conf` ist fuer Spezialfaelle
 Aktueller dokumentierter Stand:
 
 ```text
-Version 1.7
-Stand: 13. Juni 2026
+Version 1.8
+Stand: 18. Juni 2026
 ```
 
 Wichtige Releases:
@@ -70,6 +70,7 @@ Wichtige Releases:
 - 1.5: ADE-Aufnahmen mit ASM/Jamf-Abgleich, Filtern, CSV-Export und Cron-Sync
 - 1.6: Login-Landingpage, iPad-Management-Portalname und Nur-Lesen-Rolle
 - 1.7: mobile Darstellung fuer Admin, ADE-Aufnahmen und Audit-Log verbessert, inklusive polierter Mobile-Mini-Kacheln fuer Antraege
+- 1.8: KUK-Geraete als Jamf-only Leseseite mit lokalem Sync, Owner-Historie, Problemgeraete-Ansicht und lokalen Mail-Kontaktmarkern
 
 ## Funktionsumfang
 
@@ -96,6 +97,9 @@ Wichtige Releases:
 - Admin-Benachrichtigung per Cron fuer faellige und terminierte Antraege
 - ADE-Aufnahmen als eigene Leseseite mit ASM/Jamf-Abgleich, Suche, Filtern und CSV-Export
 - automatischer ADE-Sync per Cron fuer DEV und PROD
+- KUK-Geraete als eigene Jamf-only Leseseite mit Suche, Filtern, CSV-Export, Problemgeraete-Ansicht und lokalem Sync
+- lokale Owner-Historie fuer KUK-Geraete ab KUK-Start
+- lokale Kontaktmarker fuer KUK-Inaktivitaets- und iOS-Hinweismails, ohne Jamf zu veraendern
 - DEV-Modus fuer Tests ohne echte Jamf- und Mail-Auswirkungen
 
 ## Produktivsystem
@@ -119,6 +123,7 @@ Wichtige Pfade:
 /disown/admin    Adminportal
 /disown/audit    Audit-Log
 /disown/ade.php  ADE-Aufnahmen
+/disown/kuk.php  KUK-Geraete
 /disown/logout.php
 ```
 
@@ -314,6 +319,39 @@ Beispiel fuer zeitversetzte Cronjobs in DEV und PROD:
 ```
 
 Der ADE-Sync liest ASM/Jamf und schreibt nur in die lokale Tabelle `ade_enrollments`.
+
+## KUK-Geraete
+
+Die Seite `kuk.php` zeigt Kolleginnen-/Kollegen-iPads aus Jamf School. Jamf ist die einzige Datenquelle; Apple School Manager wird fuer diese Ansicht nicht abgefragt.
+
+Ein Geraet wird aufgenommen, wenn mindestens eine Bedingung zutrifft:
+
+- Asset-Tag beginnt mit `LK-`
+- Jamf-Gruppe ist exakt `LK - Leihgeräte`
+
+Geraete ohne Owner werden bewusst angezeigt. Die Seite bietet Suche, Filter, Pagination mit 25 Eintraegen pro Seite und CSV-Export. Admins und Viewer duerfen ansehen, filtern und exportieren. Der manuelle Sync-Button schreibt nur in die lokalen Tabellen und veraendert keine Jamf-Geraete; er ist fuer schreibberechtigte Admins vorgesehen.
+
+Lokale Tabellen:
+
+- `kuk_devices`: aktueller Jamf-Stand der KUK-Geraete
+- `kuk_owner_history`: lokale Owner-Historie ab KUK-Start aus Sync-Veraenderungen
+- `kuk_device_workflow`: lokale Zeitstempel fuer versendete Inaktivitaets- und iOS-Hinweismails
+
+Die KUK-Seite bietet operative Filter fuer alle Geraete, aelteste iOS-Versionen, fehlende Owner, aelteste Check-ins und Problemgeraete. In den iOS- und Check-in-Ansichten kann eine Mailvorschau erzeugt werden. DEV simuliert den Versand; PROD versendet per SMTP. Die Mailmarker bleiben lokal und schreiben nicht nach Jamf.
+
+Der Sync laeuft per CLI-Skript:
+
+```bash
+php sync_kuk_devices.php
+```
+
+Beispiel fuer den taeglichen DEV-Cronjob:
+
+```cron
+43 6 * * * webuser /usr/bin/php /var/www/example.org/disown-dev/sync_kuk_devices.php >> /var/log/disown/kuk-sync-dev.log 2>&1
+```
+
+Der KUK-Sync liest Jamf und schreibt nur in die lokalen Tabellen `kuk_devices`, `kuk_owner_history` und `kuk_device_workflow`.
 
 ## Konfiguration
 
@@ -547,9 +585,12 @@ admin.php                         Adminportal
 audit_log.php                     Audit-Log
 ade.php                           ADE-Aufnahmen
 ade_api.php                       ASM/Jamf-Helfer fuer ADE-Aufnahmen
+kuk.php                           KUK-Geraete
+kuk_api.php                       Jamf-Helfer fuer KUK-Geraete
 jamf.php                          Jamf-API-Integration
 notify_admins.php                 Admin-Benachrichtigung
 sync_ade_enrollments.php          CLI-Sync fuer ADE-Aufnahmen
+sync_kuk_devices.php              CLI-Sync fuer KUK-Geraete
 auth.php                          Authentifizierung und OIDC-Helfer
 oidc_callback.php                 OIDC-Callback
 logout.php                        Logout-Seite
