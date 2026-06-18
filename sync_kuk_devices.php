@@ -25,8 +25,10 @@ $stats = [
     'both_match' => 0,
     'inserted' => 0,
     'updated' => 0,
+    'removed' => 0,
     'without_owner' => 0,
 ];
+$currentKukSerials = [];
 
 foreach ($devices as $device) {
     if (!kuk_is_kuk_device($device)) {
@@ -37,6 +39,7 @@ foreach ($devices as $device) {
     if ($row['serial'] === '') {
         continue;
     }
+    $currentKukSerials[] = $row['serial'];
 
     $stats['kuk_total']++;
     $stats['asset_match'] += (int) $row['matched_by_asset'];
@@ -58,6 +61,8 @@ foreach ($devices as $device) {
     }
 }
 
+$stats['removed'] = kuk_delete_devices_not_in_current_set($mysqli, $currentKukSerials);
+
 echo "KUK-Sync abgeschlossen\n";
 echo "Jamf-Geraete total: {$stats['jamf_total']}\n";
 echo "KUK-Geraete: {$stats['kuk_total']}\n";
@@ -66,6 +71,7 @@ echo "LK-Gruppe: {$stats['group_match']}\n";
 echo "Ueberschneidung: {$stats['both_match']}\n";
 echo "Neu: {$stats['inserted']}\n";
 echo "Aktualisiert: {$stats['updated']}\n";
+echo "Entfernt: {$stats['removed']}\n";
 echo "Ohne Owner: {$stats['without_owner']}\n";
 
 function kuk_existing_device(mysqli $mysqli, string $serial): ?array
@@ -148,6 +154,28 @@ SQL;
         throw new RuntimeException($stmt->error);
     }
     $stmt->close();
+}
+
+function kuk_delete_devices_not_in_current_set(mysqli $mysqli, array $currentKukSerials): int
+{
+    $currentKukSerials = array_values(array_unique(array_filter($currentKukSerials)));
+    if (!$currentKukSerials) {
+        return 0;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($currentKukSerials), '?'));
+    $stmt = $mysqli->prepare("DELETE FROM kuk_devices WHERE serial NOT IN ({$placeholders})");
+    if (!$stmt) {
+        throw new RuntimeException($mysqli->error);
+    }
+
+    $types = str_repeat('s', count($currentKukSerials));
+    $stmt->bind_param($types, ...$currentKukSerials);
+    $stmt->execute();
+    $removed = $stmt->affected_rows;
+    $stmt->close();
+
+    return max(0, $removed);
 }
 
 function kuk_update_owner_history(mysqli $mysqli, array $row, ?array $existing): void
