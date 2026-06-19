@@ -20,6 +20,7 @@ $jamfHasOwner = $jamf && (
 );
 $isSchoolLoanDevice = $jamf ? jamf_device_is_school_loan($jamf) : false;
 $schoolLoanReasons = $jamf ? jamf_school_loan_reasons($jamf) : [];
+$hasAppleIdRisk = $jamf ? jamf_device_has_apple_id_risk($jamf) : false;
 $localTimezone = new DateTimeZone('Europe/Berlin');
 $todayDate = new DateTimeImmutable('today', $localTimezone);
 $today = $todayDate->format('Y-m-d');
@@ -366,6 +367,21 @@ body {
 .return-card p {
     margin: 0 0 14px;
 }
+.apple-id-warning {
+    background: #fff7ed;
+    border: 2px solid #f97316;
+    border-radius: 14px;
+    color: #7c2d12;
+    margin: 18px 0;
+    padding: 14px 16px;
+}
+.apple-id-warning h3 {
+    font-size: 1.05rem;
+    margin: 0 0 8px;
+}
+.apple-id-warning p:last-child {
+    margin-bottom: 0;
+}
 .return-steps {
     display: grid;
     gap: 10px;
@@ -501,6 +517,14 @@ body {
             <div class="return-card">
                 <h2>Schulisches Leihgerät</h2>
                 <p>Dieses iPad gehört weiterhin der Schule. Es darf nicht aus Jamf School entfernt und nicht aus Apple School Manager freigegeben werden.</p>
+                <?php if ($hasAppleIdRisk): ?>
+                    <div class="apple-id-warning">
+                        <h3>Apple-ID / iCloud prüfen</h3>
+                        <p>Auf diesem iPad scheint noch eine Apple-ID oder iCloud-Funktion aktiv zu sein.</p>
+                        <p>Bitte melden Sie vor dem Zurücksetzen den Apple-ID-/iCloud-Account vom Gerät ab und deaktivieren Sie „Wo ist?“. Führen Sie erst danach „Alle Inhalte &amp; Einstellungen löschen“ aus.</p>
+                        <p>Sollte Ihre Apple-ID auf dem Gerät verbleiben, werden aufwendige Maßnahmen und zusätzliche <strong>Gebühren</strong> notwendig.</p>
+                    </div>
+                <?php endif; ?>
                 <p>Bitte bereiten Sie das Gerät nur für die Rückgabe vor:</p>
                 <ol class="return-steps">
                     <li>Auf dem iPad <strong>Einstellungen</strong> öffnen.</li>

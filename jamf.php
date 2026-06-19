@@ -122,7 +122,28 @@ function jamf_lookup_from_device(array $device): array
         'serial'        => $device['serialNumber'] ?? '',
         'asset_tag'     => $device['assetTag'] ?? '',
         'groups'        => jamf_group_names($device),
+        'icloud_backup_enabled' => $device['iCloudBackupEnabled'] ?? null,
+        'itunes_store_logged_in' => $device['iTunesStoreLoggedIn'] ?? null,
     ];
+}
+
+function jamf_truthy($value): bool
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+    if (is_int($value) || is_float($value)) {
+        return (int) $value === 1;
+    }
+
+    $value = strtolower(trim((string) $value));
+    return in_array($value, ['1', 'true', 'yes', 'ja', 'on'], true);
+}
+
+function jamf_device_has_apple_id_risk(array $device): bool
+{
+    return jamf_truthy($device['icloud_backup_enabled'] ?? $device['iCloudBackupEnabled'] ?? null)
+        || jamf_truthy($device['itunes_store_logged_in'] ?? $device['iTunesStoreLoggedIn'] ?? null);
 }
 
 function jamf_device_is_school_loan(array $device): bool
@@ -211,6 +232,8 @@ function jamf_dev_lookup_mock_by_serial(string $serial): ?array
         'serial'        => $device['serial'] ?? '',
         'asset_tag'     => '',
         'groups'        => [],
+        'icloud_backup_enabled' => null,
+        'itunes_store_logged_in' => null,
     ];
 }
 
