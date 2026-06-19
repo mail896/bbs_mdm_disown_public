@@ -18,6 +18,8 @@ $jamfHasOwner = $jamf && (
     || trim((string) ($jamf['email'] ?? '')) !== ''
     || trim((string) ($jamf['full_name'] ?? '')) !== ''
 );
+$isSchoolLoanDevice = $jamf ? jamf_device_is_school_loan($jamf) : false;
+$schoolLoanReasons = $jamf ? jamf_school_loan_reasons($jamf) : [];
 $localTimezone = new DateTimeZone('Europe/Berlin');
 $todayDate = new DateTimeImmutable('today', $localTimezone);
 $today = $todayDate->format('Y-m-d');
@@ -40,6 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!$jamf) {
         $message = 'Gerät wurde in Jamf nicht gefunden.';
         $messageType = 'error';
+    } elseif ($isSchoolLoanDevice) {
+        $message = 'Dieses iPad ist als schulisches Leih-/Koffergerät markiert und kann nicht zur Freigabe angemeldet werden.';
+        $messageType = 'warning';
     } elseif (!$jamfHasOwner) {
         $message = 'Dieses iPad ist in Jamf keinem Benutzer zugeordnet. Bitte wenden Sie sich an das MDM-Team.';
         $messageType = 'error';
@@ -347,6 +352,41 @@ body {
     color: #991b1b;
     border: 1px solid #fecaca;
 }
+.return-card {
+    background: #f8fafc;
+    border: 1px solid #dbe3ee;
+    border-radius: 18px;
+    padding: clamp(18px, 3vw, 28px);
+    line-height: 1.5;
+}
+.return-card h2 {
+    font-size: 1.45rem;
+    margin: 0 0 10px;
+}
+.return-card p {
+    margin: 0 0 14px;
+}
+.return-steps {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0;
+    padding: 0;
+}
+.return-steps li {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    list-style: none;
+    padding: 12px 14px;
+}
+.return-meta {
+    color: #64748b;
+    font-size: 0.88rem;
+    margin-top: 18px;
+}
+.return-meta span {
+    display: block;
+}
 .link {
     color: #2563eb;
     text-decoration: none;
@@ -422,16 +462,22 @@ body {
 	        <div class="card-header">
 	            <div>
 	                <h1 class="page-title">iPad-Freigabe</h1>
-	                <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
+	                <?php if ($isSchoolLoanDevice): ?>
+	                    <p class="description">Dieses schulische Leihgerät wird nicht freigegeben.<br>Bitte setzen Sie es zurück und geben Sie es gereinigt ab.</p>
+	                <?php else: ?>
+	                    <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
+	                <?php endif; ?>
 	            </div>
 	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
 	        </div>
 
-            <div class="warning-box">
-                <strong>Achtung:</strong><br>
-                Bei der Freigabe werden schulisch bereitgestellte Apps, Profile und Einstellungen vom iPad entfernt, zum Beispiel Goodnotes, IServ, Microsoft Office und weitere schulisch verteilte Apps und WLAN Netze.<br>
-                Sichern Sie wichtige Daten vorher selbst. Ein normales iCloud-iPad-Backup ist dafür nicht geeignet.
-            </div>
+            <?php if (!$isSchoolLoanDevice): ?>
+                <div class="warning-box">
+                    <strong>Achtung:</strong><br>
+                    Bei der Freigabe werden schulisch bereitgestellte Apps, Profile und Einstellungen vom iPad entfernt, zum Beispiel Goodnotes, IServ, Microsoft Office und weitere schulisch verteilte Apps und WLAN Netze.<br>
+                    Sichern Sie wichtige Daten vorher selbst. Ein normales iCloud-iPad-Backup ist dafür nicht geeignet.
+                </div>
+            <?php endif; ?>
 
         <?php if ($message): ?>
             <div class="message <?=htmlspecialchars($messageType)?>">
@@ -451,13 +497,33 @@ body {
             <div class="message error">
                 Dieses Gerät wurde in Jamf nicht gefunden. Bitte prüfen Sie das iPad oder kontaktieren Sie den Support.
             </div>
+        <?php elseif ($isSchoolLoanDevice): ?>
+            <div class="return-card">
+                <h2>Schulisches Leihgerät</h2>
+                <p>Dieses iPad gehört weiterhin der Schule. Es darf nicht aus Jamf School entfernt und nicht aus Apple School Manager freigegeben werden.</p>
+                <p>Bitte bereiten Sie das Gerät nur für die Rückgabe vor:</p>
+                <ol class="return-steps">
+                    <li>Auf dem iPad <strong>Einstellungen</strong> öffnen.</li>
+                    <li><strong>Allgemein</strong> wählen und dann <strong>iPad übertragen/zurücksetzen</strong> öffnen.</li>
+                    <li><strong>Alle Inhalte &amp; Einstellungen löschen</strong> ausführen.</li>
+                    <li>Das iPad reinigen und anschließend in der Schule abgeben.</li>
+                </ol>
+                <p>Eine Freigabe oder Abmeldung aus der Geräteverwaltung ist für dieses Gerät nicht vorgesehen.</p>
+                <?php if ($schoolLoanReasons): ?>
+                    <div class="return-meta">
+                        <?php foreach ($schoolLoanReasons as $reason): ?>
+                            <span><?=htmlspecialchars($reason)?></span>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
         <?php elseif (!$jamfHasOwner): ?>
             <div class="message error">
                 Dieses iPad ist in Jamf keinem Benutzer zugeordnet. Bitte wenden Sie sich an das MDM-Team.
             </div>
         <?php endif; ?>
 
-        <?php if ($serial && $jamf && $jamfHasOwner): ?>
+        <?php if ($serial && $jamf && !$isSchoolLoanDevice && $jamfHasOwner): ?>
             <div class="field-list">
                 <div class="field">
                     <span class="field-label">IServ-Benutzer</span>
