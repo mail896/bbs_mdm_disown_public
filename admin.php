@@ -56,7 +56,6 @@ $whereParts = [];
 $whereParams = [];
 $whereTypes = '';
 $doneCondition = "LOWER(TRIM(status)) = 'erledigt' AND mail_sent = 1";
-$disownedCondition = "LOWER(TRIM(status)) = 'erledigt' AND jamf_unenrolled = 1 AND asm_manual_done = 1 AND mail_sent = 1";
 $openCondition = "status IS NULL OR LOWER(TRIM(status)) <> 'erledigt' OR mail_sent = 0";
 $scheduledCondition = "({$openCondition}) AND requested_release_date > CURDATE() AND jamf_unenrolled = 0";
 $dueCondition = "({$openCondition}) AND NOT ({$scheduledCondition})";
@@ -712,7 +711,6 @@ $dashboard = [
     'open_requests' => 0,
     'scheduled_requests' => 0,
     'done_requests' => 0,
-    'total_disowned' => 0,
     'waiting_jamf' => 0,
     'waiting_asm' => 0,
     'waiting_mail' => 0,
@@ -730,7 +728,6 @@ $dashboardStmt = $mysqli->prepare(
          COALESCE(SUM(CASE WHEN {$dueCondition} THEN 1 ELSE 0 END), 0) AS open_requests,
          COALESCE(SUM(CASE WHEN {$scheduledCondition} THEN 1 ELSE 0 END), 0) AS scheduled_requests,
          COALESCE(SUM(CASE WHEN {$doneCondition} THEN 1 ELSE 0 END), 0) AS done_requests,
-         COALESCE(SUM(CASE WHEN {$disownedCondition} THEN 1 ELSE 0 END), 0) AS total_disowned,
          COALESCE(SUM(CASE WHEN ({$dueCondition}) AND jamf_unenrolled = 0 THEN 1 ELSE 0 END), 0) AS waiting_jamf,
          COALESCE(SUM(CASE WHEN jamf_unenrolled = 1 AND asm_manual_done = 0 AND mail_sent = 0 THEN 1 ELSE 0 END), 0) AS waiting_asm,
          COALESCE(SUM(CASE WHEN asm_manual_done = 1 AND mail_sent = 0 THEN 1 ELSE 0 END), 0) AS waiting_mail,
@@ -1978,9 +1975,8 @@ tr:hover {
         <span class="dashboard-stat warn <?= (int) $dashboard['waiting_jamf'] === 0 ? 'zero' : '' ?>">Jamf <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_jamf'])?></span></span>
         <span class="dashboard-stat warn <?= (int) $dashboard['waiting_asm'] === 0 ? 'zero' : '' ?>">ASM <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_asm'])?></span></span>
         <span class="dashboard-stat warn <?= (int) $dashboard['waiting_mail'] === 0 ? 'zero' : '' ?>">Mail <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_mail'])?></span></span>
-        <span class="dashboard-stat done <?= (int) $dashboard['done_requests'] === 0 ? 'zero' : '' ?>">Erledigt <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['done_requests'])?></span></span>
-        <span class="dashboard-stat done <?= (int) $dashboard['total_disowned'] === 0 ? 'zero' : '' ?>">Gesamt Disowned <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['total_disowned'])?></span></span>
         <span class="dashboard-stat info <?= (int) $dashboard['school_year_total'] === 0 ? 'zero' : '' ?>">Anträge aktuelles Schuljahr <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['school_year_total'])?></span></span>
+        <span class="dashboard-stat done <?= (int) $dashboard['done_requests'] === 0 ? 'zero' : '' ?>">Erledigt <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['done_requests'])?></span></span>
         <span class="dashboard-stat info <?= $avgAdminProcessingText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Admin-Zeit</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgAdminProcessingText)?></span></span>
         <span class="dashboard-stat info <?= $avgStudentResponseText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Schüler-Response</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgStudentResponseText)?></span></span>
     </div>
