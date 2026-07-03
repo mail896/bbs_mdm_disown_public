@@ -192,7 +192,7 @@ $schoolYearStartYear = $currentMonth >= 8 ? $currentYear : $currentYear - 1;
 $schoolYearStart = sprintf('%04d-08-01 00:00:00', $schoolYearStartYear);
 $schoolYearEnd = sprintf('%04d-08-01 00:00:00', $schoolYearStartYear + 1);
 $schoolYearLabel = sprintf('%04d/%04d', $schoolYearStartYear, $schoolYearStartYear + 1);
-$unenrollWhereSql = "action IN ('JAMF_UNENROLL_SUCCESS', 'BULK_JAMF_UNENROLL_SUCCESS') AND request_id > 0";
+$unenrollWhereSql = "action IN ('MAIL_SENT', 'BULK_MAIL_SENT', 'BULK_MAIL_SENT_DEV') AND request_id > 0";
 $unenrollStats = [
     'total' => 0,
     'school_year' => 0,
@@ -452,7 +452,8 @@ body {
 }
 .admin-rank-name {
     color: #334155;
-    font-weight: 700;
+    font-size: 0.86rem;
+    font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -790,10 +791,10 @@ tr:hover {
         </div>
     </div>
 
-    <section class="audit-dashboard" aria-label="Unenroll-Dashboard">
+    <section class="audit-dashboard" aria-label="Freigabe-Dashboard">
         <div class="audit-metrics">
             <div class="metric-card">
-                <span class="metric-label">Jamf-Unenrolls gesamt</span>
+                <span class="metric-label">Erledigte Freigaben gesamt</span>
                 <span class="metric-value"><?=audit_h((string) $unenrollStats['total'])?></span>
             </div>
             <div class="metric-card">
@@ -810,7 +811,7 @@ tr:hover {
             </div>
         </div>
         <div class="audit-admins">
-            <div class="audit-admins-title">Unenrolls nach Admin</div>
+            <div class="audit-admins-title">Erledigte Freigaben nach Admin</div>
             <?php if ($adminUnenrollCounts): ?>
                 <?php foreach ($adminUnenrollCounts as $adminName => $adminCount): ?>
                     <div class="admin-rank">
@@ -819,7 +820,7 @@ tr:hover {
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>
-                <div class="empty-admin-stats">Noch keine erfolgreichen Jamf-Unenrolls im Audit-Log.</div>
+                <div class="empty-admin-stats">Noch keine vollständig erledigten Freigaben im Audit-Log.</div>
             <?php endif; ?>
         </div>
     </section>
