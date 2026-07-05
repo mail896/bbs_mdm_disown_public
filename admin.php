@@ -33,6 +33,13 @@ $logoPath = $appBasePath . '/logo.png';
 $jamfLogoPath = $appBasePath . '/logo_jamf.png';
 $asmLogoPath = $appBasePath . '/logo_asm.png';
 $siteImagePath = $appBasePath . '/images/Site-Image.png';
+$jamfLicenseBaseline = [
+    'taken_at' => '2026-01-01 00:00:00',
+    'recurring_total' => 1000,
+    'recurring_used' => 0,
+    'perpetual_total' => 0,
+    'perpetual_used' => 0,
+];
 $validFilters = ['open', 'scheduled', 'done', 'all'];
 $filter = (string) ($_GET['filter'] ?? 'open');
 if (!in_array($filter, $validFilters, true)) {
@@ -154,6 +161,125 @@ function load_bulk_requests($mysqli, array $ids): array
     }
 
     return $rows;
+}
+
+function jamf_trash_serials(): array
+{
+    $cfg = jamf_config();
+    if (!$cfg) {
+        throw new RuntimeException('Jamf-Konfiguration fehlt.');
+    }
+
+    $url = rtrim($cfg['JAMF_URL'], '/') . '/api/devices?inTrash=true';
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD => $cfg['JAMF_NETWORK_ID'] . ':' . $cfg['JAMF_API_KEY'],
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 25,
+        CURLOPT_FAILONERROR => false,
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+        ],
+    ]);
+
+    $raw = curl_exec($ch);
+    $error = curl_errno($ch) ? curl_error($ch) : '';
+    $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    if ($raw === false || $error !== '' || (int) $status !== 200) {
+        throw new RuntimeException('Jamf-Trash-Abgleich fehlgeschlagen.');
+    }
+
+    $json = json_decode((string) $raw, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($json)) {
+        throw new RuntimeException('Jamf-Trash-Abgleich lieferte kein gueltiges JSON.');
+    }
+
+    $devices = $json['devices'] ?? $json['data'] ?? [];
+    if (!is_array($devices)) {
+        return [];
+    }
+
+    $serials = [];
+    foreach ($devices as $device) {
+        if (!is_array($device)) {
+            continue;
+        }
+        $serial = strtoupper(trim((string) ($device['serialNumber'] ?? $device['serial'] ?? '')));
+        if ($serial !== '') {
+            $serials[$serial] = true;
+        }
+    }
+
+    return array_keys($serials);
+}
+
+function load_jamf_license_dashboard(mysqli $mysqli, array $baseline): array
+{
+    $stats = [
+        'available' => false,
+        'error' => '',
+        'baseline_at' => $baseline['taken_at'],
+        'recurring_total' => (int) $baseline['recurring_total'],
+        'recurring_used_baseline' => (int) $baseline['recurring_used'],
+        'recurring_used_estimated' => (int) $baseline['recurring_used'],
+        'recurring_free_estimated' => max(0, (int) $baseline['recurring_total'] - (int) $baseline['recurring_used']),
+        'trash_confirmed' => 0,
+        'waiting_for_trash' => 0,
+        'trash_total' => null,
+    ];
+
+    try {
+        $trashSerials = array_flip(jamf_trash_serials());
+        $stats['trash_total'] = count($trashSerials);
+
+        $stmt = $mysqli->prepare(
+            "SELECT serial
+             FROM requests
+             WHERE jamf_unenrolled = 1
+               AND asm_manual_done = 1
+               AND jamf_unenrolled_at >= ?
+               AND serial IS NOT NULL
+               AND TRIM(serial) <> ''"
+        );
+        if (!$stmt) {
+            throw new RuntimeException('Lizenzabfrage konnte nicht vorbereitet werden.');
+        }
+
+        $stmt->bind_param('s', $baseline['taken_at']);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            throw new RuntimeException('Lizenzabfrage konnte nicht ausgefuehrt werden.');
+        }
+
+        $localSerials = [];
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $serial = strtoupper(trim((string) ($row['serial'] ?? '')));
+            if ($serial !== '') {
+                $localSerials[$serial] = true;
+            }
+        }
+        $stmt->close();
+
+        foreach (array_keys($localSerials) as $serial) {
+            if (isset($trashSerials[$serial])) {
+                $stats['trash_confirmed']++;
+            } else {
+                $stats['waiting_for_trash']++;
+            }
+        }
+
+        $stats['recurring_used_estimated'] = max(0, (int) $baseline['recurring_used'] - $stats['trash_confirmed']);
+        $stats['recurring_free_estimated'] = max(0, (int) $baseline['recurring_total'] - $stats['recurring_used_estimated']);
+        $stats['available'] = true;
+    } catch (Throwable $e) {
+        $stats['error'] = $e->getMessage();
+    }
+
+    return $stats;
 }
 
 if (empty($_SESSION['csrf_token'])) {
@@ -783,6 +909,7 @@ function format_duration_seconds($seconds): string
 }
 $avgAdminProcessingText = format_duration_seconds($dashboard['avg_admin_processing_seconds']);
 $avgStudentResponseText = format_duration_seconds($dashboard['avg_student_response_seconds']);
+$jamfLicenseDashboard = load_jamf_license_dashboard($mysqli, $jamfLicenseBaseline);
 
 $countStmt = $mysqli->prepare("SELECT COUNT(*) AS total FROM requests {$whereSql}");
 if (!$countStmt) {
@@ -1166,6 +1293,50 @@ table {
 }
 .dashboard-stat-small {
     font-size: 0.78rem;
+}
+.license-dashboard {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    color: #64748b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: -4px 0 18px;
+    padding: 8px 10px;
+}
+.license-dashboard-title,
+.license-dashboard-item {
+    align-items: baseline;
+    display: inline-flex;
+    font-size: 0.82rem;
+    gap: 5px;
+    line-height: 1.2;
+    padding: 3px 10px;
+}
+.license-dashboard-title {
+    color: #334155;
+    font-weight: 700;
+}
+.license-dashboard-item {
+    border-left: 1px solid #e2e8f0;
+}
+.license-dashboard-value {
+    color: #334155;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+.license-dashboard-free {
+    color: #15803d;
+}
+.license-dashboard-warn {
+    color: #c2410c;
+}
+.license-dashboard-error {
+    color: #b91c1c;
+    font-weight: 700;
 }
 .filter-bar {
     display: flex;
@@ -1683,6 +1854,12 @@ tr:hover {
     .dashboard-stat + .dashboard-stat {
         border-left: 0;
     }
+    .license-dashboard-title,
+    .license-dashboard-item {
+        border-left: 0;
+        padding-left: 6px;
+        padding-right: 8px;
+    }
 }
 @media (max-width: 640px) {
     body {
@@ -1979,6 +2156,18 @@ tr:hover {
         <span class="dashboard-stat done <?= (int) $dashboard['done_requests'] === 0 ? 'zero' : '' ?>">Erledigt <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['done_requests'])?></span></span>
         <span class="dashboard-stat info <?= $avgAdminProcessingText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Admin-Zeit</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgAdminProcessingText)?></span></span>
         <span class="dashboard-stat info <?= $avgStudentResponseText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Schüler-Response</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgStudentResponseText)?></span></span>
+    </div>
+
+    <div class="license-dashboard" aria-label="Jamf-Lizenzschätzung" title="Schätzung aus Baseline <?=htmlspecialchars(date('d.m.Y H:i', strtotime((string) $jamfLicenseDashboard['baseline_at'])))?> und aktuellem Jamf-Trash-Abgleich. Jamf liefert hier keine direkte Lizenz-API.">
+        <span class="license-dashboard-title">Jamf-Lizenzen</span>
+        <?php if ($jamfLicenseDashboard['available']): ?>
+            <span class="license-dashboard-item">Recurring <span class="license-dashboard-value"><?=htmlspecialchars((string) $jamfLicenseDashboard['recurring_used_estimated'])?> / <?=htmlspecialchars((string) $jamfLicenseDashboard['recurring_total'])?></span> belegt</span>
+            <span class="license-dashboard-item">frei <span class="license-dashboard-value license-dashboard-free"><?=htmlspecialchars((string) $jamfLicenseDashboard['recurring_free_estimated'])?></span></span>
+            <span class="license-dashboard-item">seit Baseline im Trash <span class="license-dashboard-value"><?=htmlspecialchars((string) $jamfLicenseDashboard['trash_confirmed'])?></span></span>
+            <span class="license-dashboard-item">wartet auf Trash <span class="license-dashboard-value <?= (int) $jamfLicenseDashboard['waiting_for_trash'] > 0 ? 'license-dashboard-warn' : '' ?>"><?=htmlspecialchars((string) $jamfLicenseDashboard['waiting_for_trash'])?></span></span>
+        <?php else: ?>
+            <span class="license-dashboard-item license-dashboard-error">Jamf-Abgleich aktuell nicht verfügbar</span>
+        <?php endif; ?>
     </div>
 
     <?php if ($canWrite): ?>

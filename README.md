@@ -70,7 +70,7 @@ Wichtige Releases:
 - 1.5: ADE-Aufnahmen mit ASM/Jamf-Abgleich, Filtern, CSV-Export und Cron-Sync
 - 1.6: Login-Landingpage, iPad-Management-Portalname und Nur-Lesen-Rolle
 - 1.7: mobile Darstellung fuer Admin, ADE-Aufnahmen und Audit-Log verbessert, inklusive polierter Mobile-Mini-Kacheln fuer Antraege
-- 1.8: KUK-Geraete als Jamf-only Leseseite mit lokalem Sync, Owner-Historie, Problemgeraete-Ansicht und lokalen Mail-Kontaktmarkern
+- 1.8: KUK-Geraete als Jamf-only Leseseite mit lokalem Sync, Owner-Historie, Problemgeraete-Ansicht, lokalen Mail-Kontaktmarkern und Jamf-Lizenzschaetzung im Adminportal
 
 ## Funktionsumfang
 
@@ -82,6 +82,7 @@ Wichtige Releases:
 - Wunschdatum fuer die Freigabe, keine Auswahl in der Vergangenheit
 - Duplikatschutz fuer offene Antraege je Seriennummer
 - Adminportal mit Suche, Filtern und Prozessanzeige
+- Adminportal mit kompakter Jamf-Lizenzschaetzung aus lokaler Baseline und Jamf-Trash-Abgleich
 - Login-Landingpage fuer den IServ/OIDC-Login
 - getrennte Admin- und Nur-Lesen-Rollen
 - Workflow: Antrag -> Jamf -> ASM -> Mail -> Erledigt

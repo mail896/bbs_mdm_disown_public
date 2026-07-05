@@ -70,7 +70,7 @@ Important releases:
 - 1.5: ADE enrollments with ASM/Jamf correlation, filters, CSV export, and cron sync
 - 1.6: login landing page, iPad management portal name, and read-only role
 - 1.7: improved mobile layouts for admin, ADE enrollments, and audit log, including polished mobile mini cards for requests
-- 1.8: KUK devices as a Jamf-only read-only page with local sync, owner history, problem-device view, and local mail contact markers
+- 1.8: KUK devices as a Jamf-only read-only page with local sync, owner history, problem-device view, local mail contact markers, and Jamf license estimate in the admin portal
 
 ## Features
 
@@ -82,6 +82,7 @@ Important releases:
 - requested release date, with past dates blocked
 - duplicate protection for open requests with the same serial number
 - admin portal with search, filters, and process display
+- compact Jamf license estimate from a local baseline and Jamf Trash confirmation
 - login landing page for IServ/OIDC authentication
 - separate admin and read-only roles
 - workflow: request -> Jamf -> ASM -> mail -> completed
