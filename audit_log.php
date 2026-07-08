@@ -6,6 +6,8 @@ require 'db.php';
 $currentAdminUser = disown_current_admin_user();
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
+$adePath = $appBasePath . '/ade.php';
+$kukPath = $appBasePath . '/kuk/';
 $auditLogPath = $appBasePath . '/audit_log.php';
 $logoutPath = $appBasePath . '/logout.php';
 $faviconPath = $appBasePath . '/favicon.svg';
@@ -291,16 +293,20 @@ body {
 }
 .header-actions {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
     flex: 0 0 auto;
     gap: 10px;
-    min-width: max-content;
+    min-width: 0;
+    max-width: 760px;
 }
 .admin-user {
     align-items: center;
     color: #64748b;
     display: inline-flex;
+    flex-basis: 100%;
     font-size: 0.95rem;
     gap: 0.35rem;
     justify-content: flex-end;
@@ -323,10 +329,12 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    padding: 0.65rem 1rem;
+    min-height: 2.1rem;
+    padding: 0.45rem 0.75rem;
     border-radius: 999px;
     text-decoration: none;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 500;
     border: 1px solid transparent;
     cursor: pointer;
 }
@@ -334,10 +342,22 @@ body {
     background: #e2e8f0;
     color: #1f2937;
 }
-.export-link {
+.admin-nav-link {
+    background: #ecfdf5;
+    border: 1px solid #86efac;
+    color: #14532d;
     font-size: 0.9rem;
     font-weight: 500;
+    min-height: 2.1rem;
     padding: 0.45rem 0.75rem;
+}
+.admin-nav-link:hover {
+    background: #dcfce7;
+    border-color: #4ade80;
+}
+.export-link {
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 .search-toolbar {
     align-items: center;
@@ -786,8 +806,10 @@ tr:hover {
         </div>
         <div class="header-actions">
             <a class="admin-user" href="<?=audit_h($logoutPath)?>"><span class="admin-user-icon">👤</span><span class="admin-user-name"><?=htmlspecialchars($currentAdminUser)?></span></a>
+            <a class="button button-secondary admin-nav-link" href="<?=audit_h($adminPath)?>">Adminportal</a>
+            <a class="button button-secondary admin-nav-link" href="<?=audit_h($adePath)?>">ADE-Aufnahmen</a>
+            <a class="button button-secondary admin-nav-link" href="<?=audit_h($kukPath)?>">KUK-Geräte</a>
             <a class="button button-secondary export-link" href="<?=htmlspecialchars($exportUrl)?>">CSV exportieren</a>
-            <a class="button button-secondary" href="<?=audit_h($adminPath)?>">Zurück zur Übersicht</a>
         </div>
     </div>
 

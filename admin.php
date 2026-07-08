@@ -20,8 +20,8 @@ $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.8-dev' : '1.8';
-$appVersionDate = '18. Juni 2026';
+$appVersion = $isDevMode ? '1.9-dev' : '1.9';
+$appVersionDate = '8. Juli 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -888,6 +888,59 @@ if ($dashboardStmt) {
     }
     $dashboardStmt->close();
 }
+
+$requestTrend = [];
+$requestTrendByMonth = [];
+$trendMonthNames = [
+    1 => 'Jan',
+    2 => 'Feb',
+    3 => 'Mrz',
+    4 => 'Apr',
+    5 => 'Mai',
+    6 => 'Jun',
+    7 => 'Jul',
+    8 => 'Aug',
+    9 => 'Sep',
+    10 => 'Okt',
+    11 => 'Nov',
+    12 => 'Dez',
+];
+$trendEnd = (new DateTimeImmutable('first day of next month'))->format('Y-m-d 00:00:00');
+$trendStart = (new DateTimeImmutable('first day of this month'))->modify('-11 months')->format('Y-m-d 00:00:00');
+$trendStmt = $mysqli->prepare(
+    "SELECT DATE_FORMAT(created_at, '%Y-%m') AS month_key, COUNT(*) AS total
+     FROM requests
+     WHERE created_at >= ? AND created_at < ?
+     GROUP BY month_key
+     ORDER BY month_key"
+);
+if ($trendStmt) {
+    $trendStmt->bind_param('ss', $trendStart, $trendEnd);
+    if ($trendStmt->execute()) {
+        $trendResult = $trendStmt->get_result();
+        while ($trendRow = $trendResult->fetch_assoc()) {
+            $requestTrendByMonth[(string) $trendRow['month_key']] = (int) $trendRow['total'];
+        }
+    }
+    $trendStmt->close();
+}
+
+$trendCursor = new DateTimeImmutable($trendStart);
+$requestTrendMax = 1;
+for ($i = 0; $i < 12; $i++) {
+    $monthKey = $trendCursor->format('Y-m');
+    $count = $requestTrendByMonth[$monthKey] ?? 0;
+    $requestTrendMax = max($requestTrendMax, $count);
+    $requestTrend[] = [
+        'label' => $trendMonthNames[(int) $trendCursor->format('n')],
+        'month_key' => $monthKey,
+        'count' => $count,
+        'is_current_year' => (int) $trendCursor->format('Y') === $currentYear,
+        'is_peak_season' => in_array($trendCursor->format('n'), ['6', '7', '8'], true),
+    ];
+    $trendCursor = $trendCursor->modify('+1 month');
+}
+
 function format_duration_seconds($seconds): string
 {
     if ($seconds === null) {
@@ -1294,6 +1347,66 @@ table {
 .dashboard-stat-small {
     font-size: 0.78rem;
 }
+.request-trend-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    margin: -4px 0 18px;
+    padding: 10px 14px 9px;
+}
+.request-trend-header {
+    align-items: baseline;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+.request-trend-title {
+    color: #334155;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+.request-trend-total {
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.request-trend-chart {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(12, minmax(56px, 1fr));
+}
+.request-trend-month {
+    align-items: center;
+    background: var(--trend-bg, #f8fafc);
+    border: 1px solid var(--trend-border, #e2e8f0);
+    border-radius: 8px;
+    display: inline-flex;
+    gap: 6px;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 7px 8px;
+}
+.request-trend-value {
+    color: #1f2937;
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.request-trend-label {
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.request-trend-month.peak .request-trend-label {
+    color: #9a3412;
+}
+.request-trend-month.previous-year .request-trend-label,
+.request-trend-month.previous-year .request-trend-value {
+    color: #475569;
+}
 .license-dashboard {
     align-items: center;
     background: rgba(255, 255, 255, 0.92);
@@ -1573,10 +1686,12 @@ tr:hover {
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    padding: 0.65rem 1rem;
+    min-height: 2.1rem;
+    padding: 0.45rem 0.75rem;
     border-radius: 999px;
     text-decoration: none;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 500;
     border: 1px solid transparent;
     cursor: pointer;
 }
@@ -1596,9 +1711,18 @@ tr:hover {
     color: #1f2937;
 }
 .audit-log-link {
+    background: #ecfdf5;
+    border: 1px solid #86efac;
+    color: #14532d;
     font-size: 0.9rem;
     font-weight: 500;
+    min-height: 2.1rem;
     padding: 0.45rem 0.75rem;
+}
+.audit-log-link:hover {
+    background: #dcfce7;
+    border-color: #4ade80;
+    color: #14532d;
 }
 .hint-text {
     margin-top: 8px;
@@ -1859,6 +1983,14 @@ tr:hover {
         border-left: 0;
         padding-left: 6px;
         padding-right: 8px;
+    }
+    .request-trend-card {
+        overflow-x: auto;
+        padding-bottom: 12px;
+    }
+    .request-trend-chart {
+        grid-template-columns: repeat(12, minmax(34px, 1fr));
+        min-width: 520px;
     }
 }
 @media (max-width: 640px) {
@@ -2156,6 +2288,27 @@ tr:hover {
         <span class="dashboard-stat done <?= (int) $dashboard['done_requests'] === 0 ? 'zero' : '' ?>">Erledigt <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['done_requests'])?></span></span>
         <span class="dashboard-stat info <?= $avgAdminProcessingText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Admin-Zeit</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgAdminProcessingText)?></span></span>
         <span class="dashboard-stat info <?= $avgStudentResponseText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Schüler-Response</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgStudentResponseText)?></span></span>
+    </div>
+
+    <div class="request-trend-card" aria-label="Anträge im Schuljahr">
+        <div class="request-trend-header">
+            <span class="request-trend-title">Anträge der letzten 12 Monate</span>
+        </div>
+        <div class="request-trend-chart">
+            <?php foreach ($requestTrend as $trendMonth): ?>
+                <?php
+                    $trendCount = (int) $trendMonth['count'];
+                    $trendStrength = $trendCount > 0 ? sqrt($trendCount / $requestTrendMax) : 0;
+                    $trendBgOpacity = number_format(0.08 + ($trendStrength * 0.22), 2, '.', '');
+                    $trendBorderOpacity = number_format(0.16 + ($trendStrength * 0.26), 2, '.', '');
+                    $trendColor = !$trendMonth['is_current_year'] ? '100, 116, 139' : ($trendMonth['is_peak_season'] ? '249, 115, 22' : '37, 99, 235');
+                ?>
+                <div class="request-trend-month <?= $trendMonth['is_peak_season'] ? 'peak' : '' ?> <?= !$trendMonth['is_current_year'] ? 'previous-year' : '' ?>" style="--trend-bg: rgba(<?=$trendColor?>, <?=$trendBgOpacity?>); --trend-border: rgba(<?=$trendColor?>, <?=$trendBorderOpacity?>);">
+                    <span class="request-trend-label"><?=htmlspecialchars($trendMonth['label'])?></span>
+                    <span class="request-trend-value"><?=htmlspecialchars((string) $trendCount)?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
     </div>
 
     <div class="license-dashboard" aria-label="Jamf-Lizenzschätzung" title="Schätzung aus Baseline <?=htmlspecialchars(date('d.m.Y H:i', strtotime((string) $jamfLicenseDashboard['baseline_at'])))?> und aktuellem Jamf-Trash-Abgleich. Jamf liefert hier keine direkte Lizenz-API.">

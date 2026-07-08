@@ -57,8 +57,8 @@ Die optionale Token-Funktion in `config/app.example.conf` ist fuer Spezialfaelle
 Aktueller dokumentierter Stand:
 
 ```text
-Version 1.8
-Stand: 18. Juni 2026
+Version 1.9
+Stand: 8. Juli 2026
 ```
 
 Wichtige Releases:
@@ -71,6 +71,7 @@ Wichtige Releases:
 - 1.6: Login-Landingpage, iPad-Management-Portalname und Nur-Lesen-Rolle
 - 1.7: mobile Darstellung fuer Admin, ADE-Aufnahmen und Audit-Log verbessert, inklusive polierter Mobile-Mini-Kacheln fuer Antraege
 - 1.8: KUK-Geraete als Jamf-only Leseseite mit lokalem Sync, Owner-Historie, Problemgeraete-Ansicht, lokalen Mail-Kontaktmarkern und Jamf-Lizenzschaetzung im Adminportal
+- 1.9: Admin-Dashboard mit 12-Monats-Antragsuebersicht, Jamf-Lizenzstatus, Audit-Dashboard-Korrekturen und vereinheitlichtem Button-/Navigationsdesign fuer Admin, ADE, KUK und Audit-Log
 
 ## Funktionsumfang
 

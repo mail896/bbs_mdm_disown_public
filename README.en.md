@@ -57,8 +57,8 @@ The optional token feature in `config/app.example.conf` is prepared for special 
 Current documented state:
 
 ```text
-Version 1.8
-Date: 18 June 2026
+Version 1.9
+Date: 8 July 2026
 ```
 
 Important releases:
@@ -71,6 +71,7 @@ Important releases:
 - 1.6: login landing page, iPad management portal name, and read-only role
 - 1.7: improved mobile layouts for admin, ADE enrollments, and audit log, including polished mobile mini cards for requests
 - 1.8: KUK devices as a Jamf-only read-only page with local sync, owner history, problem-device view, local mail contact markers, and Jamf license estimate in the admin portal
+- 1.9: admin dashboard with rolling 12-month request overview, Jamf license status, audit dashboard corrections, and unified button/navigation styling for admin, ADE, KUK, and audit log
 
 ## Features
 

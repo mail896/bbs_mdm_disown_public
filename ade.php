@@ -5,10 +5,12 @@ require __DIR__ . '/db.php';
 
 $currentAdminUser = disown_current_admin_user();
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.8-dev' : '1.8';
+$appVersion = $isDevMode ? '1.9-dev' : '1.9';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
+$kukPath = $appBasePath . '/kuk/';
+$auditLogPath = $appBasePath . '/audit_log.php';
 $logoutPath = $appBasePath . '/logout.php';
 $faviconPath = $appBasePath . '/favicon.svg';
 
@@ -267,19 +269,36 @@ button {
     border-radius: 999px;
     cursor: pointer;
     display: inline-flex;
-    font-weight: 700;
+    font-size: 0.9rem;
+    font-weight: 500;
     justify-content: center;
-    min-height: 44px;
-    padding: 0.65rem 1rem;
+    min-height: 2.1rem;
+    padding: 0.45rem 0.75rem;
     text-decoration: none;
 }
 .button-primary {
-    background: #2563eb;
-    color: #fff;
+    background: #e2e8f0;
+    color: #1f2937;
+}
+.button-primary:hover {
+    background: #cbd5e1;
 }
 .button-secondary {
     background: #e2e8f0;
     color: #1f2937;
+}
+.admin-nav-link {
+    background: #ecfdf5;
+    border: 1px solid #86efac;
+    color: #14532d;
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-height: 2.1rem;
+    padding: 0.45rem 0.75rem;
+}
+.admin-nav-link:hover {
+    background: #dcfce7;
+    border-color: #4ade80;
 }
 .toolbar,
 .stats {
@@ -373,8 +392,13 @@ select {
     background: #fff;
     border-radius: 999px;
     color: #1f2937;
-    font-weight: 700;
-    padding: 0.75rem 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-height: 2.1rem;
+    padding: 0.45rem 0.75rem;
     text-decoration: none;
 }
 .tab.active {
@@ -565,7 +589,9 @@ tr:last-child td {
         <div class="header-actions">
             <a class="admin-user" href="<?=ade_h($logoutPath)?>">👤 <?=ade_h($currentAdminUser ?: 'Admin')?></a>
             <div>
-                <a class="button button-secondary" href="<?=ade_h($adminPath)?>">Adminportal</a>
+                <a class="button button-secondary admin-nav-link" href="<?=ade_h($adminPath)?>">Adminportal</a>
+                <a class="button button-secondary admin-nav-link" href="<?=ade_h($kukPath)?>">KUK-Geräte</a>
+                <a class="button button-secondary admin-nav-link" href="<?=ade_h($auditLogPath)?>">Audit-Log</a>
                 <a class="button button-primary" href="<?=ade_h($exportUrl)?>">CSV exportieren</a>
             </div>
         </div>
