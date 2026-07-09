@@ -19,8 +19,8 @@ This guide describes the runtime requirements for DISOWN version 2.0.
 Recommended layout:
 
 ```text
-/var/www/sicher.bbs-einbeck.de/disown          # production
-/var/www/sicher.bbs-einbeck.de/disown-dev      # development
+/var/www/example.org/disown          # production
+/var/www/example.org/disown-dev      # development
 /srv/protected/disown                          # protected app data, if needed
 /srv/protected/asm-release-broker              # NanoDEP token, key, DB
 /etc/disown                                    # runtime configuration
@@ -95,7 +95,7 @@ curl -sS http://127.0.0.1:9001/version
 The repository contains the installer:
 
 ```bash
-sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-service.sh
+sudo /var/www/example.org/disown/tools/install-nanodep-service.sh
 ```
 
 The service:

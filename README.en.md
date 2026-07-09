@@ -8,8 +8,8 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 - Version: `2.0`
 - Date: `9 July 2026`
-- Production path: `/var/www/sicher.bbs-einbeck.de/disown`
-- Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
+- Production path: `/var/www/example.org/disown`
+- Development path: `/var/www/example.org/disown-dev`
 - Public demo: sanitized variant without credentials and without local project-state files
 
 ## Features
