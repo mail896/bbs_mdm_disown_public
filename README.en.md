@@ -1,6 +1,6 @@
 # BBS Einbeck iPad Management
 
-![Admin portal](images/Demo-iPad-Managemnt-BBS-02.jpg)
+![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
 Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.0 automates the workflow through Apple ADE/ASM release by using a local release broker.
 
@@ -29,9 +29,13 @@ Web application for handling former student iPad returns and releases at BBS Ein
 ## Screenshots
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-02.jpg)
+
 ![Bulk workflow](images/Demo-iPad-Managemnt-BBS-03.jpg)
+
 ![ASM/ADE release](images/Demo-iPad-Managemnt-BBS-04.jpg)
+
 ![KUK devices](images/Demo-iPad-Managemnt-BBS-05.jpg)
+
 ![Audit log](images/Demo-iPad-Managemnt-BBS-06.jpg)
 
 ## Standard Workflow

@@ -1,6 +1,6 @@
 # BBS Einbeck iPad-Management
 
-![Adminportal](images/Demo-iPad-Managemnt-BBS-02.jpg)
+![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
 Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.0 automatisiert den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
 
@@ -29,9 +29,13 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 ## Screenshots
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-02.jpg)
+
 ![Bulk Workflow](images/Demo-iPad-Managemnt-BBS-03.jpg)
+
 ![ASM/ADE Release](images/Demo-iPad-Managemnt-BBS-04.jpg)
+
 ![KUK-Geraete](images/Demo-iPad-Managemnt-BBS-05.jpg)
+
 ![Audit-Log](images/Demo-iPad-Managemnt-BBS-06.jpg)
 
 ## Standardablauf
