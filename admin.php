@@ -3,6 +3,7 @@ require __DIR__ . '/auth.php';
 disown_require_admin();
 require 'db.php';
 require __DIR__ . '/jamf.php';
+require __DIR__ . '/asm_release.php';
 require __DIR__ . '/vendor/autoload.php';
 
 $templateMessage = '';
@@ -15,6 +16,8 @@ $bulkMessage = '';
 $bulkError = '';
 $caseMessage = '';
 $caseError = '';
+$asmReleasePreview = null;
+$asmReleaseRequest = null;
 $bulkAsmSerials = [];
 $bulkLastIds = [];
 $bulkLastStep = '';
@@ -22,7 +25,7 @@ $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '1.9-dev' : '1.9';
+$appVersion = $isDevMode ? '2.0-dev' : '2.0';
 $appVersionDate = '9. Juli 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
@@ -48,11 +51,11 @@ $filterLabels = [
     'cases' => 'Klärfälle',
 ];
 $jamfLicenseBaseline = [
-    'taken_at' => '2026-01-01 00:00:00',
-    'recurring_total' => 1000,
-    'recurring_used' => 0,
-    'perpetual_total' => 0,
-    'perpetual_used' => 0,
+    'taken_at' => '2026-07-05 10:55:00',
+    'recurring_total' => 1300,
+    'recurring_used' => 928,
+    'perpetual_total' => 378,
+    'perpetual_used' => 362,
 ];
 $searchTerm = trim((string) ($_GET['q'] ?? ''));
 $monthFilter = trim((string) ($_GET['month'] ?? ''));
@@ -93,7 +96,7 @@ $refreshUrl = $adminPath . '?' . http_build_query([
 $whereParts = [];
 $whereParams = [];
 $whereTypes = '';
-$doneCondition = "LOWER(TRIM(status)) = 'erledigt' AND mail_sent = 1";
+$doneCondition = "LOWER(TRIM(status)) = 'erledigt' AND mail_sent <> 0";
 $openCondition = "status IS NULL OR LOWER(TRIM(status)) <> 'erledigt' OR mail_sent = 0";
 $scheduledCondition = "({$openCondition}) AND requested_release_date > CURDATE() AND jamf_unenrolled = 0";
 $dueCondition = "({$openCondition}) AND NOT ({$scheduledCondition})";
@@ -168,6 +171,25 @@ function log_request_action($mysqli, int $requestId, string $action, ?string $de
     disown_log_audit_action($mysqli, $requestId, $action, disown_current_admin_user(), $details);
 }
 
+function load_request_for_action($mysqli, int $requestId): ?array
+{
+    $stmt = $mysqli->prepare(
+        "SELECT id, serial, full_name, device_name, jamf_unenrolled, asm_manual_done, mail_sent, completed_by
+         FROM requests
+         WHERE id = ?"
+    );
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $requestId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $row ?: null;
+}
+
 function normalize_bulk_ids($rawIds): array
 {
     if (!is_array($rawIds)) {
@@ -206,6 +228,109 @@ function load_bulk_requests($mysqli, array $ids): array
     }
 
     return $rows;
+}
+
+function request_mail_recipients(array $row): array
+{
+    $recipients = [];
+    foreach (['private_email', 'email'] as $field) {
+        $address = trim((string) ($row[$field] ?? ''));
+        if ($address !== '' && filter_var($address, FILTER_VALIDATE_EMAIL)) {
+            $recipients[] = $address;
+        }
+    }
+
+    return array_values(array_unique($recipients));
+}
+
+function complete_request_with_mail_failure($mysqli, int $requestId, string $recipientList, string $completedBy, string $serial, string $deviceName, string $error): void
+{
+    $updateStmt = $mysqli->prepare(
+        "UPDATE requests
+         SET mail_sent = 2,
+             mail_sent_at = NOW(),
+             mail_sent_to = ?,
+             status = 'erledigt',
+             completed_at = NOW(),
+             completed_by = ?
+         WHERE id = ?"
+    );
+    if ($updateStmt) {
+        $updateStmt->bind_param('ssi', $recipientList, $completedBy, $requestId);
+        $updateStmt->execute();
+        $updateStmt->close();
+    }
+
+    log_request_action(
+        $mysqli,
+        $requestId,
+        'MAIL_FAILED_COMPLETED',
+        'Empfänger: ' . ($recipientList ?: 'unbekannt') . '; Seriennummer: ' . ($serial ?: 'unbekannt') . '; Gerät: ' . ($deviceName ?: 'unbekannt') . '; Fehler: ' . $error
+    );
+}
+
+function format_mail_delivery_status(array $successfulRecipients, array $failedRecipients, bool $includeErrorDetails = false): string
+{
+    $parts = [];
+    if ($successfulRecipients) {
+        $parts[] = 'OK: ' . implode(', ', array_values(array_unique($successfulRecipients)));
+    }
+    if ($failedRecipients) {
+        $failedParts = [];
+        foreach ($failedRecipients as $address => $error) {
+            $failedParts[] = $address . ($includeErrorDetails && $error !== '' ? ' (' . $error . ')' : '');
+        }
+        $parts[] = 'FEHLER: ' . implode(', ', $failedParts);
+    }
+
+    return implode('; ', $parts);
+}
+
+function send_release_mail(array $mailConfig, string $recipient, string $subject, string $body, string $deviceName, string $serial): void
+{
+    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+    $mail->isSMTP();
+    $mail->Host = $mailConfig['MAIL_HOST'];
+    $mail->Port = (int) $mailConfig['MAIL_PORT'];
+    $mail->SMTPAuth = true;
+    $mail->Username = $mailConfig['MAIL_USERNAME'];
+    $mail->Password = $mailConfig['MAIL_PASSWORD'];
+    if (($mailConfig['MAIL_ENCRYPTION'] ?? '') === 'ssl') {
+        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+    } elseif (($mailConfig['MAIL_ENCRYPTION'] ?? '') === 'tls') {
+        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+    }
+    $mail->CharSet = 'UTF-8';
+    $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
+    $mail->addAddress($recipient);
+    $mail->Subject = $subject;
+
+    $safeBody = htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    if ($deviceName !== '') {
+        $safeDevice = htmlspecialchars($deviceName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safeBody = str_replace($safeDevice, '<strong>' . $safeDevice . '</strong>', $safeBody);
+    }
+    if ($serial !== '') {
+        $safeSerial = htmlspecialchars($serial, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safeBody = str_replace($safeSerial, '<strong>' . $safeSerial . '</strong>', $safeBody);
+    }
+    $mail->Body = nl2br($safeBody);
+    $mail->AltBody = $body;
+    $mail->isHTML(true);
+    $mail->send();
+}
+
+function mail_status_label($value): string
+{
+    $state = (int) $value;
+    if ($state === 2) {
+        return 'fehlgeschlagen';
+    }
+    if ($state === 1) {
+        return 'gesendet';
+    }
+
+    return 'nicht gesendet';
 }
 
 function jamf_trash_serials(): array
@@ -352,6 +477,10 @@ if (empty($_SESSION['csrf_token'])) {
 if (!empty($_SESSION['flash_mail_message'])) {
     $mailMessage = $_SESSION['flash_mail_message'];
     unset($_SESSION['flash_mail_message']);
+}
+if (!empty($_SESSION['flash_mail_error'])) {
+    $mailError = $_SESSION['flash_mail_error'];
+    unset($_SESSION['flash_mail_error']);
 }
 if (!empty($_SESSION['bulk_asm_serials']) && is_array($_SESSION['bulk_asm_serials'])) {
     $bulkAsmSerials = array_values(array_filter(array_map('strval', $_SESSION['bulk_asm_serials'])));
@@ -602,52 +731,77 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($successfulSerials) {
                 $bulkAsmSerials = array_values(array_unique($successfulSerials));
                 $bulkLastIds = normalize_bulk_ids($successfulIds);
+                log_request_action(
+                    $mysqli,
+                    0,
+                    'BULK_ASM_SERIAL_LIST',
+                    'Seriennummern fuer ASM/ADE: ' . implode(', ', $bulkAsmSerials)
+                    . '; Antraege: ' . implode(', ', array_map('strval', $bulkLastIds))
+                );
                 $_SESSION['bulk_asm_serials'] = $bulkAsmSerials;
                 $_SESSION['bulk_last_ids'] = $bulkLastIds;
                 $_SESSION['bulk_last_step'] = 'asm';
             }
-        } elseif ($bulkAction === 'bulk_asm_done') {
+        } elseif ($bulkAction === 'bulk_asm_release') {
             $successCount = 0;
+            $failedCount = 0;
             $skippedCount = 0;
             $successfulIds = [];
+            $successfulSerials = [];
 
             foreach ($bulkRows as $bulkRow) {
                 $requestId = (int) $bulkRow['id'];
                 $serial = trim((string) $bulkRow['serial']);
                 $isHistoryImport = (($bulkRow['completed_by'] ?? '') === 'history-import');
 
-                if ($isHistoryImport || empty($bulkRow['jamf_unenrolled']) || !empty($bulkRow['asm_manual_done']) || !empty($bulkRow['mail_sent'])) {
+                if ($isHistoryImport || empty($bulkRow['jamf_unenrolled']) || !empty($bulkRow['asm_manual_done']) || !empty($bulkRow['mail_sent']) || $serial === '') {
                     $skippedCount++;
                     continue;
                 }
 
-                $updateStmt = $mysqli->prepare(
-                    "UPDATE requests
-                     SET asm_manual_done = 1,
-                         asm_manual_done_at = NOW()
-                     WHERE id = ?"
-                );
-                if ($updateStmt) {
-                    $updateStmt->bind_param('i', $requestId);
-                    $updateStmt->execute();
-                    $updateStmt->close();
-                }
+                $asmBulkResult = asm_release_execute($serial);
+                $detailText = 'Seriennummer: ' . strtoupper($serial) . '; ' . ($asmBulkResult['message'] ?? '');
 
-                log_request_action(
-                    $mysqli,
-                    $requestId,
-                    'BULK_ASM_MANUAL_DONE',
-                    'Seriennummer: ' . ($serial ?: 'unbekannt') . '; ASM-Freigabe per Bulk bestätigt.'
-                );
-                $successCount++;
-                $successfulIds[] = $requestId;
+                if (!empty($asmBulkResult['success']) && empty($asmBulkResult['dry_run'])) {
+                    $updateStmt = $mysqli->prepare(
+                        "UPDATE requests
+                         SET asm_manual_done = 1,
+                             asm_manual_done_at = NOW()
+                         WHERE id = ?"
+                    );
+                    if ($updateStmt) {
+                        $updateStmt->bind_param('i', $requestId);
+                        $updateStmt->execute();
+                        $updateStmt->close();
+                    }
+
+                    log_request_action($mysqli, $requestId, 'BULK_ASM_BROKER_RELEASE_SUCCESS', $detailText);
+                    $successCount++;
+                    $successfulIds[] = $requestId;
+                    $successfulSerials[] = strtoupper($serial);
+                } elseif (!empty($asmBulkResult['success']) && !empty($asmBulkResult['dry_run'])) {
+                    log_request_action($mysqli, $requestId, 'BULK_ASM_BROKER_RELEASE_DRYRUN', $detailText);
+                    $successCount++;
+                    $successfulIds[] = $requestId;
+                    $successfulSerials[] = strtoupper($serial);
+                } else {
+                    log_request_action($mysqli, $requestId, 'BULK_ASM_BROKER_RELEASE_FAILED', $detailText);
+                    $failedCount++;
+                }
             }
 
-            $bulkMessage = "Bulk-ASM abgeschlossen: {$successCount} bestätigt, {$skippedCount} übersprungen.";
+            $bulkMessage = "Bulk-ASM/ADE abgeschlossen: {$successCount} automatisch freigegeben, {$failedCount} fehlgeschlagen, {$skippedCount} übersprungen.";
             if ($successfulIds) {
                 $bulkAsmSerials = [];
                 $bulkLastIds = normalize_bulk_ids($successfulIds);
                 $bulkLastStep = 'mail';
+                log_request_action(
+                    $mysqli,
+                    0,
+                    'BULK_ASM_BROKER_RELEASE_SUMMARY',
+                    'Automatisch freigegebene Seriennummern: ' . implode(', ', array_values(array_unique($successfulSerials)))
+                    . '; Antraege: ' . implode(', ', array_map('strval', $bulkLastIds))
+                );
                 $_SESSION['bulk_last_ids'] = $bulkLastIds;
                 $_SESSION['bulk_last_step'] = 'mail';
             }
@@ -676,13 +830,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         continue;
                     }
 
-                    $recipient = trim((string) ($bulkRow['private_email'] ?: $bulkRow['email']));
-                    if ($recipient === '' || !filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
-                        log_request_action(
+                    $recipients = request_mail_recipients($bulkRow);
+                    $recipient = implode(', ', $recipients);
+                    if (!$recipients) {
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
+                        complete_request_with_mail_failure(
                             $mysqli,
                             $requestId,
-                            'BULK_MAIL_FAILED',
-                            'Empfänger ungültig; Seriennummer: ' . ($serial ?: 'unbekannt')
+                            '',
+                            $completedBy,
+                            $serial,
+                            $deviceName,
+                            'Keine gültige Empfängeradresse.'
                         );
                         $failedCount++;
                         continue;
@@ -699,53 +858,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     ];
                     $body = str_replace(array_keys($placeholders), array_values($placeholders), $body);
 
-                    if (!$isDevMode) {
-                        try {
-                            $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-                            $mail->isSMTP();
-                            $mail->Host = $mailConfig['MAIL_HOST'];
-                            $mail->Port = (int) $mailConfig['MAIL_PORT'];
-                            $mail->SMTPAuth = true;
-                            $mail->Username = $mailConfig['MAIL_USERNAME'];
-                            $mail->Password = $mailConfig['MAIL_PASSWORD'];
-                            if (($mailConfig['MAIL_ENCRYPTION'] ?? '') === 'ssl') {
-                                $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
-                            } elseif (($mailConfig['MAIL_ENCRYPTION'] ?? '') === 'tls') {
-                                $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                    $successfulRecipients = [];
+                    $failedRecipients = [];
+                    if ($isDevMode) {
+                        $successfulRecipients = $recipients;
+                    } else {
+                        foreach ($recipients as $mailRecipient) {
+                            try {
+                                send_release_mail($mailConfig, $mailRecipient, $mailSubject, $body, $deviceName, $serial);
+                                $successfulRecipients[] = $mailRecipient;
+                            } catch (Exception $e) {
+                                $failedRecipients[$mailRecipient] = $e->getMessage();
                             }
-                            $mail->CharSet = 'UTF-8';
-                            $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
-                            $mail->addAddress($recipient);
-                            $mail->Subject = $mailSubject;
-
-                            $safeBody = htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                            if ($deviceName !== '') {
-                                $safeDevice = htmlspecialchars($deviceName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                                $safeBody = str_replace($safeDevice, '<strong>' . $safeDevice . '</strong>', $safeBody);
-                            }
-                            if ($serial !== '') {
-                                $safeSerial = htmlspecialchars($serial, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                                $safeBody = str_replace($safeSerial, '<strong>' . $safeSerial . '</strong>', $safeBody);
-                            }
-                            $mail->Body = nl2br($safeBody);
-                            $mail->AltBody = $body;
-                            $mail->isHTML(true);
-                            $mail->send();
-                        } catch (Exception $e) {
-                            log_request_action(
-                                $mysqli,
-                                $requestId,
-                                'BULK_MAIL_FAILED',
-                                'Empfänger: ' . $recipient . '; Seriennummer: ' . ($serial ?: 'unbekannt') . '; Fehler: ' . $e->getMessage()
-                            );
-                            $failedCount++;
-                            continue;
                         }
                     }
 
+                    $deliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients);
+                    $auditDeliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients, true);
+                    $mailState = $failedRecipients ? 2 : 1;
+
                     $updateStmt = $mysqli->prepare(
                         "UPDATE requests
-                         SET mail_sent = 1,
+                         SET mail_sent = ?,
                              mail_sent_at = NOW(),
                              mail_sent_to = ?,
                              status = 'erledigt',
@@ -755,18 +889,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     );
                     if ($updateStmt) {
                         $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
-                        $updateStmt->bind_param('ssi', $recipient, $completedBy, $requestId);
+                        $updateStmt->bind_param('issi', $mailState, $deliveryStatus, $completedBy, $requestId);
                         $updateStmt->execute();
                         $updateStmt->close();
                     }
 
+                    $logAction = $isDevMode ? 'BULK_MAIL_SENT_DEV' : 'BULK_MAIL_SENT';
+                    if (!$isDevMode && $failedRecipients && $successfulRecipients) {
+                        $logAction = 'BULK_MAIL_PARTIAL_FAILED_COMPLETED';
+                    } elseif (!$isDevMode && $failedRecipients) {
+                        $logAction = 'BULK_MAIL_FAILED_COMPLETED';
+                    }
                     log_request_action(
                         $mysqli,
                         $requestId,
-                        $isDevMode ? 'BULK_MAIL_SENT_DEV' : 'BULK_MAIL_SENT',
-                        ($isDevMode ? 'DEV-Simulation; ' : '') . 'Empfänger: ' . $recipient . '; Seriennummer: ' . ($serial ?: 'unbekannt') . '; Gerät: ' . ($deviceName ?: 'unbekannt')
+                        $logAction,
+                        ($isDevMode ? 'DEV-Simulation; ' : '') . 'Zustellung: ' . ($auditDeliveryStatus ?: $recipient) . '; Seriennummer: ' . ($serial ?: 'unbekannt') . '; Gerät: ' . ($deviceName ?: 'unbekannt')
                     );
-                    $successCount++;
+                    if ($failedRecipients) {
+                        $failedCount++;
+                    } else {
+                        $successCount++;
+                    }
                 }
 
                 $bulkMessage = "Bulk-Mail abgeschlossen: {$successCount} gesendet, {$failedCount} fehlgeschlagen, {$skippedCount} übersprungen.";
@@ -795,17 +939,38 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $sendDevice = trim($_POST['send_device'] ?? '');
         $sendSerial = trim($_POST['send_serial'] ?? '');
         $sendRequestId = (int) ($_POST['send_request_id'] ?? 0);
+        if ($sendRequestId > 0) {
+            $recipientStmt = $mysqli->prepare('SELECT email, private_email FROM requests WHERE id = ? LIMIT 1');
+            if ($recipientStmt) {
+                $recipientStmt->bind_param('i', $sendRequestId);
+                $recipientStmt->execute();
+                $recipientRow = $recipientStmt->get_result()->fetch_assoc();
+                $recipientStmt->close();
+                if ($recipientRow) {
+                    $requestRecipients = request_mail_recipients($recipientRow);
+                    if ($requestRecipients) {
+                        $sendRecipients = $requestRecipients;
+                        $invalidRecipients = [];
+                        $sendRecipientList = implode(', ', $sendRecipients);
+                    }
+                }
+            }
+        }
 
         if (!$sendRecipients || $invalidRecipients || $sendSubject === '' || $sendBody === '') {
             if ($sendRequestId > 0) {
-                log_request_action(
+                $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
+                complete_request_with_mail_failure(
                     $mysqli,
                     $sendRequestId,
-                    'MAIL_FAILED',
-                    'Empfänger: ' . ($sendTo ?: 'unbekannt') . '; Seriennummer: ' . ($sendSerial ?: 'unbekannt') . '; Fehler: Empfänger, Betreff oder Nachricht ungültig.'
+                    $sendRecipientList,
+                    $completedBy,
+                    $sendSerial,
+                    $sendDevice,
+                    'Empfänger, Betreff oder Nachricht ungültig.'
                 );
             }
-            $mailError = 'E-Mail-Adresse, Betreff oder Nachricht fehlen oder sind ungültig. Bitte die Vorschau neu öffnen und erneut senden.';
+            $mailError = 'E-Mail-Adresse, Betreff oder Nachricht ungültig. Der Vorgang wurde trotzdem abgeschlossen und Mail rot markiert.';
         } elseif ($isDevMode) {
             if ($sendRequestId > 0) {
                 $updateStmt = $mysqli->prepare(
@@ -840,53 +1005,39 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $mailConfig = parse_ini_file('/etc/disown/mail.conf');
             if ($mailConfig === false || empty($mailConfig['MAIL_HOST']) || empty($mailConfig['MAIL_PORT']) || empty($mailConfig['MAIL_USERNAME']) || empty($mailConfig['MAIL_PASSWORD']) || empty($mailConfig['MAIL_FROM'])) {
                 if ($sendRequestId > 0) {
-                    log_request_action(
+                    $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
+                    complete_request_with_mail_failure(
                         $mysqli,
                         $sendRequestId,
-                        'MAIL_FAILED',
-                        'Empfänger: ' . $sendRecipientList . '; Seriennummer: ' . ($sendSerial ?: 'unbekannt') . '; Fehler: SMTP-Konfiguration unvollständig.'
+                        $sendRecipientList,
+                        $completedBy,
+                        $sendSerial,
+                        $sendDevice,
+                        'SMTP-Konfiguration unvollständig.'
                     );
                 }
-                $mailError = 'SMTP-Konfiguration fehlt oder ist unvollständig. Bitte /etc/disown/mail.conf prüfen.';
+                $mailError = 'SMTP-Konfiguration fehlt oder ist unvollständig. Der Vorgang wurde trotzdem abgeschlossen und Mail rot markiert.';
             } else {
                 try {
-                    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-                    $mail->isSMTP();
-                    $mail->Host = $mailConfig['MAIL_HOST'];
-                    $mail->Port = (int) $mailConfig['MAIL_PORT'];
-                    $mail->SMTPAuth = true;
-                    $mail->Username = $mailConfig['MAIL_USERNAME'];
-                    $mail->Password = $mailConfig['MAIL_PASSWORD'];
-                    if (($mailConfig['MAIL_ENCRYPTION'] ?? '') === 'ssl') {
-                        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
-                    } elseif (($mailConfig['MAIL_ENCRYPTION'] ?? '') === 'tls') {
-                        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-                    }
-                    $mail->CharSet = 'UTF-8';
-                    $mail->setFrom($mailConfig['MAIL_FROM'], 'BBS Einbeck, Team Mobile Device Management');
+                    $successfulRecipients = [];
+                    $failedRecipients = [];
                     foreach ($sendRecipients as $recipient) {
-                        $mail->addAddress($recipient);
+                        try {
+                            send_release_mail($mailConfig, $recipient, $sendSubject, $sendBody, $sendDevice, $sendSerial);
+                            $successfulRecipients[] = $recipient;
+                        } catch (Exception $e) {
+                            $failedRecipients[$recipient] = $e->getMessage();
+                        }
                     }
-                    $mail->Subject = $sendSubject;
 
-                    $safeBody = htmlspecialchars($sendBody, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                    if ($sendDevice !== '') {
-                        $safeDevice = htmlspecialchars($sendDevice, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                        $safeBody = str_replace($safeDevice, '<strong>' . $safeDevice . '</strong>', $safeBody);
-                    }
-                    if ($sendSerial !== '') {
-                        $safeSerial = htmlspecialchars($sendSerial, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                        $safeBody = str_replace($safeSerial, '<strong>' . $safeSerial . '</strong>', $safeBody);
-                    }
-                    $mail->Body = nl2br($safeBody);
-                    $mail->AltBody = $sendBody;
-                    $mail->isHTML(true);
-                    $mail->send();
+                    $deliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients);
+                    $auditDeliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients, true);
+                    $mailState = $failedRecipients ? 2 : 1;
 
                     if ($sendRequestId > 0) {
                         $updateStmt = $mysqli->prepare(
                             "UPDATE requests
-                             SET mail_sent = 1,
+                             SET mail_sent = ?,
                                  mail_sent_at = NOW(),
                                  mail_sent_to = ?,
                                  status = 'erledigt',
@@ -896,34 +1047,48 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         );
                         if ($updateStmt) {
                             $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
-                            $updateStmt->bind_param('ssi', $sendRecipientList, $completedBy, $sendRequestId);
+                            $updateStmt->bind_param('issi', $mailState, $deliveryStatus, $completedBy, $sendRequestId);
                             $updateStmt->execute();
                             $updateStmt->close();
                         }
                     }
 
                     if ($sendRequestId > 0) {
+                        $logAction = 'MAIL_SENT';
+                        if ($failedRecipients && $successfulRecipients) {
+                            $logAction = 'MAIL_PARTIAL_FAILED_COMPLETED';
+                        } elseif ($failedRecipients) {
+                            $logAction = 'MAIL_FAILED_COMPLETED';
+                        }
                         log_request_action(
                             $mysqli,
                             $sendRequestId,
-                            'MAIL_SENT',
-                            'Empfänger: ' . $sendRecipientList . '; Seriennummer: ' . ($sendSerial ?: 'unbekannt') . '; Gerät: ' . ($sendDevice ?: 'unbekannt')
+                            $logAction,
+                            'Zustellung: ' . ($auditDeliveryStatus ?: $sendRecipientList) . '; Seriennummer: ' . ($sendSerial ?: 'unbekannt') . '; Gerät: ' . ($sendDevice ?: 'unbekannt')
                         );
                     }
 
-                    $_SESSION['flash_mail_message'] = 'E-Mail erfolgreich gesendet an ' . htmlspecialchars($sendRecipientList) . '.';
+                    if ($failedRecipients) {
+                        $_SESSION['flash_mail_error'] = 'Mailversand teilweise oder vollständig fehlgeschlagen. Details stehen in der betroffenen Zeile.';
+                    } else {
+                        $_SESSION['flash_mail_message'] = 'E-Mail erfolgreich gesendet an ' . htmlspecialchars($sendRecipientList) . '.';
+                    }
                     header('Location: ' . $adminPath);
                     exit;
                 } catch (Exception $e) {
                     if ($sendRequestId > 0) {
-                        log_request_action(
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
+                        complete_request_with_mail_failure(
                             $mysqli,
                             $sendRequestId,
-                            'MAIL_FAILED',
-                            'Empfänger: ' . $sendRecipientList . '; Seriennummer: ' . ($sendSerial ?: 'unbekannt') . '; Fehler: ' . $e->getMessage()
+                            $sendRecipientList,
+                            $completedBy,
+                            $sendSerial,
+                            $sendDevice,
+                            $e->getMessage()
                         );
                     }
-                    $mailError = 'SMTP-Fehler: ' . htmlspecialchars($e->getMessage());
+                    $mailError = 'SMTP-Fehler: ' . htmlspecialchars($e->getMessage()) . ' Der Vorgang wurde trotzdem abgeschlossen und Mail rot markiert.';
                 }
             }
         }
@@ -957,7 +1122,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'JAMF_UNENROLL_SUCCESS',
                     'Seriennummer: ' . $unenrollSerial . '; Meldung: ' . ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.')
                 );
-                $disownMessage = ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.') . ' Bitte führen Sie die ASM-Freigabe manuell durch.';
+                $disownMessage = ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.') . ' Nächster Schritt: automatische ASM/ADE-Freigabe prüfen und starten.';
             } else {
                 $updateStmt = $mysqli->prepare(
                     "UPDATE requests
@@ -983,6 +1148,66 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
     }
 
+    // NEW WORKFLOW: ASM/ADE automatic release broker preview
+    if (isset($_POST['asm_release_preview'])) {
+        $asmReleaseId = (int) $_POST['asm_release_preview'];
+        $row = load_request_for_action($mysqli, $asmReleaseId);
+
+        if (!$row) {
+            $disownError = 'Antrag wurde nicht gefunden.';
+        } elseif (($row['completed_by'] ?? '') === 'history-import') {
+            $disownError = 'Historische Importe können nicht automatisch freigegeben werden.';
+        } elseif (empty($row['jamf_unenrolled'])) {
+            $disownError = 'Bitte zuerst Jamf Unenroll ausführen.';
+        } elseif (!empty($row['asm_manual_done'])) {
+            $disownError = 'ASM/ADE ist für diesen Antrag bereits abgeschlossen.';
+        } else {
+            $asmReleaseRequest = $row;
+            $asmReleasePreview = asm_release_preview((string) $row['serial']);
+        }
+    }
+
+    // NEW WORKFLOW: ASM/ADE automatic release broker execution
+    if (isset($_POST['asm_release_confirm'])) {
+        $asmReleaseId = (int) $_POST['asm_release_confirm'];
+        $row = load_request_for_action($mysqli, $asmReleaseId);
+
+        if (!$row) {
+            $disownError = 'Antrag wurde nicht gefunden.';
+        } elseif (($row['completed_by'] ?? '') === 'history-import') {
+            $disownError = 'Historische Importe können nicht automatisch freigegeben werden.';
+        } elseif (empty($row['jamf_unenrolled'])) {
+            $disownError = 'Bitte zuerst Jamf Unenroll ausführen.';
+        } elseif (!empty($row['asm_manual_done'])) {
+            $disownError = 'ASM/ADE ist für diesen Antrag bereits abgeschlossen.';
+        } else {
+            $asmReleaseRequest = $row;
+            $asmReleasePreview = asm_release_execute((string) $row['serial']);
+            $detailText = 'Seriennummer: ' . strtoupper((string) $row['serial']) . '; ' . ($asmReleasePreview['message'] ?? '');
+
+            if (!empty($asmReleasePreview['success']) && empty($asmReleasePreview['dry_run'])) {
+                $updateStmt = $mysqli->prepare(
+                    "UPDATE requests
+                     SET asm_manual_done = 1,
+                         asm_manual_done_at = NOW()
+                     WHERE id = ?"
+                );
+                if ($updateStmt) {
+                    $updateStmt->bind_param('i', $asmReleaseId);
+                    $updateStmt->execute();
+                    $updateStmt->close();
+                }
+                log_request_action($mysqli, $asmReleaseId, 'ASM_BROKER_RELEASE_SUCCESS', $detailText);
+                $disownMessage = 'ASM/ADE-Freigabe automatisch abgeschlossen.';
+            } elseif (!empty($asmReleasePreview['success']) && !empty($asmReleasePreview['dry_run'])) {
+                $disownMessage = 'DEV-Dry-Run erfolgreich: In DEV wurde nichts in ASM/ADE geändert.';
+            } else {
+                log_request_action($mysqli, $asmReleaseId, 'ASM_BROKER_RELEASE_FAILED', $detailText);
+                $disownError = (string) ($asmReleasePreview['message'] ?? 'ASM/ADE-Freigabe fehlgeschlagen.');
+            }
+        }
+    }
+
     // NEW WORKFLOW: ASM manual release confirmed
     if (isset($_POST['asm_manual_done'])) {
         $asmId = (int) $_POST['asm_manual_done'];
@@ -1004,9 +1229,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $mysqli,
                 $asmId,
                 'ASM_MANUAL_DONE',
-                'Seriennummer: ' . ($asmSerial ?: 'unbekannt') . '; ASM-Freigabe manuell bestätigt.'
+                'Seriennummer: ' . ($asmSerial ?: 'unbekannt') . '; ASM/ADE-Freigabe per Notfallabschluss bestätigt.'
             );
-            $disownMessage = 'ASM-Freigabe als abgeschlossen bestätigt.';
+            $disownMessage = 'ASM/ADE-Freigabe per Notfallabschluss als erledigt markiert.';
         } else {
             $disownError = 'Ungültige ASM-Anfrage.';
         }
@@ -1248,7 +1473,7 @@ if (($_GET['export'] ?? '') === 'requests_csv') {
             $row['status'],
             !empty($row['jamf_unenrolled']) ? 'ja' : 'nein',
             !empty($row['asm_manual_done']) ? 'ja' : 'nein',
-            !empty($row['mail_sent']) ? 'gesendet' : 'nicht gesendet',
+            mail_status_label($row['mail_sent']),
         ]);
     }
     fclose($output);
@@ -1545,6 +1770,38 @@ table {
     border-collapse: collapse;
     min-width: 0;
 }
+#requestsTable {
+    min-width: 1180px;
+    table-layout: fixed;
+}
+#requestsTable th:nth-child(1),
+#requestsTable td:nth-child(1) {
+    width: 46px;
+}
+#requestsTable th:nth-child(2),
+#requestsTable td:nth-child(2) {
+    width: 58px;
+}
+#requestsTable th:nth-child(3),
+#requestsTable td:nth-child(3) {
+    width: 120px;
+}
+#requestsTable th:nth-child(4),
+#requestsTable td:nth-child(4) {
+    width: 285px;
+}
+#requestsTable th:nth-child(5),
+#requestsTable td:nth-child(5) {
+    width: 190px;
+}
+#requestsTable th:nth-child(6),
+#requestsTable td:nth-child(6) {
+    width: 310px;
+}
+#requestsTable th:nth-child(7),
+#requestsTable td:nth-child(7) {
+    width: 171px;
+}
 .page {
     max-width: 1280px;
     margin: 0 auto;
@@ -1793,6 +2050,53 @@ table {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     padding: 12px;
 }
+.bulk-copy-status {
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-right: auto;
+}
+.asm-release-card {
+    margin-bottom: 16px;
+}
+.asm-release-steps {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0;
+}
+.asm-release-step {
+    align-items: flex-start;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: 150px 1fr;
+    padding: 10px 12px;
+}
+.asm-release-step strong {
+    color: #0f172a;
+    font-weight: 600;
+}
+.asm-release-step.ok {
+    border-color: #bbf7d0;
+}
+.asm-release-step.failed {
+    border-color: #fecaca;
+}
+.asm-release-step.warning,
+.asm-release-step.planned {
+    border-color: #fde68a;
+}
+.asm-release-step-detail {
+    color: #475569;
+    overflow-wrap: anywhere;
+}
+.asm-release-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
 .filter-link {
     background: #ffffff;
     border: 1px solid #cbd5e1;
@@ -2000,7 +2304,7 @@ tr:hover {
 .case-row-clickable:hover {
     background: #fffbeb;
 }
-.case-row-clickable .serial-case-button {
+.case-row-clickable .device-case-button {
     text-decoration-color: #fbbf24;
 }
 .nowrap-cell,
@@ -2099,7 +2403,7 @@ tr:hover {
     font-size: 0.95rem;
 }
 .status-cell {
-    min-width: 210px;
+    min-width: 310px;
 }
 .nowrap-cell {
     white-space: nowrap;
@@ -2150,6 +2454,37 @@ tr:hover {
     color: #2563eb;
     text-decoration-color: currentColor;
 }
+.device-case-button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: #1e293b;
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    gap: 0.35rem;
+    line-height: 1.2;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0;
+    text-align: left;
+    text-decoration: none;
+    vertical-align: top;
+    white-space: nowrap;
+}
+.device-case-button:hover {
+    color: #166534;
+}
+.device-case-label {
+    display: inline-block;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .case-badge {
     background: #fef3c7;
     border-radius: 999px;
@@ -2188,8 +2523,9 @@ tr:hover {
     text-decoration: none;
 }
 .device-cell {
-    word-break: break-word;
-    white-space: normal;
+    max-width: 190px;
+    text-align: left;
+    white-space: nowrap;
 }
 .mail-status {
     margin-top: 4px;
@@ -2238,6 +2574,13 @@ tr:hover {
     background: #f0fdf4;
     border-color: #86efac;
 }
+.process-step.failed {
+    color: #b91c1c;
+}
+.process-step.failed .process-mark {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
 .last-audit {
     color: #64748b;
     font-size: 0.76rem;
@@ -2247,6 +2590,63 @@ tr:hover {
     color: #92400e;
     font-size: 0.76rem;
     margin-top: 5px;
+}
+.process-error {
+    color: #b91c1c;
+    font-size: 0.76rem;
+    margin-top: 5px;
+}
+.process-error-detail {
+    color: #991b1b;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    margin-top: 3px;
+    max-width: 360px;
+    overflow-wrap: anywhere;
+}
+.process-delivery-ok,
+.process-delivery-error {
+    font-size: 0.72rem;
+    line-height: 1.35;
+    margin-top: 3px;
+    max-width: 360px;
+    overflow-wrap: anywhere;
+}
+.process-delivery-ok {
+    color: #15803d;
+}
+.process-delivery-error {
+    color: #b91c1c;
+}
+.bulk-working {
+    align-items: center;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 16px;
+    color: #1e40af;
+    display: flex;
+    font-weight: 600;
+    gap: 10px;
+    margin: 0 0 18px;
+    padding: 14px 16px;
+}
+.bulk-working.hidden {
+    display: none;
+}
+.bulk-working::before {
+    border: 3px solid #bfdbfe;
+    border-top-color: #2563eb;
+    border-radius: 999px;
+    content: "";
+    flex: 0 0 auto;
+    height: 18px;
+    width: 18px;
+    animation: bulk-spin 0.85s linear infinite;
+}
+@keyframes bulk-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 .history-import-badge {
     background: #f1f5f9;
@@ -2279,12 +2679,15 @@ tr:hover {
     margin: 0;
 }
 .action-cell {
-    min-width: 220px;
+    min-width: 171px;
 }
 .action-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+}
+.action-cell .button {
+    white-space: nowrap;
 }
 .template-textarea {
     width: 100%;
@@ -2531,6 +2934,13 @@ tr:hover {
     }
     table {
         border-collapse: separate;
+        min-width: 0;
+        table-layout: auto;
+    }
+    #requestsTable,
+    #requestsTable th,
+    #requestsTable td {
+        width: 100%;
     }
     thead {
         display: none;
@@ -2598,7 +3008,13 @@ tr:hover {
         word-break: break-word;
     }
     .device-cell {
+        max-width: none;
         row-gap: 4px;
+        white-space: normal;
+    }
+    .device-case-button {
+        max-width: 100%;
+        white-space: nowrap;
     }
     .device-cell > div:first-child {
         font-weight: 600;
@@ -2661,7 +3077,7 @@ tr:hover {
         <div>
             <h1 class="page-title">iPad-Management</h1>
             <p>Offene und erledigte Anträge anzeigen. Schließe Anträge direkt hier ab.</p>
-            <p class="hint-text">Der automatische Jamf-Unenroll entfernt die MDM-Verwaltung. Die ADE/ASM-Freigabe erfolgt anschließend manuell.</p>
+            <p class="hint-text">Der automatische Jamf-Unenroll entfernt die MDM-Verwaltung. Die ADE/ASM-Freigabe erfolgt anschließend automatisch über den Release Broker.</p>
         </div>
         <div class="header-actions">
             <div class="logo-actions">
@@ -2801,9 +3217,10 @@ tr:hover {
             <span class="bulk-status" id="bulkSelectionStatus">Keine Anträge ausgewählt</span>
             <button type="button" id="bulkJamfButton" class="button button-secondary" onclick="submitBulkAction('bulk_jamf_unenroll')" disabled>Jamf für Auswahl</button>
             <button type="button" id="bulkCopyButton" class="button button-secondary" onclick="copyBulkAsmList()" disabled>Liste kopieren</button>
-            <button type="button" id="bulkAsmButton" class="button button-secondary" onclick="submitBulkAction('bulk_asm_done')" disabled>ASM bestätigen</button>
+            <button type="button" id="bulkAsmButton" class="button button-secondary" onclick="submitBulkAction('bulk_asm_release')" disabled>ASM/ADE für Auswahl</button>
             <button type="button" id="bulkMailButton" class="button button-secondary" onclick="submitBulkAction('bulk_mail_send')" disabled>Mail für Auswahl</button>
         </div>
+        <div id="bulkWorkingMessage" class="bulk-working hidden" role="status" aria-live="polite"></div>
     <?php endif; ?>
 
     <div id="bulkAsmList" class="preview-card bulk-asm-list <?= $bulkAsmSerials ? '' : 'hidden' ?>">
@@ -2814,8 +3231,9 @@ tr:hover {
             </div>
             <button type="button" class="button button-secondary small-button" onclick="hideBulkAsmList()">Schließen</button>
         </div>
-        <textarea id="bulkAsmListText" class="bulk-list-textarea" data-server-list="<?= $bulkAsmSerials ? '1' : '0' ?>" readonly><?=htmlspecialchars(implode(', ', $bulkAsmSerials))?></textarea>
+        <textarea id="bulkAsmListText" class="bulk-list-textarea" data-server-list="<?= $bulkAsmSerials ? '1' : '0' ?>" data-auto-copy="<?= $bulkAsmSerials ? '1' : '0' ?>" readonly><?=htmlspecialchars(implode(', ', $bulkAsmSerials))?></textarea>
         <div class="editor-actions">
+            <span id="bulkCopyStatus" class="bulk-copy-status"></span>
             <button type="button" class="button button-primary" onclick="copyBulkAsmList()">Liste kopieren</button>
         </div>
     </div>
@@ -2859,6 +3277,57 @@ tr:hover {
         <div class="message error"><?=htmlspecialchars($caseError)?></div>
     <?php endif; ?>
 
+    <?php if ($asmReleasePreview && $asmReleaseRequest): ?>
+        <div class="preview-card asm-release-card">
+            <div class="preview-header">
+                <div>
+                    <h2>ASM/ADE-Freigabe</h2>
+                    <p class="preview-subtitle">
+                        <?=!empty($asmReleasePreview['dry_run']) ? 'Dry-Run' : 'Ausführung'?>
+                        für <?=htmlspecialchars((string) ($asmReleaseRequest['full_name'] ?? ''))?>
+                        · <?=htmlspecialchars(strtoupper((string) ($asmReleaseRequest['serial'] ?? '')))?>
+                    </p>
+                </div>
+            </div>
+            <div class="message <?=!empty($asmReleasePreview['success']) ? 'success' : 'error'?>">
+                <?=htmlspecialchars((string) ($asmReleasePreview['message'] ?? ''))?>
+            </div>
+            <div class="asm-release-steps">
+                <?php foreach (($asmReleasePreview['steps'] ?? []) as $step): ?>
+                    <?php
+                        $stepStatus = preg_replace('/[^a-z]/', '', (string) ($step['status'] ?? ''));
+                        if ($stepStatus === '') {
+                            $stepStatus = 'warning';
+                        }
+                    ?>
+                    <div class="asm-release-step <?=htmlspecialchars($stepStatus)?>">
+                        <strong><?=htmlspecialchars((string) ($step['label'] ?? 'Schritt'))?></strong>
+                        <span class="asm-release-step-detail"><?=htmlspecialchars((string) ($step['detail'] ?? ''))?></span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <?php if (!empty($asmReleasePreview['success']) && empty($asmReleasePreview['dry_run'])): ?>
+                <p class="preview-subtitle">Die Freigabe wurde abgeschlossen. Danach kann die Abschlussmail versendet werden.</p>
+            <?php elseif (!empty($asmReleasePreview['success'])): ?>
+                <div class="asm-release-actions">
+                    <form method="post">
+                        <input type="hidden" name="asm_release_confirm" value="<?=htmlspecialchars((string) ($asmReleaseRequest['id'] ?? 0))?>">
+                        <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                        <button type="submit" class="button button-primary">
+                            <?= $isDevMode ? 'Dry-Run erneut testen' : 'Jetzt ASM/ADE freigeben' ?>
+                        </button>
+                    </form>
+                    <form method="post" onsubmit="openAsmBeforeSubmit()">
+                        <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars((string) ($asmReleaseRequest['id'] ?? 0))?>">
+                        <input type="hidden" name="asm_serial" value="<?=htmlspecialchars((string) ($asmReleaseRequest['serial'] ?? ''))?>">
+                        <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                        <button type="submit" class="button button-secondary">Notfall-Abschluss</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
     <?php if ($canWrite): ?>
     <div id="templateEditor" class="preview-card hidden">
         <form method="post">
@@ -2897,6 +3366,7 @@ tr:hover {
                         $bulkAsmDone = !empty($row['asm_manual_done']);
                         $bulkIsHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
                         $bulkSelectable = $canWrite && !$bulkIsHistoryImport && !$bulkMailSent;
+                        $bulkKeepSelected = in_array((int) $row['id'], $bulkLastIds, true);
                         $openCaseCount = (int) ($row['open_case_count'] ?? 0);
                         $latestCaseId = (int) ($row['latest_case_id'] ?? 0);
                         $latestCaseStatus = (string) ($row['latest_case_status'] ?? 'offen');
@@ -2908,7 +3378,7 @@ tr:hover {
                         }
                         $rowSerial = strtoupper(trim((string) ($row['serial'] ?? '')));
                         $rowCases = $casesBySerial[$rowSerial] ?? [];
-                        $rowOpensCase = $canWrite && $filter === 'cases' && !empty($row['serial']);
+                        $rowOpensCase = false;
                     ?>
                 <tr class="request-row<?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
                     data-id="<?=htmlspecialchars($row['id'])?>"
@@ -2938,6 +3408,7 @@ tr:hover {
                                 data-serial="<?=htmlspecialchars($row['serial'])?>"
                                 data-jamf="<?=$bulkJamfDone ? '1' : '0'?>"
                                 data-asm="<?=$bulkAsmDone ? '1' : '0'?>"
+                                <?=$bulkKeepSelected ? 'checked' : ''?>
                                 aria-label="Antrag <?=htmlspecialchars($row['id'])?> auswählen">
                         <?php endif; ?>
                     </td>
@@ -2961,30 +3432,28 @@ tr:hover {
                             <?php endif; ?>
                     </td>
                     <td class="device-cell" data-label="Gerät">
-                        <div><?=htmlspecialchars($row['device_name'])?></div>
-                        <div class="serial-cell">
-                            <?php if ($canWrite && !empty($row['serial'])): ?>
-                                <button type="button"
-                                    class="serial-case-button"
-                                    data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
-                                    data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
-                                    data-serial="<?=htmlspecialchars($row['serial'])?>"
-                                    data-source="admin"
-                                    data-title="<?=htmlspecialchars((string) ($row['latest_case_title'] ?: $defaultCaseTitle))?>"
-                                    data-status="<?=htmlspecialchars($latestCaseStatus ?: 'offen')?>"
-                                    data-note="<?=htmlspecialchars((string) ($row['latest_case_note'] ?? ''))?>"
-                                    data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
-                                    data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
-                                    onclick="showDeviceCase(this)">
-                                    <?=htmlspecialchars($row['serial'])?>
-                                    <?php if ($openCaseCount > 0): ?>
-                                        <span class="case-badge"><?=htmlspecialchars((string) $openCaseCount)?></span>
-                                    <?php endif; ?>
-                                </button>
-                            <?php else: ?>
-                                <?=htmlspecialchars($row['serial'])?>
-                            <?php endif; ?>
-                        </div>
+                        <?php if ($canWrite && !empty($row['serial'])): ?>
+                            <button type="button"
+                                class="device-case-button"
+                                data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
+                                data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
+                                data-serial="<?=htmlspecialchars($row['serial'])?>"
+                                data-source="admin"
+                                data-title="<?=htmlspecialchars((string) ($row['latest_case_title'] ?: $defaultCaseTitle))?>"
+                                data-status="<?=htmlspecialchars($latestCaseStatus ?: 'offen')?>"
+                                data-note="<?=htmlspecialchars((string) ($row['latest_case_note'] ?? ''))?>"
+                                data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
+                                data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
+                                onclick="showDeviceCase(this)">
+                                <span class="device-case-label"><?=htmlspecialchars($row['device_name'])?></span>
+                                <?php if ($openCaseCount > 0): ?>
+                                    <span class="case-badge"><?=htmlspecialchars((string) $openCaseCount)?></span>
+                                <?php endif; ?>
+                            </button>
+                        <?php else: ?>
+                            <div><?=htmlspecialchars($row['device_name'])?></div>
+                        <?php endif; ?>
+                        <div class="serial-cell"><?=htmlspecialchars($row['serial'])?></div>
                         <?php if ($canWrite && count($rowCases) > 1): ?>
                             <div class="case-chip-list" aria-label="Klärfälle zu dieser Seriennummer">
                             <?php foreach ($rowCases as $caseIndex => $deviceCase): ?>
@@ -3015,7 +3484,9 @@ tr:hover {
                         <?php
                             $statusRaw = (string) ($row['status'] ?? '');
                             $status = trim(strtolower($statusRaw));
-                            $mailSent = !empty($row['mail_sent']);
+                            $mailState = (int) ($row['mail_sent'] ?? 0);
+                            $mailSent = $mailState !== 0;
+                            $mailFailed = $mailState === 2;
                             $jamfUnenrolled = !empty($row['jamf_unenrolled']);
                             $asmManualDone = !empty($row['asm_manual_done']);
                             $isHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
@@ -3029,7 +3500,7 @@ tr:hover {
                             <div class="process-step done"><span class="process-mark">✓</span><span>Antrag</span></div>
                             <div class="process-step <?= $jamfStepDone ? 'done' : '' ?>"><span class="process-mark"><?= $jamfStepDone ? '✓' : '○' ?></span><span>Jamf</span></div>
                             <div class="process-step <?= $asmStepDone ? 'done' : '' ?>"><span class="process-mark"><?= $asmStepDone ? '✓' : '○' ?></span><span>ASM</span></div>
-                            <div class="process-step <?= $mailStepDone ? 'done' : '' ?>"><span class="process-mark"><?= $mailStepDone ? '✓' : '○' ?></span><span>Mail</span></div>
+                            <div class="process-step <?= $mailFailed ? 'failed' : ($mailStepDone ? 'done' : '') ?>"><span class="process-mark"><?= $mailFailed ? '!' : ($mailStepDone ? '✓' : '○') ?></span><span>Mail</span></div>
                         </div>
                         <?php if ($isHistoryImport): ?>
                             <span class="history-import-badge">Import</span>
@@ -3043,6 +3514,30 @@ tr:hover {
                         </div>
                         <?php if (!$isHistoryImport && $mailSent && (!$jamfUnenrolled || !$asmManualDone)): ?>
                             <div class="process-warning">🟠 Mail vor Abschluss versendet</div>
+                        <?php endif; ?>
+                        <?php if (!$isHistoryImport && $mailFailed): ?>
+                            <div class="process-error">Mailversand fehlgeschlagen</div>
+                            <?php if (!empty($row['mail_sent_to'])): ?>
+                                <?php
+                                    $mailDeliveryText = (string) $row['mail_sent_to'];
+                                    $mailOkText = null;
+                                    $mailFailText = null;
+                                    if (preg_match('/(?:^|;\s*)OK:\s*([^;]+)/', $mailDeliveryText, $match)) {
+                                        $mailOkText = trim($match[1]);
+                                    }
+                                    if (preg_match('/(?:^|;\s*)FEHLER:\s*([^;]+)/', $mailDeliveryText, $match)) {
+                                        $mailFailText = trim($match[1]);
+                                    }
+                                ?>
+                                <?php if ($mailOkText !== null && $mailOkText !== ''): ?>
+                                    <div class="process-delivery-ok">OK: <?=htmlspecialchars($mailOkText)?></div>
+                                <?php endif; ?>
+                                <?php if ($mailFailText !== null && $mailFailText !== ''): ?>
+                                    <div class="process-delivery-error">FEHLER: <?=htmlspecialchars($mailFailText)?></div>
+                                <?php elseif ($mailOkText === null): ?>
+                                    <div class="process-error-detail"><?=htmlspecialchars($mailDeliveryText)?></div>
+                                <?php endif; ?>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </td>
                     <td class="action-cell" data-label="Aktion">
@@ -3061,11 +3556,16 @@ tr:hover {
                             <?php endif; ?>
 
                             <?php if ($canWrite && !$isHistoryImport && $jamfUnenrolled && !$asmManualDone): ?>
+                                <form method="post" class="action-form">
+                                    <input type="hidden" name="asm_release_preview" value="<?=htmlspecialchars($row['id'])?>">
+                                    <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                                    <button type="submit" class="button button-primary">ASM prüfen</button>
+                                </form>
                                 <form method="post" class="action-form" onsubmit="openAsmBeforeSubmit()">
                                     <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="asm_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                                    <button type="submit" class="button button-secondary">Manuell abschließen</button>
+                                    <button type="submit" class="button button-secondary">Notfall-Abschluss</button>
                                 </form>
                             <?php endif; ?>
 
@@ -3187,7 +3687,7 @@ tr:hover {
         <?php endif; ?>
     </div>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:admin@example.org">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>
@@ -3309,7 +3809,7 @@ function updateBulkSelectionStatus() {
             } else {
                 const stepLabels = {
                     jamf: 'Jamf',
-                    asm: 'ASM',
+                    asm: 'ASM/ADE',
                     mail: 'Mail'
                 };
                 status.textContent = selectedRows.length === 1
@@ -3317,7 +3817,7 @@ function updateBulkSelectionStatus() {
                     : `${selectedRows.length} Anträge ausgewählt · nächster Schritt: ${stepLabels[step]}`;
             }
         } else if (fallbackIds.length > 0) {
-            const fallbackLabel = fallbackStep === 'mail' ? 'Mail' : 'ASM';
+            const fallbackLabel = fallbackStep === 'mail' ? 'Mail' : 'ASM/ADE';
             status.textContent = fallbackIds.length === 1
                 ? `Letzte Bulk-Auswahl: 1 Antrag für ${fallbackLabel} bereit`
                 : `Letzte Bulk-Auswahl: ${fallbackIds.length} Anträge für ${fallbackLabel} bereit`;
@@ -3350,7 +3850,7 @@ function submitBulkAction(action) {
 
     const expectedActions = {
         jamf: 'bulk_jamf_unenroll',
-        asm: 'bulk_asm_done',
+        asm: 'bulk_asm_release',
         mail: 'bulk_mail_send'
     };
     if (selectedRows.length > 0 && expectedActions[step] !== action) {
@@ -3359,18 +3859,11 @@ function submitBulkAction(action) {
     }
 
     const fallbackActions = {
-        asm: 'bulk_asm_done',
+        asm: 'bulk_asm_release',
         mail: 'bulk_mail_send'
     };
     if (selectedRows.length === 0 && !(fallbackIds.length > 0 && fallbackActions[fallbackStep] === action)) {
         alert('Für diese Bulk-Aktion ist in der aktuellen Auswahl kein passender Antrag vorhanden.');
-        return;
-    }
-
-    if (action === 'bulk_asm_done') {
-        openAsmPortal();
-    }
-    if (action === 'bulk_mail_send' && !confirm(`${actionCount} vorbereitete Mail(s) jetzt senden?`)) {
         return;
     }
 
@@ -3388,7 +3881,28 @@ function submitBulkAction(action) {
     });
 
     document.getElementById('bulkActionInput').value = action;
-    document.getElementById('bulkActionForm').submit();
+    showBulkWorking(action, actionCount);
+    window.setTimeout(() => {
+        document.getElementById('bulkActionForm').submit();
+    }, 80);
+}
+
+function showBulkWorking(action, count) {
+    const message = document.getElementById('bulkWorkingMessage');
+    const texts = {
+        bulk_jamf_unenroll: `${count} Gerät(e) werden in Jamf abgemeldet. Bitte warten und die Seite nicht neu laden.`,
+        bulk_asm_release: `${count} Gerät(e) werden automatisch per ASM/ADE Release Broker freigegeben. Bitte warten und die Seite nicht neu laden.`,
+        bulk_mail_send: `${count} vorbereitete Mail(s) werden versendet. Bitte warten und die Seite nicht neu laden.`
+    };
+    if (message) {
+        message.textContent = texts[action] || 'Bulk-Aktion läuft. Bitte warten und die Seite nicht neu laden.';
+        message.classList.remove('hidden');
+        message.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    document.querySelectorAll('.bulk-toolbar button, .bulk-select, #selectAllRequests').forEach((element) => {
+        element.disabled = true;
+    });
 }
 
 function updateBulkAsmListFromSelection() {
@@ -3435,9 +3949,55 @@ function copyBulkAsmList() {
     }
     textarea.focus();
     textarea.select();
-    navigator.clipboard.writeText(textarea.value).catch(() => {
-        document.execCommand('copy');
-    });
+    copyTextToClipboard(textarea.value, true);
+}
+
+function setBulkCopyStatus(text) {
+    const status = document.getElementById('bulkCopyStatus');
+    if (status) {
+        status.textContent = text;
+    }
+}
+
+function autoCopyServerBulkAsmList() {
+    const textarea = document.getElementById('bulkAsmListText');
+    if (!textarea || textarea.dataset.autoCopy !== '1' || !textarea.value.trim()) {
+        return;
+    }
+
+    textarea.focus();
+    textarea.select();
+    copyTextToClipboard(textarea.value, true);
+    textarea.dataset.autoCopy = '0';
+}
+
+function copyTextToClipboard(text, showStatus) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                if (showStatus) {
+                    setBulkCopyStatus('Liste kopiert.');
+                }
+            })
+            .catch(() => {
+                if (document.execCommand('copy')) {
+                    if (showStatus) {
+                        setBulkCopyStatus('Liste kopiert.');
+                    }
+                } else if (showStatus) {
+                    setBulkCopyStatus('Liste bereit zum Kopieren.');
+                }
+            });
+        return;
+    }
+
+    if (document.execCommand('copy')) {
+        if (showStatus) {
+            setBulkCopyStatus('Liste kopiert.');
+        }
+    } else if (showStatus) {
+        setBulkCopyStatus('Liste bereit zum Kopieren.');
+    }
 }
 
 function toggleTemplateEditor() {
@@ -3522,7 +4082,8 @@ function showMailPreview(button) {
     schoolEmailInput.value = schoolEmail;
     sendPrivateEmail.checked = privateEmail !== '';
     sendPrivateEmail.disabled = privateEmail === '';
-    sendSchoolEmail.checked = privateEmail === '';
+    sendSchoolEmail.checked = schoolEmail !== '';
+    sendSchoolEmail.disabled = schoolEmail === '';
     document.getElementById('previewSubjectInput').value = mailSubject;
     document.getElementById('previewBodyInput').value = body;
     updateMailRecipients();
@@ -3605,6 +4166,7 @@ function hideMailPreview() {
 }
 
 updateBulkSelectionStatus();
+autoCopyServerBulkAsmList();
 </script>
 </body>
 </html>

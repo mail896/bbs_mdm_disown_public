@@ -153,7 +153,7 @@ function audit_url(array $params): string
 function audit_display_user(?string $value): string
 {
     $user = (string) $value;
-    return preg_replace('/@.+$/', '', $user) ?? $user;
+    return str_ends_with($user, '@bbs-einbeck.de') ? substr($user, 0, -strlen('@bbs-einbeck.de')) : $user;
 }
 
 function audit_normalize_admin_user(?string $value): string
@@ -163,7 +163,13 @@ function audit_normalize_admin_user(?string $value): string
         return 'unbekannt';
     }
 
-    return audit_display_user($user);
+    $shortUser = audit_display_user($user);
+    $aliases = [
+        'marc' => 'marc.schulz',
+        'arthur' => 'arthur.steblov',
+    ];
+
+    return $aliases[$shortUser] ?? $shortUser;
 }
 
 function audit_display_action(?string $value): string
@@ -180,8 +186,17 @@ function audit_display_action(?string $value): string
         'BULK_JAMF_UNENROLL_SUCCESS' => 'Bulk Jamf',
         'BULK_JAMF_UNENROLL_FAILED' => 'Bulk Jamf Fehler',
         'BULK_ASM_DONE' => 'Bulk ASM',
+        'BULK_ASM_SERIAL_LIST' => 'Bulk Serienliste',
+        'BULK_ASM_BROKER_RELEASE_SUCCESS' => 'Bulk ASM/ADE',
+        'BULK_ASM_BROKER_RELEASE_DRYRUN' => 'Bulk ASM/ADE DEV',
+        'BULK_ASM_BROKER_RELEASE_FAILED' => 'Bulk ASM/ADE Fehler',
+        'BULK_ASM_BROKER_RELEASE_SUMMARY' => 'Bulk ASM/ADE Liste',
         'BULK_MAIL_SENT' => 'Bulk Mail',
         'BULK_MAIL_SENT_DEV' => 'Bulk Mail DEV',
+        'MAIL_FAILED_COMPLETED' => 'Mail Fehler',
+        'MAIL_PARTIAL_FAILED_COMPLETED' => 'Mail Teilfehler',
+        'BULK_MAIL_FAILED_COMPLETED' => 'Bulk Mail Fehler',
+        'BULK_MAIL_PARTIAL_FAILED_COMPLETED' => 'Bulk Mail Teilfehler',
         'TEMPLATE_UPDATED' => 'Vorlage',
     ];
 

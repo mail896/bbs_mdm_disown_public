@@ -1,232 +1,181 @@
-# Installation
+# Installation and Operation
 
-This guide describes a fresh installation on your own server. It intentionally
-uses generic placeholders. Real credentials, school names, domains, serial
-numbers, and personal data must not be committed.
+This guide describes the runtime requirements for DISOWN version 2.0.
 
-## Requirements
+## 1. Requirements
 
-- Apache or another PHP-capable web server
-- PHP 8.1 or newer
-- PHP extensions: `mysqli`, `curl`, `json`, `openssl`, `mbstring`
-- MariaDB or MySQL
-- Composer
-- shell access for cron jobs and file permissions
-- IServ/OpenID Connect client for the admin area
-- Jamf School API access
-- Apple School Manager API access for ADE enrollments
-- SMTP access for completion and admin notification mails
+- Debian/Apache with PHP 8.x.
+- MariaDB or MySQL.
+- PHP extensions: `mysqli`, `curl`, `json`, `openssl`.
+- Web-server write access to required runtime/log paths.
+- Jamf School API access for device lookup and Jamf unenroll.
+- Apple School Manager API account for device lookup and MDM service assignment.
+- Apple School Manager Device Management Service for the release broker with device release permission enabled.
+- NanoDEP `v0.7.0` or compatible for ADE/DEP API access.
+- `systemd`, `curl`, `openssl`, `jq` for setup and diagnostics.
 
-## Layout
+## 2. Directories
 
-Recommended separation:
+Recommended layout:
 
 ```text
-/var/www/example.org/disown        application code
-/etc/disown/*.conf                 runtime secrets and local config
-/var/lib/disown                    state files, for example notify state
-/var/log/disown                    cron logs
+/var/www/sicher.bbs-einbeck.de/disown          # production
+/var/www/sicher.bbs-einbeck.de/disown-dev      # development
+/srv/protected/disown                          # protected app data, if needed
+/srv/protected/asm-release-broker              # NanoDEP token, key, DB
+/etc/disown                                    # runtime configuration
 ```
 
-The repository contains only example configuration files in
-`config/*.example.conf`. Real config files live outside the webroot.
+`/srv/protected` and `/etc/disown` must not be reachable through the web server.
 
-## 1. Deploy Code
+## 3. Application Configuration
 
-```bash
-cd /var/www/example.org
-git clone https://github.com/example/bbs_mdm_disown_public.git disown
-cd disown
-composer install --no-dev --optimize-autoloader
-```
-
-For a development system:
-
-```bash
-cd /var/www/example.org
-git clone https://github.com/example/bbs_mdm_disown_public.git disown-dev
-cd disown-dev
-composer install --no-dev --optimize-autoloader
-```
-
-The directory name `disown-dev` enables development mode. Jamf unenroll and
-mail delivery are simulated there.
-
-## 1a. Web Clip URL
-
-The default setup uses one shared Web Clip for all iPads. The MDM/Jamf expands the serial number variable in the URL:
+Runtime configuration lives outside the repository. Typical files:
 
 ```text
-https://example.org/disown/?serial=%SerialNumber%
-```
-
-For a development system:
-
-```text
-https://example.org/disown-dev/?serial=%SerialNumber%
-```
-
-The optional token feature is available, but it is not enforced for this mass-deployable default Web Clip. Keep `REQUIRE_SERIAL_TOKEN=0` for this setup.
-
-## 2. Run The Setup Helper
-
-The helper does not write to `/etc`. It creates reviewable runtime config files
-in `generated-config/` and prints the next commands.
-
-```bash
-./scripts/install.sh
-```
-
-Review the generated files before copying them to `/etc/disown`.
-
-## 3. Runtime Config
-
-Minimum files:
-
-```text
-/etc/disown/app.conf
 /etc/disown/db.conf
-/etc/disown/mail.conf
 /etc/disown/jamf.conf
-/etc/disown/notify.conf
-/etc/disown/oidc.conf
+/etc/disown/asm-api.conf
+/etc/disown/asm-release-broker.conf
 ```
 
-For a separate development OIDC client:
+Public and example configurations only contain placeholders. Never commit secrets.
+
+## 4. ASM/ADE Release Broker
+
+Version 2.0 automates the Apple release in two steps:
+
+1. The Apple School Manager Public API assigns exactly one device to the release-broker MDM service.
+2. NanoDEP performs the ADE/DEP disown call for this broker.
+
+### 4.1 Create the Release Broker in ASM
+
+1. Create a new Device Management Service in Apple School Manager, e.g. `asm-release-broker`.
+2. Upload a dedicated certificate/public key.
+3. Enable `Allow this device management service to release devices`.
+4. Download the service token.
+5. Store the token and private key below `/srv/protected/asm-release-broker`.
+
+Example files:
 
 ```text
-/etc/disown/oidc-dev.conf
+/srv/protected/asm-release-broker/asm-release-broker.key
+/srv/protected/asm-release-broker/asm-release-broker-public.pem
+/srv/protected/asm-release-broker/asm-release-broker-token.p7m
+/srv/protected/asm-release-broker/nanodep-api.key
+/srv/protected/asm-release-broker/nanodep-db/
 ```
 
-For ADE enrollments:
-
-```text
-/etc/disown/asm.conf
-/etc/disown/asm-jwt.py
-/etc/disown/asm-private-key.pem
-```
-
-Recommended permissions:
+Permissions should be restrictive:
 
 ```bash
-chown -R root:root /etc/disown
-chmod 750 /etc/disown
-chmod 640 /etc/disown/*.conf
-setfacl -m u:www-data:r /etc/disown/*.conf
-setfacl -m u:www-data:rx /etc/disown/asm-jwt.py
+chmod 700 /srv/protected/asm-release-broker
+chmod 600 /srv/protected/asm-release-broker/*.key
+chmod 600 /srv/protected/asm-release-broker/nanodep-api.key
 ```
 
-## 4. Database
+### 4.2 Prepare NanoDEP
 
-Example:
-
-```sql
-CREATE DATABASE disown CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'disown_app'@'localhost' IDENTIFIED BY 'change-me';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX ON disown.* TO 'disown_app'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-Run the available migrations:
-
-```bash
-php migrate_add_new_workflow_columns.php
-php migrations/20260613_create_ade_enrollments.php
-php migrations/20260613_add_jamf_state_to_ade_enrollments.php
-```
-
-A matching base `requests` table must exist before these migrations are useful.
-If you migrate from an existing local deployment, import the database dump first.
-
-## 5. IServ/OIDC
-
-Recommended settings:
-
-- Grant type: `Authorization code`
-- Scopes: `openid`, `email`, `profile`, `iserv:roles`, optional `iserv:uuid`
-- Redirect URIs:
+NanoDEP may be staged locally, for example:
 
 ```text
-https://example.org/disown/oidc_callback.php
-https://example.org/disown-dev/oidc_callback.php
+/tmp/nanodep-test/nanodep-linux-amd64-v0.7.0
 ```
 
-Example roles:
+Import the ASM token once into the NanoDEP storage. Depending on the token format, the `.p7m` file downloaded from ASM can be processed directly. If ASM provides an S/MIME file with headers, use `openssl smime -decrypt` without `-inform DER`.
 
-```ini
-OIDC_ALLOWED_ROLES="MDM_ADMINS,ROLE_MDM_ADMINS"
-OIDC_VIEWER_ROLES="MDM_VIEWERS"
-```
-
-IServ may emit roles with a `ROLE_` prefix in the token. Add admin and viewer
-roles in both forms when needed.
-
-Viewer users can read, filter, and export. Write actions are blocked server-side.
-
-The application expects a signed OIDC `id_token` and verifies its signature via
-the `jwks_uri` from the provider metadata. The IServ provider must support
-`id_token_signing_alg_values_supported` with `RS256`.
-
-## 5a. Prepare Web Clip Tokens
-
-The student page can validate signed Web Clip URLs:
-
-```text
-https://example.org/disown/?serial=SERIAL&token=TOKEN
-```
-
-The token is calculated from the serial number and `SERIAL_TOKEN_SECRET`. Safe
-rollout:
-
-1. Create `/etc/disown/app.conf` with a strong `SERIAL_TOKEN_SECRET`.
-2. Keep `REQUIRE_SERIAL_TOKEN=0` while old Web Clips still only pass `serial=...`.
-3. Deploy new Web Clips with `token=...`.
-4. Only then set `REQUIRE_SERIAL_TOKEN=1`.
-
-Generate a token for one serial number:
+After import, this check must work:
 
 ```bash
-php scripts/generate_webclip_token.php C02EXAMPLESN
+curl -sS http://127.0.0.1:9001/version
 ```
 
-## 6. Web Server Protection
+### 4.3 Install the systemd Service
 
-These paths must not be directly reachable from the web:
-
-```text
-.git
-.codex
-.agents
-config
-vendor
-templates
-generated-config
-scripts
-```
-
-Either enable the provided `.htaccess` protections or configure equivalent
-rules in your VirtualHost.
-
-## 7. Cron Jobs
-
-Admin notifications:
-
-```cron
-30 7,13 * * 1-5 www-data /usr/bin/php /var/www/example.org/disown/notify_admins.php >> /var/log/disown/notify.log 2>&1
-```
-
-ADE sync:
-
-```cron
-17 7,13 * * * www-data /usr/bin/php /var/www/example.org/disown-dev/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync-dev.log 2>&1
-29 7,13 * * * www-data /usr/bin/php /var/www/example.org/disown/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync-prod.log 2>&1
-```
-
-## 8. Check
+The repository contains the installer:
 
 ```bash
-php scripts/check_requirements.php
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-service.sh
 ```
 
-The check validates PHP, extensions, Composer dependencies, runtime config,
-database connection, and important paths.
+The service:
+
+- is named `disown-nanodep.service`
+- runs as `www-data`
+- listens only on `127.0.0.1:9001`
+- uses `/srv/protected/asm-release-broker/nanodep-db`
+- reads the API key from `/srv/protected/asm-release-broker/nanodep-api.key`
+
+Check:
+
+```bash
+systemctl status disown-nanodep.service --no-pager
+curl -sS http://127.0.0.1:9001/version
+```
+
+### 4.4 App Configuration
+
+Template:
+
+```text
+config/asm-release-broker.example.conf
+```
+
+Copy it to `/etc/disown/asm-release-broker.conf` and set:
+
+```bash
+ASM_JAMF_MDM_SERVER_ID="..."
+ASM_BROKER_MDM_SERVER_ID="..."
+ASM_BROKER_DEP_BASE_URL="http://127.0.0.1:9001"
+ASM_BROKER_DEP_NAME="asm-release-broker"
+ASM_BROKER_DEP_API_KEY_FILE="/srv/protected/asm-release-broker/nanodep-api.key"
+```
+
+The MDM server IDs come from the Apple School Manager API (`mdmServers`). The tool only assigns the concrete device currently being processed to the broker, never the full fleet.
+
+## 5. Database
+
+The application stores:
+
+- requests
+- audit log entries
+- KUK devices and local owner history
+- clarification cases
+- workflow and mail status
+
+Always create a database backup before production changes.
+
+## 6. Testing
+
+Recommended order:
+
+1. Open DEV and test with demo data.
+2. Test Jamf unenroll in DEV dry-run mode.
+3. Test ASM/ADE in DEV dry-run mode.
+4. Check the local NanoDEP service.
+5. Use exactly one production test device.
+6. Verify:
+   - Jamf unenroll succeeded.
+   - ASM/ADE release succeeded.
+   - ASM shows `Date Removed from Organization`.
+   - Audit log contains all steps.
+   - Mail status is green or red on partial failure.
+
+## 7. Operations
+
+- Create code and DB backups before larger changes.
+- Monitor the NanoDEP service.
+- Track expiration of broker token and ASM API credentials.
+- Only publish sanitized files to the public repository.
+- Do not publish `PROJECT_STATE.*`.
+
+## 8. Rollback
+
+If something goes wrong:
+
+1. Restore the web application from backup.
+2. Restore the DB backup.
+3. Run `systemctl stop disown-nanodep.service` if the broker should be isolated.
+4. Review affected requests in the audit log.
+
+Devices already released through ADE/DEP cannot be automatically returned to the organization. They must be re-added through Apple Configurator or the ASM intake process.

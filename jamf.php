@@ -146,8 +146,23 @@ function jamf_device_has_apple_id_risk(array $device): bool
         || jamf_truthy($device['itunes_store_logged_in'] ?? $device['iTunesStoreLoggedIn'] ?? null);
 }
 
+function jamf_device_is_school_loan_exception(array $device): bool
+{
+    $serial = strtoupper(trim((string) ($device['serial'] ?? $device['serialNumber'] ?? '')));
+    if (in_array($serial, ['FFKDP0VBMF3M', 'F9FZMUJFMF3M'], true)) {
+        return true;
+    }
+
+    $assetTag = strtoupper(trim((string) ($device['asset_tag'] ?? $device['assetTag'] ?? '')));
+    return in_array($assetTag, ['BBS #126', 'BBS #024'], true);
+}
+
 function jamf_device_is_school_loan(array $device): bool
 {
+    if (jamf_device_is_school_loan_exception($device)) {
+        return false;
+    }
+
     $assetTag = strtoupper(trim((string) ($device['asset_tag'] ?? $device['assetTag'] ?? '')));
     if ($assetTag !== '' && strpos($assetTag, 'BBS') !== false) {
         return true;
@@ -170,6 +185,10 @@ function jamf_device_is_school_loan(array $device): bool
 
 function jamf_school_loan_reasons(array $device): array
 {
+    if (jamf_device_is_school_loan_exception($device)) {
+        return [];
+    }
+
     $reasons = [];
     $assetTag = trim((string) ($device['asset_tag'] ?? $device['assetTag'] ?? ''));
     if ($assetTag !== '' && stripos($assetTag, 'BBS') !== false) {
