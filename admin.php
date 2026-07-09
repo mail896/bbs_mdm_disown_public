@@ -13,6 +13,8 @@ $disownMessage = '';
 $disownError = '';
 $bulkMessage = '';
 $bulkError = '';
+$caseMessage = '';
+$caseError = '';
 $bulkAsmSerials = [];
 $bulkLastIds = [];
 $bulkLastStep = '';
@@ -33,14 +35,7 @@ $logoPath = $appBasePath . '/logo.png';
 $jamfLogoPath = $appBasePath . '/logo_jamf.png';
 $asmLogoPath = $appBasePath . '/logo_asm.png';
 $siteImagePath = $appBasePath . '/images/Site-Image.png';
-$jamfLicenseBaseline = [
-    'taken_at' => '2026-01-01 00:00:00',
-    'recurring_total' => 1000,
-    'recurring_used' => 0,
-    'perpetual_total' => 0,
-    'perpetual_used' => 0,
-];
-$validFilters = ['open', 'scheduled', 'done', 'all'];
+$validFilters = ['open', 'scheduled', 'done', 'all', 'cases'];
 $filter = (string) ($_GET['filter'] ?? 'open');
 if (!in_array($filter, $validFilters, true)) {
     $filter = 'open';
@@ -50,6 +45,14 @@ $filterLabels = [
     'scheduled' => 'Terminiert',
     'done' => 'Erledigt',
     'all' => 'Alle',
+    'cases' => 'Klärfälle',
+];
+$jamfLicenseBaseline = [
+    'taken_at' => '2026-01-01 00:00:00',
+    'recurring_total' => 1000,
+    'recurring_used' => 0,
+    'perpetual_total' => 0,
+    'perpetual_used' => 0,
 ];
 $searchTerm = trim((string) ($_GET['q'] ?? ''));
 $perPage = 25;
@@ -73,6 +76,12 @@ if ($filter === 'open') {
     $whereParts[] = $scheduledCondition;
 } elseif ($filter === 'done') {
     $whereParts[] = $doneCondition;
+} elseif ($filter === 'cases') {
+    $whereParts[] = "EXISTS (
+        SELECT 1
+        FROM device_cases dc_filter
+        WHERE dc_filter.serial = requests.serial
+    )";
 }
 
 if ($searchTerm !== '') {
@@ -228,6 +237,8 @@ function load_jamf_license_dashboard(mysqli $mysqli, array $baseline): array
         'recurring_free_estimated' => max(0, (int) $baseline['recurring_total'] - (int) $baseline['recurring_used']),
         'trash_confirmed' => 0,
         'waiting_for_trash' => 0,
+        'waiting_serials' => [],
+        'trash_confirmed_serials' => [],
         'trash_total' => null,
     ];
 
@@ -267,8 +278,10 @@ function load_jamf_license_dashboard(mysqli $mysqli, array $baseline): array
         foreach (array_keys($localSerials) as $serial) {
             if (isset($trashSerials[$serial])) {
                 $stats['trash_confirmed']++;
+                $stats['trash_confirmed_serials'][] = $serial;
             } else {
                 $stats['waiting_for_trash']++;
+                $stats['waiting_serials'][] = $serial;
             }
         }
 
@@ -280,6 +293,20 @@ function load_jamf_license_dashboard(mysqli $mysqli, array $baseline): array
     }
 
     return $stats;
+}
+
+function normalize_device_case_status(string $status): string
+{
+    $status = trim($status);
+    return $status === 'geklaert' ? 'geklaert' : 'offen';
+}
+
+function display_device_case_status(string $status): string
+{
+    return match ($status) {
+        'geklaert' => 'geklärt',
+        default => 'offen',
+    };
 }
 
 if (empty($_SESSION['csrf_token'])) {
@@ -331,6 +358,104 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             log_request_action($mysqli, 0, 'TEMPLATE_UPDATED', 'Mailvorlage aktualisiert.');
             $templateMessage = 'Vorlage erfolgreich gespeichert.';
+        }
+    }
+
+    if (isset($_POST['save_device_case'])) {
+        $caseId = (int) ($_POST['case_id'] ?? 0);
+        $caseRequestId = (int) ($_POST['case_request_id'] ?? 0);
+        $caseSerial = strtoupper(trim((string) ($_POST['case_serial'] ?? '')));
+        $caseSource = trim((string) ($_POST['case_source'] ?? 'admin'));
+        $caseTitle = trim((string) ($_POST['case_title'] ?? ''));
+        $caseStatus = normalize_device_case_status((string) ($_POST['case_status'] ?? 'offen'));
+        $caseNote = trim((string) ($_POST['case_note'] ?? ''));
+        $caseResolutionNote = trim((string) ($_POST['case_resolution_note'] ?? ''));
+        $caseSource = in_array($caseSource, ['admin', 'license-dashboard'], true) ? $caseSource : 'admin';
+        $caseUpdatedBy = $currentAdminUser !== '' ? $currentAdminUser : 'admin';
+        $caseRequestIdOrNull = $caseRequestId > 0 ? $caseRequestId : null;
+
+        if ($caseSerial === '' || $caseTitle === '') {
+            $caseError = 'Seriennummer und Titel sind für einen Klärfall erforderlich.';
+        } elseif ($caseId > 0) {
+            $sql = "UPDATE device_cases
+                    SET serial = ?,
+                        request_id = ?,
+                        source = ?,
+                        title = ?,
+                        status = ?,
+                        note = ?,
+                        resolution_note = ?,
+                        updated_by = ?,
+                        closed_by = CASE WHEN ? = 'geklaert' THEN ? ELSE NULL END,
+                        closed_at = CASE WHEN ? = 'geklaert' THEN COALESCE(closed_at, NOW()) ELSE NULL END
+                    WHERE id = ?";
+            $stmt = $mysqli->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param(
+                    'sisssssssssi',
+                    $caseSerial,
+                    $caseRequestIdOrNull,
+                    $caseSource,
+                    $caseTitle,
+                    $caseStatus,
+                    $caseNote,
+                    $caseResolutionNote,
+                    $caseUpdatedBy,
+                    $caseStatus,
+                    $caseUpdatedBy,
+                    $caseStatus,
+                    $caseId
+                );
+                if ($stmt->execute()) {
+                    $caseMessage = 'Klärfall aktualisiert.';
+                } else {
+                    $caseError = 'Klärfall konnte nicht gespeichert werden.';
+                }
+                $stmt->close();
+            } else {
+                $caseError = 'Klärfall konnte nicht vorbereitet werden.';
+            }
+        } else {
+            $sql = "INSERT INTO device_cases
+                        (serial, request_id, source, title, status, note, resolution_note, created_by, updated_by, closed_by, closed_at)
+                    VALUES
+                        (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'geklaert' THEN ? ELSE NULL END, CASE WHEN ? = 'geklaert' THEN NOW() ELSE NULL END)";
+            $stmt = $mysqli->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param(
+                    'sissssssssss',
+                    $caseSerial,
+                    $caseRequestIdOrNull,
+                    $caseSource,
+                    $caseTitle,
+                    $caseStatus,
+                    $caseNote,
+                    $caseResolutionNote,
+                    $caseUpdatedBy,
+                    $caseUpdatedBy,
+                    $caseStatus,
+                    $caseUpdatedBy,
+                    $caseStatus
+                );
+                if ($stmt->execute()) {
+                    $caseMessage = 'Klärfall angelegt.';
+                    $caseId = (int) $mysqli->insert_id;
+                } else {
+                    $caseError = 'Klärfall konnte nicht angelegt werden.';
+                }
+                $stmt->close();
+            } else {
+                $caseError = 'Klärfall konnte nicht vorbereitet werden.';
+            }
+        }
+
+        if ($caseError === '' && $caseRequestIdOrNull !== null) {
+            log_request_action(
+                $mysqli,
+                $caseRequestIdOrNull,
+                'DEVICE_CASE_SAVED',
+                'Seriennummer: ' . $caseSerial . '; Klärfall: ' . $caseTitle . '; Status: ' . display_device_case_status($caseStatus)
+            );
         }
     }
 
@@ -963,6 +1088,11 @@ function format_duration_seconds($seconds): string
 $avgAdminProcessingText = format_duration_seconds($dashboard['avg_admin_processing_seconds']);
 $avgStudentResponseText = format_duration_seconds($dashboard['avg_student_response_seconds']);
 $jamfLicenseDashboard = load_jamf_license_dashboard($mysqli, $jamfLicenseBaseline);
+$openDeviceCaseCount = 0;
+$openCaseResult = $mysqli->query("SELECT COUNT(*) AS total FROM device_cases WHERE status <> 'geklaert'");
+if ($openCaseResult) {
+    $openDeviceCaseCount = (int) (($openCaseResult->fetch_assoc()['total'] ?? 0));
+}
 
 $countStmt = $mysqli->prepare("SELECT COUNT(*) AS total FROM requests {$whereSql}");
 if (!$countStmt) {
@@ -1084,6 +1214,54 @@ $result = $mysqli->prepare(
          mail_sent_at,
          mail_sent_to,
          completed_by,
+         (
+             SELECT COUNT(*)
+             FROM device_cases dc_open
+             WHERE dc_open.serial = requests.serial
+               AND dc_open.status <> 'geklaert'
+         ) AS open_case_count,
+         (
+             SELECT dc_latest.id
+             FROM device_cases dc_latest
+             WHERE dc_latest.serial = requests.serial
+             ORDER BY FIELD(dc_latest.status, 'offen', 'geklaert'), dc_latest.updated_at DESC, dc_latest.id DESC
+             LIMIT 1
+         ) AS latest_case_id,
+         (
+             SELECT dc_latest.title
+             FROM device_cases dc_latest
+             WHERE dc_latest.serial = requests.serial
+             ORDER BY FIELD(dc_latest.status, 'offen', 'geklaert'), dc_latest.updated_at DESC, dc_latest.id DESC
+             LIMIT 1
+         ) AS latest_case_title,
+         (
+             SELECT dc_latest.status
+             FROM device_cases dc_latest
+             WHERE dc_latest.serial = requests.serial
+             ORDER BY FIELD(dc_latest.status, 'offen', 'geklaert'), dc_latest.updated_at DESC, dc_latest.id DESC
+             LIMIT 1
+         ) AS latest_case_status,
+         (
+             SELECT dc_latest.note
+             FROM device_cases dc_latest
+             WHERE dc_latest.serial = requests.serial
+             ORDER BY FIELD(dc_latest.status, 'offen', 'geklaert'), dc_latest.updated_at DESC, dc_latest.id DESC
+             LIMIT 1
+         ) AS latest_case_note,
+         (
+             SELECT dc_latest.resolution_note
+             FROM device_cases dc_latest
+             WHERE dc_latest.serial = requests.serial
+             ORDER BY FIELD(dc_latest.status, 'offen', 'geklaert'), dc_latest.updated_at DESC, dc_latest.id DESC
+             LIMIT 1
+         ) AS latest_case_resolution_note,
+         (
+             SELECT dc_latest.updated_at
+             FROM device_cases dc_latest
+             WHERE dc_latest.serial = requests.serial
+             ORDER BY FIELD(dc_latest.status, 'offen', 'geklaert'), dc_latest.updated_at DESC, dc_latest.id DESC
+             LIMIT 1
+         ) AS latest_case_updated_at,
          (
              SELECT ral.admin_user
              FROM request_audit_log ral
@@ -1291,17 +1469,45 @@ table {
     margin-bottom: 18px;
 }
 .search-label {
-    font-weight: 600;
     color: #334155;
+    font-weight: 700;
 }
-.search-input {
+.search-field {
     flex: 1 1 320px;
     min-width: 220px;
-    padding: 12px 14px;
-    border: 1px solid #cbd5e1;
-    border-radius: 12px;
+    position: relative;
+}
+.search-input {
     background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
     color: #0f172a;
+    font: inherit;
+    min-height: 44px;
+    padding: 0.65rem 2.6rem 0.65rem 0.85rem;
+    width: 100%;
+}
+.clear-search {
+    align-items: center;
+    background: #e2e8f0;
+    border-radius: 999px;
+    color: #334155;
+    display: inline-flex;
+    font-size: 1.2rem;
+    font-weight: 800;
+    height: 28px;
+    justify-content: center;
+    line-height: 1;
+    position: absolute;
+    right: 8px;
+    text-decoration: none;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+}
+.clear-search:hover {
+    background: #cbd5e1;
+    text-decoration: none;
 }
 .dashboard {
     background: #ffffff;
@@ -1538,6 +1744,51 @@ table {
     border: 1px solid #e2e8f0;
     border-radius: 18px;
 }
+.case-card {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+}
+.case-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr;
+}
+.case-meta {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin: 0 0 8px;
+}
+.case-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.case-field-full {
+    grid-column: 1 / -1;
+}
+.case-input,
+.case-select,
+.case-textarea {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    color: #111827;
+    font: inherit;
+    padding: 0.55rem 0.7rem;
+}
+.case-textarea {
+    min-height: 92px;
+    resize: vertical;
+}
+.case-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
 .preview-header {
     display: flex;
     justify-content: space-between;
@@ -1640,6 +1891,15 @@ th {
 }
 tr:hover {
     background: #f8fafc;
+}
+.case-row-clickable {
+    cursor: pointer;
+}
+.case-row-clickable:hover {
+    background: #fffbeb;
+}
+.case-row-clickable .serial-case-button {
+    text-decoration-color: #fbbf24;
 }
 .nowrap-cell,
 .email-cell a,
@@ -1760,6 +2020,37 @@ tr:hover {
     font-size: 0.95rem;
     color: #475569;
     margin-top: 4px;
+}
+.serial-case-button,
+.license-case-button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    gap: 0.35rem;
+    padding: 0;
+    text-decoration: underline;
+    text-decoration-color: #cbd5e1;
+    text-underline-offset: 3px;
+}
+.serial-case-button:hover,
+.license-case-button:hover {
+    color: #2563eb;
+    text-decoration-color: currentColor;
+}
+.case-badge {
+    background: #fef3c7;
+    border-radius: 999px;
+    color: #92400e;
+    display: inline-flex;
+    font-family: Inter, Arial, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.2rem 0.38rem;
 }
 .device-cell {
     word-break: break-word;
@@ -1989,8 +2280,11 @@ tr:hover {
         padding-bottom: 12px;
     }
     .request-trend-chart {
-        grid-template-columns: repeat(12, minmax(34px, 1fr));
-        min-width: 520px;
+        grid-template-columns: repeat(12, minmax(58px, 1fr));
+        min-width: 760px;
+    }
+    .case-grid {
+        grid-template-columns: 1fr;
     }
 }
 @media (max-width: 640px) {
@@ -2040,7 +2334,7 @@ tr:hover {
     .search-input {
         flex-basis: auto;
         min-height: 42px;
-        padding: 9px 12px;
+        padding: 9px 2.6rem 9px 12px;
     }
     .search-toolbar button[type="submit"] {
         min-height: 42px;
@@ -2258,7 +2552,12 @@ tr:hover {
         <input type="hidden" name="filter" value="<?=htmlspecialchars($filter)?>">
         <input type="hidden" name="page" value="1">
         <label for="searchInput" class="search-label">Suche</label>
-        <input id="searchInput" name="q" type="search" class="search-input" placeholder="Name, Klasse, IServ-Benutzer, E-Mail oder Seriennummer" value="<?=htmlspecialchars($searchTerm)?>">
+        <div class="search-field">
+            <input id="searchInput" name="q" type="search" class="search-input" placeholder="Name, Klasse, IServ-Benutzer, E-Mail oder Seriennummer" value="<?=htmlspecialchars($searchTerm)?>" autocomplete="off">
+            <?php if ($searchTerm !== ''): ?>
+                <a class="clear-search" href="<?=htmlspecialchars(admin_url(['q' => '', 'page' => 1, 'live' => null, 'export' => null]))?>" aria-label="Suche löschen">×</a>
+            <?php endif; ?>
+        </div>
         <button type="submit" class="button button-secondary">Suchen</button>
         <?php if ($canWrite): ?>
             <button type="button" class="button button-secondary" onclick="toggleTemplateEditor()">Vorlage bearbeiten</button>
@@ -2276,6 +2575,7 @@ tr:hover {
         <a class="button filter-link <?= $filter === 'scheduled' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'scheduled', 'page' => 1, 'export' => null]))?>">Terminiert</a>
         <a class="button filter-link <?= $filter === 'done' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'done', 'page' => 1, 'export' => null]))?>">Erledigt</a>
         <a class="button filter-link <?= $filter === 'all' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'all', 'page' => 1, 'export' => null]))?>">Alle</a>
+        <a class="button filter-link <?= $filter === 'cases' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'cases', 'page' => 1, 'export' => null]))?>">Klärfälle (<?=htmlspecialchars((string) $openDeviceCaseCount)?> offen)</a>
     </div>
 
     <div class="dashboard" aria-label="Statistik">
@@ -2317,7 +2617,24 @@ tr:hover {
             <span class="license-dashboard-item">Recurring <span class="license-dashboard-value"><?=htmlspecialchars((string) $jamfLicenseDashboard['recurring_used_estimated'])?> / <?=htmlspecialchars((string) $jamfLicenseDashboard['recurring_total'])?></span> belegt</span>
             <span class="license-dashboard-item">frei <span class="license-dashboard-value license-dashboard-free"><?=htmlspecialchars((string) $jamfLicenseDashboard['recurring_free_estimated'])?></span></span>
             <span class="license-dashboard-item">seit Baseline im Trash <span class="license-dashboard-value"><?=htmlspecialchars((string) $jamfLicenseDashboard['trash_confirmed'])?></span></span>
-            <span class="license-dashboard-item">wartet auf Trash <span class="license-dashboard-value <?= (int) $jamfLicenseDashboard['waiting_for_trash'] > 0 ? 'license-dashboard-warn' : '' ?>"><?=htmlspecialchars((string) $jamfLicenseDashboard['waiting_for_trash'])?></span></span>
+            <span class="license-dashboard-item">wartet auf Trash
+                <?php if ((int) $jamfLicenseDashboard['waiting_for_trash'] > 0 && !empty($jamfLicenseDashboard['waiting_serials'])): ?>
+                    <button type="button"
+                        class="license-case-button license-dashboard-value license-dashboard-warn"
+                        title="<?=htmlspecialchars(implode(', ', $jamfLicenseDashboard['waiting_serials']))?>"
+                        data-case-id=""
+                        data-request-id="0"
+                        data-serial="<?=htmlspecialchars((string) $jamfLicenseDashboard['waiting_serials'][0])?>"
+                        data-source="license-dashboard"
+                        data-title="Wartet auf Jamf Trash"
+                        data-status="offen"
+                        data-note="Lokaler Workflow ist erledigt, das Gerät steht aber noch nicht im Jamf-Trash."
+                        data-resolution-note=""
+                        onclick="showDeviceCase(this)"><?=htmlspecialchars((string) $jamfLicenseDashboard['waiting_for_trash'])?></button>
+                <?php else: ?>
+                    <span class="license-dashboard-value"><?=htmlspecialchars((string) $jamfLicenseDashboard['waiting_for_trash'])?></span>
+                <?php endif; ?>
+            </span>
         <?php else: ?>
             <span class="license-dashboard-item license-dashboard-error">Jamf-Abgleich aktuell nicht verfügbar</span>
         <?php endif; ?>
@@ -2390,6 +2707,12 @@ tr:hover {
     <?php if ($bulkError): ?>
         <div class="message error"><?=htmlspecialchars($bulkError)?></div>
     <?php endif; ?>
+    <?php if ($caseMessage): ?>
+        <div class="message success"><?=htmlspecialchars($caseMessage)?></div>
+    <?php endif; ?>
+    <?php if ($caseError): ?>
+        <div class="message error"><?=htmlspecialchars($caseError)?></div>
+    <?php endif; ?>
 
     <?php if ($canWrite): ?>
     <div id="templateEditor" class="preview-card hidden">
@@ -2423,20 +2746,40 @@ tr:hover {
             </thead>
             <tbody>
                 <?php while ($row = $result->fetch_assoc()): ?>
-                <tr class="request-row"
-                    data-id="<?=htmlspecialchars($row['id'])?>"
-                    data-full-name="<?=htmlspecialchars($row['full_name'])?>"
-                    data-username="<?=htmlspecialchars($row['username'])?>"
-                    data-email="<?=htmlspecialchars($row['email'])?>"
-                    data-private-email="<?=htmlspecialchars($row['private_email'] ?? '')?>"
-                    data-serial="<?=htmlspecialchars($row['serial'])?>">
                     <?php
                         $bulkMailSent = !empty($row['mail_sent']);
                         $bulkJamfDone = !empty($row['jamf_unenrolled']);
                         $bulkAsmDone = !empty($row['asm_manual_done']);
                         $bulkIsHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
                         $bulkSelectable = $canWrite && !$bulkIsHistoryImport && !$bulkMailSent;
+                        $openCaseCount = (int) ($row['open_case_count'] ?? 0);
+                        $latestCaseId = (int) ($row['latest_case_id'] ?? 0);
+                        $latestCaseStatus = (string) ($row['latest_case_status'] ?? 'offen');
+                        $defaultCaseTitle = 'Klärfall ' . (string) ($row['serial'] ?? '');
+                        if (!empty($row['jamf_unenrolled']) && !empty($row['asm_manual_done']) && empty($row['mail_sent'])) {
+                            $defaultCaseTitle = 'Workflow vor Mail prüfen';
+                        } elseif (!empty($row['jamf_unenrolled']) && !empty($row['asm_manual_done'])) {
+                            $defaultCaseTitle = 'Nach Freigabe prüfen';
+                        }
+                        $rowOpensCase = $canWrite && $filter === 'cases' && !empty($row['serial']);
                     ?>
+                <tr class="request-row<?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
+                    data-id="<?=htmlspecialchars($row['id'])?>"
+                    data-full-name="<?=htmlspecialchars($row['full_name'])?>"
+                    data-username="<?=htmlspecialchars($row['username'])?>"
+                    data-email="<?=htmlspecialchars($row['email'])?>"
+                    data-private-email="<?=htmlspecialchars($row['private_email'] ?? '')?>"
+                    data-serial="<?=htmlspecialchars($row['serial'])?>"
+                    <?php if ($rowOpensCase): ?>
+                        data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
+                        data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
+                        data-source="admin"
+                        data-title="<?=htmlspecialchars((string) ($row['latest_case_title'] ?: $defaultCaseTitle))?>"
+                        data-status="<?=htmlspecialchars($latestCaseStatus ?: 'offen')?>"
+                        data-note="<?=htmlspecialchars((string) ($row['latest_case_note'] ?? ''))?>"
+                        data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
+                        data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
+                    <?php endif; ?>>
                     <td class="select-cell" data-label="">
                         <?php if ($bulkSelectable): ?>
                             <input type="checkbox"
@@ -2472,7 +2815,29 @@ tr:hover {
                     </td>
                     <td class="device-cell" data-label="Gerät">
                         <div><?=htmlspecialchars($row['device_name'])?></div>
-                        <div class="serial-cell"><?=htmlspecialchars($row['serial'])?></div>
+                        <div class="serial-cell">
+                            <?php if ($canWrite && !empty($row['serial'])): ?>
+                                <button type="button"
+                                    class="serial-case-button"
+                                    data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
+                                    data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
+                                    data-serial="<?=htmlspecialchars($row['serial'])?>"
+                                    data-source="admin"
+                                    data-title="<?=htmlspecialchars((string) ($row['latest_case_title'] ?: $defaultCaseTitle))?>"
+                                    data-status="<?=htmlspecialchars($latestCaseStatus ?: 'offen')?>"
+                                    data-note="<?=htmlspecialchars((string) ($row['latest_case_note'] ?? ''))?>"
+                                    data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
+                                    data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
+                                    onclick="showDeviceCase(this)">
+                                    <?=htmlspecialchars($row['serial'])?>
+                                    <?php if ($openCaseCount > 0): ?>
+                                        <span class="case-badge"><?=htmlspecialchars((string) $openCaseCount)?></span>
+                                    <?php endif; ?>
+                                </button>
+                            <?php else: ?>
+                                <?=htmlspecialchars($row['serial'])?>
+                            <?php endif; ?>
+                        </div>
                     </td>
                     <td class="status-cell" data-label="Status">
                         <?php
@@ -2560,6 +2925,46 @@ tr:hover {
         </nav>
 
         <?php if ($canWrite): ?>
+        <div id="deviceCaseCard" class="case-card hidden">
+            <div class="preview-header">
+                <div>
+                    <h2>Klärfall</h2>
+                    <p class="case-meta" id="caseMeta">Lokale operative Notiz</p>
+                </div>
+                <button type="button" class="button button-secondary small-button" onclick="hideDeviceCase()">Schließen</button>
+            </div>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                <input type="hidden" name="save_device_case" value="1">
+                <input type="hidden" name="case_id" id="caseIdInput" value="">
+                <input type="hidden" name="case_request_id" id="caseRequestIdInput" value="0">
+                <input type="hidden" name="case_source" id="caseSourceInput" value="admin">
+                <input type="hidden" name="case_serial" id="caseSerialInput" value="">
+                <input type="hidden" name="case_title" id="caseTitleInput" value="">
+                <div class="case-grid">
+                    <label class="case-field">
+                        <span>Status</span>
+                        <select class="case-select" name="case_status" id="caseStatusInput">
+                            <option value="offen">offen</option>
+                            <option value="geklaert">geklärt</option>
+                        </select>
+                    </label>
+                    <label class="case-field case-field-full">
+                        <span>Notiz</span>
+                        <textarea class="case-textarea" name="case_note" id="caseNoteInput" placeholder="Was ist auffällig? Was soll geprüft werden?"></textarea>
+                    </label>
+                    <label class="case-field case-field-full">
+                        <span>Abschluss / Lösung</span>
+                        <textarea class="case-textarea" name="case_resolution_note" id="caseResolutionInput" placeholder="Was wurde gemacht? Warum ist der Fall geklärt?"></textarea>
+                    </label>
+                </div>
+                <div class="case-actions">
+                    <button type="submit" class="button button-primary">Klärfall speichern</button>
+                    <button type="button" class="button button-secondary" onclick="hideDeviceCase()">Schließen</button>
+                </div>
+            </form>
+        </div>
+
         <div id="mailPreview" class="preview-card hidden">
             <div class="preview-header">
                 <div>
@@ -2609,7 +3014,7 @@ tr:hover {
         <?php endif; ?>
     </div>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:admin@example.org">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>
@@ -2866,6 +3271,49 @@ function toggleTemplateEditor() {
     const editor = document.getElementById('templateEditor');
     editor.classList.toggle('hidden');
 }
+
+function showDeviceCase(button) {
+    const data = button.dataset || {};
+    const card = document.getElementById('deviceCaseCard');
+    if (!card) {
+        return;
+    }
+
+    const caseId = data.caseId || '';
+    const serial = data.serial || '';
+    const updatedAt = data.updatedAt || '';
+
+    document.getElementById('caseIdInput').value = caseId;
+    document.getElementById('caseRequestIdInput').value = data.requestId || '0';
+    document.getElementById('caseSourceInput').value = data.source || 'admin';
+    document.getElementById('caseSerialInput').value = serial;
+    document.getElementById('caseStatusInput').value = data.status || 'offen';
+    document.getElementById('caseTitleInput').value = data.title || ('Klärfall ' + serial);
+    document.getElementById('caseNoteInput').value = data.note || '';
+    document.getElementById('caseResolutionInput').value = data.resolutionNote || '';
+    document.getElementById('caseMeta').textContent = caseId
+        ? 'Bestehender Klärfall zu ' + serial + (updatedAt ? ' · aktualisiert ' + updatedAt : '')
+        : 'Neuer Klärfall zu ' + serial;
+
+    card.classList.remove('hidden');
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hideDeviceCase() {
+    const card = document.getElementById('deviceCaseCard');
+    if (card) {
+        card.classList.add('hidden');
+    }
+}
+
+document.querySelectorAll('.case-row-clickable').forEach((row) => {
+    row.addEventListener('click', (event) => {
+        if (event.target.closest('a, button, input, select, textarea, label')) {
+            return;
+        }
+        showDeviceCase(row);
+    });
+});
 
 function showMailPreview(button) {
     const data = button.dataset;

@@ -71,7 +71,7 @@ Important releases:
 - 1.6: login landing page, iPad management portal name, and read-only role
 - 1.7: improved mobile layouts for admin, ADE enrollments, and audit log, including polished mobile mini cards for requests
 - 1.8: KUK devices as a Jamf-only read-only page with local sync, owner history, problem-device view, local mail contact markers, and Jamf license estimate in the admin portal
-- 1.9: admin dashboard with rolling 12-month request overview, Jamf license status, audit dashboard corrections, and unified button/navigation styling for admin, ADE, KUK, and audit log
+- 1.9: admin dashboard with rolling 12-month request overview, Jamf license status, local device cases, audit dashboard corrections, and unified button/navigation styling for admin, ADE, KUK, and audit log
 
 ## Features
 
@@ -84,6 +84,7 @@ Important releases:
 - duplicate protection for open requests with the same serial number
 - admin portal with search, filters, and process display
 - compact Jamf license estimate from a local baseline and Jamf Trash confirmation
+- local device cases for suspicious devices or follow-up checks, including a filter, row click, notes, and resolution documentation
 - login landing page for IServ/OIDC authentication
 - separate admin and read-only roles
 - workflow: request -> Jamf -> ASM -> mail -> completed
@@ -335,6 +336,7 @@ Devices without an owner are intentionally shown. The page provides search, filt
 
 Local tables:
 
+- `device_cases`: local device cases and resolution notes for suspicious devices in the admin portal
 - `kuk_devices`: current Jamf state for KUK devices
 - `kuk_owner_history`: local owner history built from sync changes after the KUK rollout
 - `kuk_device_workflow`: local timestamps for sent inactivity and iOS advisory mails

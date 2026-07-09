@@ -71,7 +71,7 @@ Wichtige Releases:
 - 1.6: Login-Landingpage, iPad-Management-Portalname und Nur-Lesen-Rolle
 - 1.7: mobile Darstellung fuer Admin, ADE-Aufnahmen und Audit-Log verbessert, inklusive polierter Mobile-Mini-Kacheln fuer Antraege
 - 1.8: KUK-Geraete als Jamf-only Leseseite mit lokalem Sync, Owner-Historie, Problemgeraete-Ansicht, lokalen Mail-Kontaktmarkern und Jamf-Lizenzschaetzung im Adminportal
-- 1.9: Admin-Dashboard mit 12-Monats-Antragsuebersicht, Jamf-Lizenzstatus, Audit-Dashboard-Korrekturen und vereinheitlichtem Button-/Navigationsdesign fuer Admin, ADE, KUK und Audit-Log
+- 1.9: Admin-Dashboard mit 12-Monats-Antragsuebersicht, Jamf-Lizenzstatus, lokalen Klaerfaellen, Audit-Dashboard-Korrekturen und vereinheitlichtem Button-/Navigationsdesign fuer Admin, ADE, KUK und Audit-Log
 
 ## Funktionsumfang
 
@@ -84,6 +84,7 @@ Wichtige Releases:
 - Duplikatschutz fuer offene Antraege je Seriennummer
 - Adminportal mit Suche, Filtern und Prozessanzeige
 - Adminportal mit kompakter Jamf-Lizenzschaetzung aus lokaler Baseline und Jamf-Trash-Abgleich
+- lokale Klaerfaelle fuer auffaellige Geraete oder offene Nachpruefungen, inklusive Filter, Zeilenklick, Notiz und Abschlussdokumentation
 - Login-Landingpage fuer den IServ/OIDC-Login
 - getrennte Admin- und Nur-Lesen-Rollen
 - Workflow: Antrag -> Jamf -> ASM -> Mail -> Erledigt
@@ -335,6 +336,7 @@ Geraete ohne Owner werden bewusst angezeigt. Die Seite bietet Suche, Filter, Pag
 
 Lokale Tabellen:
 
+- `device_cases`: lokale Klaerfaelle und Abschlussnotizen fuer auffaellige Geraete im Adminportal
 - `kuk_devices`: aktueller Jamf-Stand der KUK-Geraete
 - `kuk_owner_history`: lokale Owner-Historie ab KUK-Start aus Sync-Veraenderungen
 - `kuk_device_workflow`: lokale Zeitstempel fuer versendete Inaktivitaets- und iOS-Hinweismails
