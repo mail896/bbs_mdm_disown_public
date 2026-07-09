@@ -182,6 +182,8 @@ function audit_display_action(?string $value): string
         'JAMF_UNENROLL_SUCCESS' => 'Jamf erledigt',
         'JAMF_UNENROLL_FAILED' => 'Jamf Fehler',
         'ASM_MANUAL_DONE' => 'ASM erledigt',
+        'ASM_BROKER_RELEASE_SUCCESS' => 'ASM/ADE',
+        'ASM_BROKER_RELEASE_FAILED' => 'ASM/ADE Fehler',
         'MAIL_SENT' => 'Mail gesendet',
         'BULK_JAMF_UNENROLL_SUCCESS' => 'Bulk Jamf',
         'BULK_JAMF_UNENROLL_FAILED' => 'Bulk Jamf Fehler',
@@ -197,6 +199,8 @@ function audit_display_action(?string $value): string
         'MAIL_PARTIAL_FAILED_COMPLETED' => 'Mail Teilfehler',
         'BULK_MAIL_FAILED_COMPLETED' => 'Bulk Mail Fehler',
         'BULK_MAIL_PARTIAL_FAILED_COMPLETED' => 'Bulk Mail Teilfehler',
+        'DEVICE_CASE_SAVED' => 'Klärfall',
+        'DEVICE_CASE_DELETED' => 'Klärfall gelöscht',
         'TEMPLATE_UPDATED' => 'Vorlage',
     ];
 

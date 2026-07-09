@@ -90,6 +90,7 @@ Siehe:
 
 - [Deutsch: docs/INSTALL.md](docs/INSTALL.md)
 - [English: docs/INSTALL.en.md](docs/INSTALL.en.md)
+- [Secrets und Runtime-Dateien: docs/SECRETS.md](docs/SECRETS.md)
 
 Kurzfassung:
 
@@ -112,6 +113,8 @@ Kurzfassung:
 - `audit_log.php` - Audit-Log und Auswertungen.
 - `config/asm-release-broker.example.conf` - Beispiel fuer Broker-Konfiguration.
 - `tools/install-nanodep-service.sh` - systemd-Installation des NanoDEP-Servers.
+- `tools/install-nanodep-monitoring.sh` - Healthcheck-Timer und Logrotation fuer NanoDEP.
+- `docs/SECRETS.md` - Ablageplan fuer Runtime-Konfiguration, Tokens und Keys.
 
 ## Sicherheit
 

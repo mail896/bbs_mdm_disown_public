@@ -113,7 +113,31 @@ systemctl status disown-nanodep.service --no-pager
 curl -sS http://127.0.0.1:9001/version
 ```
 
-### 4.4 App Configuration
+### 4.4 Health Check and Log Rotation
+
+The health check verifies every five minutes that the local NanoDEP service is active and responds on the local version endpoint:
+
+```bash
+sudo /var/www/example.org/disown/tools/install-nanodep-monitoring.sh
+```
+
+Installed components:
+
+- `disown-nanodep-health.timer`
+- `disown-nanodep-health.service`
+- `/usr/local/sbin/disown-nanodep-health`
+- `/var/log/disown/nanodep-health.log`
+- `/etc/logrotate.d/disown-nanodep`
+
+Check:
+
+```bash
+systemctl status disown-nanodep-health.timer --no-pager
+tail -n 20 /var/log/disown/nanodep-health.log
+journalctl -u disown-nanodep.service -n 50 --no-pager
+```
+
+### 4.5 App Configuration
 
 Template:
 

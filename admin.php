@@ -456,6 +456,54 @@ function load_jamf_license_dashboard(mysqli $mysqli, array $baseline): array
     return $stats;
 }
 
+function load_release_broker_health(): array
+{
+    $health = [
+        'ok' => false,
+        'message' => 'Release Broker wurde nicht erreicht.',
+        'version' => '',
+    ];
+
+    if (!function_exists('curl_init')) {
+        $health['message'] = 'PHP-cURL ist nicht verfuegbar.';
+        return $health;
+    }
+
+    $url = getenv('DISOWN_NANODEP_HEALTH_URL') ?: 'http://127.0.0.1:9001/version';
+    $ch = curl_init($url);
+    if (!$ch) {
+        $health['message'] = 'Healthcheck konnte nicht vorbereitet werden.';
+        return $health;
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT_MS => 300,
+        CURLOPT_TIMEOUT_MS => 700,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+
+    $raw = curl_exec($ch);
+    $error = curl_error($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+
+    if ($raw === false || $status !== 200) {
+        $health['message'] = $error !== '' ? $error : 'HTTP ' . $status;
+        return $health;
+    }
+
+    $json = json_decode((string) $raw, true);
+    $version = is_array($json) ? trim((string) ($json['version'] ?? '')) : '';
+    $health['ok'] = true;
+    $health['version'] = $version;
+    $health['message'] = $version !== ''
+        ? 'NanoDEP Release Broker erreichbar (' . $version . ').'
+        : 'NanoDEP Release Broker erreichbar.';
+
+    return $health;
+}
+
 function normalize_device_case_status(string $status): string
 {
     $status = trim($status);
@@ -1377,6 +1425,7 @@ function format_duration_seconds($seconds): string
 $avgAdminProcessingText = format_duration_seconds($dashboard['avg_admin_processing_seconds']);
 $avgStudentResponseText = format_duration_seconds($dashboard['avg_student_response_seconds']);
 $jamfLicenseDashboard = load_jamf_license_dashboard($mysqli, $jamfLicenseBaseline);
+$releaseBrokerHealth = load_release_broker_health();
 $openDeviceCaseCount = 0;
 $openCaseResult = $mysqli->query("SELECT COUNT(*) AS total FROM device_cases WHERE status <> 'geklaert'");
 if ($openCaseResult) {
@@ -2015,6 +2064,10 @@ table {
 .license-dashboard-error {
     color: #b91c1c;
     font-weight: 700;
+}
+.license-dashboard-muted {
+    color: #94a3b8;
+    font-size: 0.75rem;
 }
 .filter-bar {
     display: flex;
@@ -3199,6 +3252,16 @@ tr:hover {
         <?php else: ?>
             <span class="license-dashboard-item license-dashboard-error">Jamf-Abgleich aktuell nicht verfügbar</span>
         <?php endif; ?>
+        <span class="license-dashboard-item" title="<?=htmlspecialchars($releaseBrokerHealth['message'])?>">Release Broker
+            <?php if ($releaseBrokerHealth['ok']): ?>
+                <span class="license-dashboard-value license-dashboard-free">OK</span>
+                <?php if ($releaseBrokerHealth['version'] !== ''): ?>
+                    <span class="license-dashboard-muted"><?=htmlspecialchars($releaseBrokerHealth['version'])?></span>
+                <?php endif; ?>
+            <?php else: ?>
+                <span class="license-dashboard-value license-dashboard-error">Fehler</span>
+            <?php endif; ?>
+        </span>
     </div>
 
     <?php if ($canWrite): ?>

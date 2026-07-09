@@ -69,6 +69,7 @@ Group=www-data
 ExecStart=${WRAPPER}
 Restart=on-failure
 RestartSec=5s
+SyslogIdentifier=disown-nanodep
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
