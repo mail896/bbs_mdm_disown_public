@@ -55,11 +55,39 @@ $jamfLicenseBaseline = [
     'perpetual_used' => 0,
 ];
 $searchTerm = trim((string) ($_GET['q'] ?? ''));
+$monthFilter = trim((string) ($_GET['month'] ?? ''));
+if (!preg_match('/^\d{4}-\d{2}$/', $monthFilter)) {
+    $monthFilter = '';
+}
+$monthFilterLabel = '';
+if ($monthFilter !== '') {
+    $monthFilterDate = DateTimeImmutable::createFromFormat('!Y-m', $monthFilter);
+    if ($monthFilterDate instanceof DateTimeImmutable && $monthFilterDate->format('Y-m') === $monthFilter) {
+        $monthNamesLong = [
+            1 => 'Januar',
+            2 => 'Februar',
+            3 => 'März',
+            4 => 'April',
+            5 => 'Mai',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'August',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Dezember',
+        ];
+        $monthFilterLabel = $monthNamesLong[(int) $monthFilterDate->format('n')] . ' ' . $monthFilterDate->format('Y');
+    } else {
+        $monthFilter = '';
+    }
+}
 $perPage = 25;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $refreshUrl = $adminPath . '?' . http_build_query([
     'filter' => $filter,
     'q' => $searchTerm,
+    'month' => $monthFilter,
     'page' => $page,
 ]);
 $whereParts = [];
@@ -108,6 +136,14 @@ if ($searchTerm !== '') {
         $whereParams[] = $searchLike;
         $whereTypes .= 's';
     }
+}
+
+if ($monthFilter !== '') {
+    $whereParts[] = "created_at >= STR_TO_DATE(CONCAT(?, '-01'), '%Y-%m-%d')
+        AND created_at < DATE_ADD(STR_TO_DATE(CONCAT(?, '-01'), '%Y-%m-%d'), INTERVAL 1 MONTH)";
+    $whereParams[] = $monthFilter;
+    $whereParams[] = $monthFilter;
+    $whereTypes .= 'ss';
 }
 
 $whereSql = $whereParts ? 'WHERE ' . implode(' AND ', array_map(static function ($part) {
@@ -1588,11 +1624,21 @@ table {
     background: var(--trend-bg, #f8fafc);
     border: 1px solid var(--trend-border, #e2e8f0);
     border-radius: 8px;
+    color: inherit;
     display: inline-flex;
     gap: 6px;
     justify-content: space-between;
     min-width: 0;
     padding: 7px 8px;
+    text-decoration: none;
+}
+.request-trend-month:hover {
+    background: rgba(220, 252, 231, 0.78);
+    border-color: #86efac;
+    text-decoration: none;
+}
+.request-trend-month.active {
+    box-shadow: 0 0 0 2px #86efac inset;
 }
 .request-trend-value {
     color: #1f2937;
@@ -1612,6 +1658,9 @@ table {
 .request-trend-month.previous-year .request-trend-label,
 .request-trend-month.previous-year .request-trend-value {
     color: #475569;
+}
+.month-filter-chip {
+    border-color: #86efac;
 }
 .license-dashboard {
     align-items: center;
@@ -2550,6 +2599,9 @@ tr:hover {
 
     <form class="search-toolbar" method="get" action="<?=htmlspecialchars($adminPath)?>">
         <input type="hidden" name="filter" value="<?=htmlspecialchars($filter)?>">
+        <?php if ($monthFilter !== ''): ?>
+            <input type="hidden" name="month" value="<?=htmlspecialchars($monthFilter)?>">
+        <?php endif; ?>
         <input type="hidden" name="page" value="1">
         <label for="searchInput" class="search-label">Suche</label>
         <div class="search-field">
@@ -2576,6 +2628,9 @@ tr:hover {
         <a class="button filter-link <?= $filter === 'done' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'done', 'page' => 1, 'export' => null]))?>">Erledigt</a>
         <a class="button filter-link <?= $filter === 'all' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'all', 'page' => 1, 'export' => null]))?>">Alle</a>
         <a class="button filter-link <?= $filter === 'cases' ? 'active' : '' ?>" href="<?=htmlspecialchars(admin_url(['filter' => 'cases', 'page' => 1, 'export' => null]))?>">Klärfälle (<?=htmlspecialchars((string) $openDeviceCaseCount)?> offen)</a>
+        <?php if ($monthFilter !== ''): ?>
+            <a class="button filter-link month-filter-chip active" href="<?=htmlspecialchars(admin_url(['month' => null, 'page' => 1, 'export' => null]))?>">Monat: <?=htmlspecialchars($monthFilterLabel)?> ×</a>
+        <?php endif; ?>
     </div>
 
     <div class="dashboard" aria-label="Statistik">
@@ -2602,11 +2657,15 @@ tr:hover {
                     $trendBgOpacity = number_format(0.08 + ($trendStrength * 0.22), 2, '.', '');
                     $trendBorderOpacity = number_format(0.16 + ($trendStrength * 0.26), 2, '.', '');
                     $trendColor = !$trendMonth['is_current_year'] ? '100, 116, 139' : ($trendMonth['is_peak_season'] ? '249, 115, 22' : '37, 99, 235');
+                    $isActiveTrendMonth = $monthFilter === $trendMonth['month_key'];
                 ?>
-                <div class="request-trend-month <?= $trendMonth['is_peak_season'] ? 'peak' : '' ?> <?= !$trendMonth['is_current_year'] ? 'previous-year' : '' ?>" style="--trend-bg: rgba(<?=$trendColor?>, <?=$trendBgOpacity?>); --trend-border: rgba(<?=$trendColor?>, <?=$trendBorderOpacity?>);">
+                <a class="request-trend-month <?= $trendMonth['is_peak_season'] ? 'peak' : '' ?> <?= !$trendMonth['is_current_year'] ? 'previous-year' : '' ?> <?= $isActiveTrendMonth ? 'active' : '' ?>"
+                    href="<?=htmlspecialchars(admin_url(['filter' => 'done', 'month' => $trendMonth['month_key'], 'page' => 1, 'export' => null]))?>"
+                    aria-label="Anträge aus <?=htmlspecialchars($trendMonth['label'])?> anzeigen"
+                    style="--trend-bg: rgba(<?=$trendColor?>, <?=$trendBgOpacity?>); --trend-border: rgba(<?=$trendColor?>, <?=$trendBorderOpacity?>);">
                     <span class="request-trend-label"><?=htmlspecialchars($trendMonth['label'])?></span>
                     <span class="request-trend-value"><?=htmlspecialchars((string) $trendCount)?></span>
-                </div>
+                </a>
             <?php endforeach; ?>
         </div>
     </div>
