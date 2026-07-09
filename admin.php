@@ -23,7 +23,7 @@ $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '1.9-dev' : '1.9';
-$appVersionDate = '8. Juli 2026';
+$appVersionDate = '9. Juli 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -397,7 +397,35 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
     }
 
-    if (isset($_POST['save_device_case'])) {
+    if (isset($_POST['delete_device_case'])) {
+        $caseId = (int) ($_POST['case_id'] ?? 0);
+        $caseRequestId = (int) ($_POST['case_request_id'] ?? 0);
+        $caseSerial = strtoupper(trim((string) ($_POST['case_serial'] ?? '')));
+        $caseTitle = trim((string) ($_POST['case_title'] ?? ''));
+
+        if ($caseId <= 0) {
+            $caseError = 'Klärfall konnte nicht gelöscht werden.';
+        } else {
+            $deleteStmt = $mysqli->prepare("DELETE FROM device_cases WHERE id = ?");
+            if ($deleteStmt) {
+                $deleteStmt->bind_param('i', $caseId);
+                if ($deleteStmt->execute()) {
+                    $caseMessage = 'Klärfall gelöscht.';
+                    log_request_action(
+                        $mysqli,
+                        $caseRequestId > 0 ? $caseRequestId : 0,
+                        'DEVICE_CASE_DELETED',
+                        'Seriennummer: ' . ($caseSerial ?: 'unbekannt') . '; Klärfall: ' . ($caseTitle ?: '#' . $caseId)
+                    );
+                } else {
+                    $caseError = 'Klärfall konnte nicht gelöscht werden.';
+                }
+                $deleteStmt->close();
+            } else {
+                $caseError = 'Klärfall konnte nicht vorbereitet werden.';
+            }
+        }
+    } elseif (isset($_POST['save_device_case'])) {
         $caseId = (int) ($_POST['case_id'] ?? 0);
         $caseRequestId = (int) ($_POST['case_request_id'] ?? 0);
         $caseSerial = strtoupper(trim((string) ($_POST['case_serial'] ?? '')));
@@ -1329,6 +1357,31 @@ if (!$result->bind_param($listTypes, ...$listParams) || !$result->execute()) {
     die('Datenbankfehler: ' . htmlspecialchars($result->error));
 }
 $result = $result->get_result();
+$rows = $result->fetch_all(MYSQLI_ASSOC);
+$casesBySerial = [];
+$pageSerials = array_values(array_unique(array_filter(array_map(static function (array $row): string {
+    return strtoupper(trim((string) ($row['serial'] ?? '')));
+}, $rows))));
+if ($pageSerials) {
+    $casePlaceholders = implode(',', array_fill(0, count($pageSerials), '?'));
+    $caseTypes = str_repeat('s', count($pageSerials));
+    $caseStmt = $mysqli->prepare(
+        "SELECT id, serial, request_id, source, title, status, note, resolution_note, updated_at
+         FROM device_cases
+         WHERE serial IN ({$casePlaceholders})
+         ORDER BY serial ASC, FIELD(status, 'offen', 'geklaert'), updated_at DESC, id DESC"
+    );
+    if ($caseStmt && $caseStmt->bind_param($caseTypes, ...$pageSerials) && $caseStmt->execute()) {
+        $caseResult = $caseStmt->get_result();
+        while ($caseRow = $caseResult->fetch_assoc()) {
+            $caseSerial = strtoupper(trim((string) ($caseRow['serial'] ?? '')));
+            $casesBySerial[$caseSerial][] = $caseRow;
+        }
+    }
+    if ($caseStmt) {
+        $caseStmt->close();
+    }
+}
 
 ?>
 <!doctype html>
@@ -2019,6 +2072,13 @@ tr:hover {
     background: #e2e8f0;
     color: #1f2937;
 }
+.button-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.button-danger:hover:not(:disabled) {
+    background: #fecaca;
+}
 .audit-log-link {
     background: #ecfdf5;
     border: 1px solid #86efac;
@@ -2100,6 +2160,32 @@ tr:hover {
     font-weight: 600;
     line-height: 1;
     padding: 0.2rem 0.38rem;
+}
+.case-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+.case-chip {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    color: #92400e;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.26rem 0.44rem;
+}
+.case-chip.case-chip-closed {
+    background: #eef2f7;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+.case-chip:hover {
+    border-color: #f59e0b;
+    text-decoration: none;
 }
 .device-cell {
     word-break: break-word;
@@ -2804,7 +2890,7 @@ tr:hover {
                 </tr>
             </thead>
             <tbody>
-                <?php while ($row = $result->fetch_assoc()): ?>
+                <?php foreach ($rows as $row): ?>
                     <?php
                         $bulkMailSent = !empty($row['mail_sent']);
                         $bulkJamfDone = !empty($row['jamf_unenrolled']);
@@ -2820,6 +2906,8 @@ tr:hover {
                         } elseif (!empty($row['jamf_unenrolled']) && !empty($row['asm_manual_done'])) {
                             $defaultCaseTitle = 'Nach Freigabe prüfen';
                         }
+                        $rowSerial = strtoupper(trim((string) ($row['serial'] ?? '')));
+                        $rowCases = $casesBySerial[$rowSerial] ?? [];
                         $rowOpensCase = $canWrite && $filter === 'cases' && !empty($row['serial']);
                     ?>
                 <tr class="request-row<?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
@@ -2897,6 +2985,31 @@ tr:hover {
                                 <?=htmlspecialchars($row['serial'])?>
                             <?php endif; ?>
                         </div>
+                        <?php if ($canWrite && count($rowCases) > 1): ?>
+                            <div class="case-chip-list" aria-label="Klärfälle zu dieser Seriennummer">
+                            <?php foreach ($rowCases as $caseIndex => $deviceCase): ?>
+                                <?php
+                                    $caseStatus = normalize_device_case_status((string) ($deviceCase['status'] ?? 'offen'));
+                                    $caseTitle = (string) ($deviceCase['title'] ?: $defaultCaseTitle);
+                                    $caseId = (string) ($deviceCase['id'] ?? ($caseIndex + 1));
+                                    $caseTooltip = trim($caseTitle . ' · ' . display_device_case_status($caseStatus) . ' · ' . (string) ($deviceCase['updated_at'] ?? ''));
+                                ?>
+                                <button type="button"
+                                    class="case-chip <?= $caseStatus === 'geklaert' ? 'case-chip-closed' : '' ?>"
+                                    title="<?=htmlspecialchars($caseTooltip)?>"
+                                    data-case-id="<?=htmlspecialchars($caseId)?>"
+                                    data-request-id="<?=htmlspecialchars((string) ($deviceCase['request_id'] ?? $row['id']))?>"
+                                    data-serial="<?=htmlspecialchars($row['serial'])?>"
+                                    data-source="<?=htmlspecialchars((string) ($deviceCase['source'] ?? 'admin'))?>"
+                                    data-title="<?=htmlspecialchars($caseTitle)?>"
+                                    data-status="<?=htmlspecialchars($caseStatus)?>"
+                                    data-note="<?=htmlspecialchars((string) ($deviceCase['note'] ?? ''))?>"
+                                    data-resolution-note="<?=htmlspecialchars((string) ($deviceCase['resolution_note'] ?? ''))?>"
+                                    data-updated-at="<?=htmlspecialchars((string) ($deviceCase['updated_at'] ?? ''))?>"
+                                    onclick="showDeviceCase(this)">Fall #<?=htmlspecialchars($caseId)?></button>
+                            <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </td>
                     <td class="status-cell" data-label="Status">
                         <?php
@@ -2971,7 +3084,7 @@ tr:hover {
                         </div>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
 
@@ -3018,6 +3131,7 @@ tr:hover {
                     </label>
                 </div>
                 <div class="case-actions">
+                    <button type="submit" name="delete_device_case" value="1" id="deleteCaseButton" class="button button-danger hidden" onclick="return confirm('Diesen Klärfall wirklich löschen?')">Klärfall löschen</button>
                     <button type="submit" class="button button-primary">Klärfall speichern</button>
                     <button type="button" class="button button-secondary" onclick="hideDeviceCase()">Schließen</button>
                 </div>
@@ -3353,6 +3467,10 @@ function showDeviceCase(button) {
     document.getElementById('caseMeta').textContent = caseId
         ? 'Bestehender Klärfall zu ' + serial + (updatedAt ? ' · aktualisiert ' + updatedAt : '')
         : 'Neuer Klärfall zu ' + serial;
+    const deleteButton = document.getElementById('deleteCaseButton');
+    if (deleteButton) {
+        deleteButton.classList.toggle('hidden', !caseId);
+    }
 
     card.classList.remove('hidden');
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
