@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BBS Einbeck iPad-Management</title>
+  <meta name="description" content="Public project overview for the BBS Einbeck iPad Management / DISOWN workflow.">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --ink: #172033;
+      --muted: #5b667a;
+      --line: #dfe7f1;
+      --blue: #2563eb;
+      --green: #047857;
+      --yellow: #facc15;
+      --panel: rgba(255, 255, 255, 0.92);
+      --shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .hero {
+      align-items: end;
+      background:
+        linear-gradient(180deg, rgba(244, 247, 251, 0.26), rgba(244, 247, 251, 0.96)),
+        url("images/Demo-iPad-Managemnt-BBS-02.jpg") center top / cover;
+      display: grid;
+      min-height: 74vh;
+      padding: 36px 24px 42px;
+    }
+
+    .hero-inner,
+    main {
+      margin: 0 auto;
+      max-width: 1180px;
+      width: 100%;
+    }
+
+    .eyebrow {
+      color: #334155;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2.3rem, 5vw, 5.2rem);
+      letter-spacing: 0;
+      line-height: 0.98;
+      margin: 12px 0 18px;
+      max-width: 920px;
+    }
+
+    .lead {
+      color: #334155;
+      font-size: clamp(1.08rem, 2vw, 1.35rem);
+      max-width: 780px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .button {
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      display: inline-flex;
+      font-weight: 800;
+      min-height: 44px;
+      padding: 10px 16px;
+    }
+
+    .button.primary {
+      background: var(--blue);
+      color: white;
+    }
+
+    .button.secondary {
+      background: rgba(255, 255, 255, 0.86);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    main {
+      display: grid;
+      gap: 54px;
+      padding: 52px 24px 70px;
+    }
+
+    section {
+      display: grid;
+      gap: 20px;
+    }
+
+    h2 {
+      font-size: clamp(1.55rem, 3vw, 2.35rem);
+      letter-spacing: 0;
+      line-height: 1.1;
+      margin: 0;
+    }
+
+    .section-lead {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 850px;
+    }
+
+    .feature-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .feature {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+      padding: 18px;
+    }
+
+    .feature strong {
+      display: block;
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+    }
+
+    .feature span {
+      color: var(--muted);
+    }
+
+    .workflow {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .step {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 112px;
+      padding: 16px;
+    }
+
+    .step-number {
+      color: var(--green);
+      font-size: 0.86rem;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .screenshot-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    figure {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin: 0;
+      overflow: hidden;
+    }
+
+    figure img {
+      display: block;
+      height: auto;
+      width: 100%;
+    }
+
+    figcaption {
+      color: var(--muted);
+      font-weight: 700;
+      padding: 12px 14px;
+    }
+
+    .note {
+      background: #fffbea;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      color: #713f12;
+      padding: 16px 18px;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      padding: 26px 24px 40px;
+      text-align: center;
+    }
+
+    @media (max-width: 880px) {
+      .feature-grid,
+      .workflow,
+      .screenshot-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        min-height: 64vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">BBS Einbeck · DISOWN 2.0</div>
+      <h1>iPad-Management für MDM- und ADE-Freigaben</h1>
+      <p class="lead">Eine PHP-Webanwendung für Rückgabeanträge, Jamf-Unenroll, Apple School Manager/ADE-Freigabe über Release Broker und nachvollziehbare Abschlussmails.</p>
+      <div class="actions">
+        <a class="button primary" href="README.md">README lesen</a>
+        <a class="button secondary" href="README.en.md">English README</a>
+        <a class="button secondary" href="docs/INSTALL.md">Installation</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Was das System abbildet</h2>
+      <p class="section-lead">DISOWN führt ehemals verwaltete iPads kontrolliert durch den operativen Freigabeprozess. Das öffentliche Repository enthält neutralisierten Code, Beispiele, Screenshots und Installationshinweise ohne Produktivzugänge.</p>
+      <div class="feature-grid">
+        <div class="feature"><strong>Admin-Workflow</strong><span>Antrag, Jamf, ASM/ADE und Mail bleiben als klare Einzelschritte sichtbar.</span></div>
+        <div class="feature"><strong>Release Broker</strong><span>Ein einzelnes Gerät wird per ASM Public API dem Broker zugewiesen und per NanoDEP aus ADE/DEP freigegeben.</span></div>
+        <div class="feature"><strong>Admin-Sonderfreigabe</strong><span>Defekte Geräte können nach Jamf-Seriennummernprüfung als lokaler Einzelfallantrag angelegt werden.</span></div>
+        <div class="feature"><strong>Bulk-Verarbeitung</strong><span>Auswahl, Seriennummernliste, ASM/ADE-Freigabe und Mail bleiben über den Ablauf erhalten.</span></div>
+        <div class="feature"><strong>Auditierbarkeit</strong><span>Ein Audit-Log protokolliert kritische Schritte, Teilfehler und Bulk-Seriennummernlisten.</span></div>
+        <div class="feature"><strong>Schulgeräte-Schutz</strong><span>WebClip und Bulk bleiben gegen Leih- und Koffergeräte geschützt; der Sonderweg ist bewusst admin-only.</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Standardablauf</h2>
+      <div class="workflow">
+        <div class="step"><div class="step-number">01</div>WebClip-Antrag erfassen</div>
+        <div class="step"><div class="step-number">02</div>Jamf-Unenroll ausführen</div>
+        <div class="step"><div class="step-number">03</div>ASM/ADE über Release Broker freigeben</div>
+        <div class="step"><div class="step-number">04</div>Abschlussmail an vorhandene Adressen senden</div>
+        <div class="step"><div class="step-number">05</div>Workflow und Details im Audit-Log nachvollziehen</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Screenshots</h2>
+      <div class="screenshot-grid">
+        <figure>
+          <img src="images/Demo-iPad-Managemnt-BBS-02.jpg" alt="Adminportal mit Dashboard und Antragsliste">
+          <figcaption>Adminportal mit Statusfiltern, Kennzahlen und Antragsliste</figcaption>
+        </figure>
+        <figure>
+          <img src="images/Demo-iPad-Managemnt-BBS-03.jpg" alt="Bulk Workflow im Adminportal">
+          <figcaption>Bulk-Workflow für Jamf, ASM/ADE und Mail</figcaption>
+        </figure>
+        <figure>
+          <img src="images/Demo-iPad-Managemnt-BBS-04.jpg" alt="ASM/ADE Release Ansicht">
+          <figcaption>ASM/ADE-Freigabe über Release Broker</figcaption>
+        </figure>
+        <figure>
+          <img src="images/Demo-iPad-Managemnt-BBS-06.jpg" alt="Audit Log mit Auswertung">
+          <figcaption>Audit-Log mit Export und Auswertung</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Hinweis zur öffentlichen Version</h2>
+      <div class="note">Diese Seite beschreibt die neutrale Public-Version. Produktive Konfigurationen, Tokens, Schlüssel, Seriennummern, Personenbezüge und lokale Projekt-State-Dateien gehören nicht in dieses Repository.</div>
+    </section>
+  </main>
+
+  <footer>
+    Version 2.0 · Stand 10. Juli 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
+  </footer>
+</body>
+</html>

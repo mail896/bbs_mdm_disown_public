@@ -2,6 +2,8 @@
 
 [Deutsche Version](README.md)
 
+[GitHub Pages project page](https://mail896.github.io/bbs_mdm_disown_public/)
+
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
 Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.0 automates the workflow through Apple ADE/ASM release by using a local release broker.

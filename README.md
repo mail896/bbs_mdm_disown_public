@@ -2,6 +2,8 @@
 
 [English version](README.en.md)
 
+[GitHub Pages Projektseite](https://mail896.github.io/bbs_mdm_disown_public/)
+
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
 Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.0 automatisiert den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
