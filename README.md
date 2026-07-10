@@ -1,5 +1,7 @@
 # BBS Einbeck iPad-Management
 
+[English version](README.en.md)
+
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
 Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.0 automatisiert den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
@@ -7,9 +9,9 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 ## Stand
 
 - Version: `2.0`
-- Datum: `9. Juli 2026`
-- Produktionspfad: `/var/www/example.org/disown`
-- Entwicklungszweig: `/var/www/example.org/disown-dev`
+- Datum: `10. Juli 2026`
+- Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
+- Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien
 
 ## Funktionsumfang
@@ -17,6 +19,8 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 - Self-Service-Webclip fuer Rueckgabeantraege.
 - Schutzseite fuer schulische Leih-/Koffergeraete, damit diese nicht versehentlich freigegeben werden.
 - Adminportal mit Suche, Statusfiltern, Bulk-Verarbeitung, Kennzahlen, Jahresverlauf und Jamf-Lizenztrend.
+- Admin-Sonderfreigabe fuer defekte Geraete per Seriennummer, mit bewusster Einzelfall-Pruefung und ohne Bulk/WebClip-Bypass.
+- Release-Broker-Status inklusive ADE-Token-Ablauf im Admin-Dashboard.
 - Automatischer Jamf-Unenroll per Jamf-School-API.
 - Automatische ASM/ADE-Freigabe per Apple School Manager Public API und lokalem NanoDEP Release Broker.
 - Abschlussmail an schulische und private E-Mail-Adresse; der Prozess wird auch bei Teilfehlern abgeschlossen und der Mailstatus wird rot markiert.
@@ -50,6 +54,12 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 Die alte Spalte `asm_manual_done` bleibt aus Kompatibilitaetsgruenden bestehen, bedeutet ab Version 2.0 aber: ASM/ADE-Freigabe wurde erledigt, in der Regel automatisch.
 
+## Admin-Sonderfreigabe
+
+Der seltene Sonderweg fuer defekte Geraete liegt im Adminportal unten vor dem Footer. Admins pruefen zuerst die Seriennummer gegen Jamf, kontrollieren Name und E-Mail-Adressen und legen danach nur einen lokalen Antrag an. Jamf-Unenroll, ASM/ADE-Freigabe und Mail laufen anschliessend ueber die normale Tabellenzeile.
+
+Nur dieser Admin-Sonderweg darf den Schulgeraete-Blocker bewusst ueberspringen. WebClip, normale Antraege und Bulk bleiben gegen schulische Leih-/Koffergeraete geschuetzt.
+
 ## Bulk-Workflow
 
 Der Bulk-Ablauf bleibt bewusst schrittweise:
@@ -73,7 +83,7 @@ Wichtig:
 
 - Die Freigabe aus der Apple-Organisation ist irreversibel.
 - Der Broker lauscht nur lokal auf `127.0.0.1:9001`.
-- Secrets liegen ausserhalb des Webroots; Beispielpfade stehen in der Installationsanleitung.
+- Secrets liegen ausserhalb des Webroots unter `/srv/protected/asm-release-broker` und `/etc/disown`.
 - DEV fuehrt nur Dry-Runs aus.
 
 Die Beispielkonfiguration liegt unter:
@@ -114,7 +124,7 @@ Kurzfassung:
 - `config/asm-release-broker.example.conf` - Beispiel fuer Broker-Konfiguration.
 - `tools/install-nanodep-service.sh` - systemd-Installation des NanoDEP-Servers.
 - `tools/install-nanodep-monitoring.sh` - Healthcheck-Timer und Logrotation fuer NanoDEP.
-- `docs/SECRETS.md` - Ablageplan fuer Runtime-Konfiguration, Tokens und Keys.
+- `docs/SECRETS.md` - Ablageplan fuer Runtime-Secrets, Broker-Token und Logs.
 
 ## Sicherheit
 
@@ -129,5 +139,6 @@ Kurzfassung:
 ## Historie
 
 - `2.0`: automatische ASM/ADE-Freigabe ueber Release Broker, NanoDEP-Dienst, verbesserter Bulk-Workflow, Mail an beide Adressen mit Teilerfolg, neue Doku und Screenshots.
+- `2.0` Nachpflege 2026-07-10: Admin-Sonderfreigabe fuer defekte Geraete, ADE-Token-Hinweis, Mail-Dialog-Korrektur und Wartehinweis fuer Einzelaktionen.
 - `1.9`: UI-Vereinheitlichung, Monatsuebersicht, Klärfaelle, Jamf-Lizenzindikator.
 - `1.8`: KUK-Geraete, ADE-Aufnahmen, Audit-Dashboard.

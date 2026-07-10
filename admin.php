@@ -14,6 +14,16 @@ $disownMessage = '';
 $disownError = '';
 $bulkMessage = '';
 $bulkError = '';
+$adminDirectMessage = '';
+$adminDirectError = '';
+$adminDirectPreview = null;
+$adminDirectForm = [
+    'serial' => '',
+    'full_name' => '',
+    'email' => '',
+    'private_email' => '',
+    'note' => '',
+];
 $caseMessage = '';
 $caseError = '';
 $asmReleasePreview = null;
@@ -26,7 +36,7 @@ $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '2.0-dev' : '2.0';
-$appVersionDate = '9. Juli 2026';
+$appVersionDate = '10. Juli 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -174,7 +184,7 @@ function log_request_action($mysqli, int $requestId, string $action, ?string $de
 function load_request_for_action($mysqli, int $requestId): ?array
 {
     $stmt = $mysqli->prepare(
-        "SELECT id, serial, full_name, device_name, jamf_unenrolled, asm_manual_done, mail_sent, completed_by
+        "SELECT id, serial, full_name, username, email, private_email, class_name, device_name, jamf_unenrolled, asm_manual_done, mail_sent, completed_by, user_agent
          FROM requests
          WHERE id = ?"
     );
@@ -188,6 +198,103 @@ function load_request_for_action($mysqli, int $requestId): ?array
     $stmt->close();
 
     return $row ?: null;
+}
+
+function load_open_request_by_serial(mysqli $mysqli, string $serial): ?array
+{
+    $stmt = $mysqli->prepare(
+        "SELECT id, serial, full_name, username, email, private_email, class_name, device_name, jamf_unenrolled, asm_manual_done, mail_sent, completed_by, user_agent
+         FROM requests
+         WHERE UPPER(serial) = UPPER(?)
+           AND status = 'offen'
+         ORDER BY id DESC
+         LIMIT 1"
+    );
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('s', $serial);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $row ?: null;
+}
+
+function create_admin_direct_request(mysqli $mysqli, array $jamf, array $input, string $adminUser): ?int
+{
+    $serial = strtoupper(trim((string) ($jamf['serial'] ?? $input['serial'] ?? '')));
+    if ($serial === '') {
+        return null;
+    }
+
+    $username = trim((string) ($jamf['username'] ?? ''));
+    $schoolEmail = trim((string) ($input['email'] ?? ''));
+    if ($schoolEmail === '') {
+        $schoolEmail = trim((string) ($jamf['email'] ?? ''));
+    }
+    if ($schoolEmail === '' && $username !== '' && str_contains($username, '.')) {
+        $schoolEmail = $username . '@bbs-einbeck.de';
+    }
+    $privateEmail = trim((string) ($input['private_email'] ?? ''));
+    $fullName = trim((string) ($input['full_name'] ?? ''));
+    if ($fullName === '') {
+        $fullName = trim((string) ($jamf['full_name'] ?? ''));
+    }
+    if ($fullName === '') {
+        $fullName = 'Admin-Sonderfreigabe';
+    }
+
+    $className = 'ADMIN';
+    $jamfUserId = isset($jamf['jamf_user_id']) && $jamf['jamf_user_id'] !== '' ? (int) $jamf['jamf_user_id'] : null;
+    $jamfModified = trim((string) ($jamf['jamf_modified'] ?? ''));
+    $jamfModified = $jamfModified !== '' ? $jamfModified : null;
+    $deviceName = trim((string) ($jamf['device_name'] ?? ''));
+    $requestedReleaseDate = (new DateTimeImmutable('today', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $userAgent = 'Admin-Sonderfreigabe durch ' . ($adminUser !== '' ? $adminUser : 'admin');
+
+    $stmt = $mysqli->prepare(
+        "INSERT INTO requests
+         (username, email, private_email, full_name, class_name, jamf_user_id, jamf_modified, serial, device_name, requested_release_date, ip, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param(
+        'sssssissssss',
+        $username,
+        $schoolEmail,
+        $privateEmail,
+        $fullName,
+        $className,
+        $jamfUserId,
+        $jamfModified,
+        $serial,
+        $deviceName,
+        $requestedReleaseDate,
+        $ip,
+        $userAgent
+    );
+
+    if (!$stmt->execute()) {
+        $stmt->close();
+        return null;
+    }
+
+    $requestId = (int) $mysqli->insert_id;
+    $stmt->close();
+
+    return $requestId > 0 ? $requestId : null;
+}
+
+function request_is_admin_direct(array $request): bool
+{
+    return (string) ($request['class_name'] ?? '') === 'ADMIN'
+        && str_starts_with((string) ($request['user_agent'] ?? ''), 'Admin-Sonderfreigabe durch ');
 }
 
 function normalize_bulk_ids($rawIds): array
@@ -504,6 +611,118 @@ function load_release_broker_health(): array
     return $health;
 }
 
+function read_simple_env_file(string $path): array
+{
+    if ($path === '' || !is_readable($path)) {
+        return [];
+    }
+
+    $values = [];
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        return [];
+    }
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        $value = trim($value);
+        if ($key === '') {
+            continue;
+        }
+        if (
+            (str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+            (str_starts_with($value, "'") && str_ends_with($value, "'"))
+        ) {
+            $value = substr($value, 1, -1);
+        }
+        $values[$key] = $value;
+    }
+
+    return $values;
+}
+
+function load_release_broker_token_expiry(): array
+{
+    $result = [
+        'available' => false,
+        'label' => '',
+        'message' => 'Apple ADE Token-Ablaufdatum ist nicht bekannt.',
+        'severity' => 'muted',
+    ];
+
+    $configPath = getenv('DISOWN_ASM_BROKER_CONFIG') ?: '/etc/disown/asm-release-broker.conf';
+    $config = read_simple_env_file($configPath);
+
+    $expiry = trim((string) (getenv('DISOWN_NANODEP_TOKEN_EXPIRY') ?: ''));
+    $source = 'Umgebung';
+    if ($expiry === '') {
+        foreach (['DISOWN_NANODEP_TOKEN_EXPIRY', 'ASM_BROKER_TOKEN_EXPIRY', 'NANODEP_TOKEN_EXPIRY', 'TOKEN_EXPIRY'] as $key) {
+            if (!empty($config[$key])) {
+                $expiry = trim((string) $config[$key]);
+                $source = basename($configPath);
+                break;
+            }
+        }
+    }
+
+    $tokenFile = trim((string) (getenv('DISOWN_NANODEP_TOKEN_FILE') ?: ''));
+    if ($tokenFile === '') {
+        foreach (['DISOWN_NANODEP_TOKEN_FILE', 'ASM_BROKER_TOKEN_FILE', 'NANODEP_TOKEN_FILE', 'TOKEN_FILE'] as $key) {
+            if (!empty($config[$key])) {
+                $tokenFile = trim((string) $config[$key]);
+                break;
+            }
+        }
+    }
+    if ($tokenFile === '') {
+        $tokenFile = '/srv/protected/asm-release-broker/asm-release-broker-token.plist';
+    }
+
+    if ($expiry === '' && is_readable($tokenFile)) {
+        $contents = file_get_contents($tokenFile);
+        if (is_string($contents) && preg_match('/"access_token_expiry"\s*:\s*"([^"]+)"/', $contents, $matches)) {
+            $expiry = trim($matches[1]);
+            $source = basename($tokenFile);
+        }
+    }
+
+    if ($expiry === '') {
+        $expiry = '2027-07-09T12:12:55Z';
+        $source = 'Fallback';
+    }
+
+    try {
+        $expiryDate = new DateTimeImmutable($expiry);
+    } catch (Exception $e) {
+        $result['available'] = true;
+        $result['label'] = 'Token ungueltig';
+        $result['message'] = 'Apple ADE Token-Ablaufdatum ist ungueltig: ' . $expiry;
+        $result['severity'] = 'error';
+        return $result;
+    }
+
+    $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    $localExpiry = $expiryDate->setTimezone(new DateTimeZone('Europe/Berlin'));
+    $secondsLeft = $expiryDate->getTimestamp() - $now->getTimestamp();
+
+    $result['available'] = true;
+    $result['label'] = 'Token bis ' . $localExpiry->format('d.m.Y');
+    $result['message'] = 'Apple ADE Token gueltig bis ' . $localExpiry->format('d.m.Y H:i') . ' Uhr. Quelle: ' . $source . '.';
+    $result['severity'] = $secondsLeft <= 0 ? 'error' : ($secondsLeft <= 30 * 86400 ? 'warn' : 'free');
+
+    if ($secondsLeft <= 0) {
+        $result['label'] = 'Token abgelaufen';
+        $result['message'] = 'Apple ADE Token ist seit ' . $localExpiry->format('d.m.Y H:i') . ' Uhr abgelaufen. Quelle: ' . $source . '.';
+    }
+
+    return $result;
+}
+
 function normalize_device_case_status(string $status): string
 {
     $status = trim($status);
@@ -697,6 +916,126 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 'DEVICE_CASE_SAVED',
                 'Seriennummer: ' . $caseSerial . '; Klärfall: ' . $caseTitle . '; Status: ' . display_device_case_status($caseStatus)
             );
+        }
+    }
+
+    if (isset($_POST['admin_direct_preview']) || isset($_POST['admin_direct_create'])) {
+        $isAdminDirectExecution = isset($_POST['admin_direct_create']);
+        $directSerial = strtoupper(trim((string) ($_POST['admin_direct_serial'] ?? '')));
+        $directFullName = trim((string) ($_POST['admin_direct_full_name'] ?? ''));
+        $directSchoolEmail = trim((string) ($_POST['admin_direct_email'] ?? ''));
+        $directPrivateEmail = trim((string) ($_POST['admin_direct_private_email'] ?? ''));
+        $directNote = trim((string) ($_POST['admin_direct_note'] ?? ''));
+        $adminDirectForm = [
+            'serial' => $directSerial,
+            'full_name' => $directFullName,
+            'email' => $directSchoolEmail,
+            'private_email' => $directPrivateEmail,
+            'note' => $directNote,
+        ];
+
+        if ($directSerial === '') {
+            $adminDirectError = 'Bitte eine Seriennummer eintragen.';
+        } elseif ($directSchoolEmail !== '' && !filter_var($directSchoolEmail, FILTER_VALIDATE_EMAIL)) {
+            $adminDirectError = 'Die schulische E-Mail-Adresse ist ungültig.';
+        } elseif ($directPrivateEmail !== '' && !filter_var($directPrivateEmail, FILTER_VALIDATE_EMAIL)) {
+            $adminDirectError = 'Die private E-Mail-Adresse ist ungültig.';
+        } else {
+            $jamfDevice = jamf_lookup_by_serial($directSerial);
+            if (!$jamfDevice) {
+                $adminDirectError = 'Gerät wurde in Jamf nicht gefunden.';
+            } else {
+                $directSerial = strtoupper(trim((string) ($jamfDevice['serial'] ?? $directSerial)));
+                $adminDirectForm['serial'] = $directSerial;
+                if ($adminDirectForm['full_name'] === '') {
+                    $adminDirectForm['full_name'] = trim((string) ($jamfDevice['full_name'] ?? ''));
+                }
+                if ($adminDirectForm['email'] === '') {
+                    $adminDirectForm['email'] = trim((string) ($jamfDevice['email'] ?? ''));
+                }
+                $schoolLoanReasons = jamf_school_loan_reasons($jamfDevice);
+                $adminDirectPreview = [
+                    'serial' => $directSerial,
+                    'device_name' => trim((string) ($jamfDevice['device_name'] ?? '')),
+                    'full_name' => trim((string) ($jamfDevice['full_name'] ?? '')),
+                    'username' => trim((string) ($jamfDevice['username'] ?? '')),
+                    'email' => trim((string) ($jamfDevice['email'] ?? '')),
+                    'asset_tag' => trim((string) ($jamfDevice['asset_tag'] ?? '')),
+                    'school_loan_reasons' => $schoolLoanReasons,
+                ];
+
+                if (!$isAdminDirectExecution) {
+                    $adminDirectMessage = 'Jamf-Daten für ' . $directSerial . ' geladen. Bitte prüfen und dann den Antrag anlegen.';
+                }
+            }
+        }
+
+        if ($isAdminDirectExecution && $adminDirectError === '') {
+            if (!$adminDirectPreview) {
+                $adminDirectError = 'Bitte Seriennummer zuerst prüfen.';
+            } else {
+                $directInput = [
+                    'serial' => $directSerial,
+                    'full_name' => $directFullName,
+                    'email' => $directSchoolEmail,
+                    'private_email' => $directPrivateEmail,
+                ];
+                $request = load_open_request_by_serial($mysqli, $directSerial);
+                $requestWasCreated = false;
+
+                if (!$request) {
+                    $requestId = create_admin_direct_request($mysqli, $jamfDevice, $directInput, $currentAdminUser);
+                    if ($requestId === null) {
+                        $adminDirectError = 'Admin-Sonderfreigabe konnte nicht angelegt werden.';
+                    } else {
+                        $requestWasCreated = true;
+                        $request = load_request_for_action($mysqli, $requestId);
+                        log_request_action(
+                            $mysqli,
+                            $requestId,
+                            'ADMIN_DIRECT_REQUEST_CREATED',
+                            'Seriennummer: ' . $directSerial . '; Schulgeräte-Check bewusst nur für diesen Admin-Sonderweg übersprungen.' . ($directNote !== '' ? ' Hinweis: ' . $directNote : '')
+                        );
+                    }
+                }
+
+                if ($request && $adminDirectError === '') {
+                    $requestId = (int) $request['id'];
+                    if (($request['completed_by'] ?? '') === 'history-import') {
+                        $adminDirectError = 'Historische Importe können nicht per Admin-Sonderweg verarbeitet werden.';
+                    } elseif (!empty($request['mail_sent'])) {
+                        $adminDirectError = 'Dieser Vorgang hat bereits einen Mailstatus und wird nicht erneut gestartet.';
+                    } elseif (!empty($request['jamf_unenrolled'])) {
+                        $adminDirectMessage = 'Offener Vorgang #' . $requestId . ' war bereits in Jamf abgemeldet. Nächster Schritt: ASM/ADE prüfen.';
+                        $adminDirectPreview = null;
+                        $adminDirectForm = [
+                            'serial' => '',
+                            'full_name' => '',
+                            'email' => '',
+                            'private_email' => '',
+                            'note' => '',
+                        ];
+                    } else {
+                        if (!$requestWasCreated) {
+                            log_request_action(
+                                $mysqli,
+                                $requestId,
+                                'ADMIN_DIRECT_REQUEST_REUSED',
+                                'Seriennummer: ' . $directSerial . '; vorhandener offener Admin-Sonderweg weiterverwendet.' . ($directNote !== '' ? ' Hinweis: ' . $directNote : '')
+                            );
+                        }
+                        $adminDirectMessage = ($requestWasCreated ? 'Admin-Sonderantrag #' . $requestId . ' angelegt.' : 'Offener Antrag #' . $requestId . ' weiterverwendet.') . ' Nächster Schritt: Jamf in der Tabellenzeile starten.';
+                        $adminDirectPreview = null;
+                        $adminDirectForm = [
+                            'serial' => '',
+                            'full_name' => '',
+                            'email' => '',
+                            'private_email' => '',
+                            'note' => '',
+                        ];
+                    }
+                }
+            }
         }
     }
 
@@ -1148,7 +1487,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $unenrollSerial = trim($_POST['unenroll_serial'] ?? '');
 
         if ($unenrollId > 0 && $unenrollSerial !== '') {
-            $result = jamf_unenroll_by_serial($unenrollSerial);
+            $unenrollRequest = load_request_for_action($mysqli, $unenrollId);
+            $allowSchoolLoan = $unenrollRequest ? request_is_admin_direct($unenrollRequest) : false;
+            $result = jamf_unenroll_by_serial($unenrollSerial, $allowSchoolLoan);
             $message = $result['message'] ?? '';
 
             if (!empty($result['success'])) {
@@ -1168,7 +1509,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $mysqli,
                     $unenrollId,
                     'JAMF_UNENROLL_SUCCESS',
-                    'Seriennummer: ' . $unenrollSerial . '; Meldung: ' . ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.')
+                    'Seriennummer: ' . $unenrollSerial . ($allowSchoolLoan ? '; Schulgeräte-Check per Admin-Sonderweg übersprungen' : '') . '; Meldung: ' . ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.')
                 );
                 $disownMessage = ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.') . ' Nächster Schritt: automatische ASM/ADE-Freigabe prüfen und starten.';
             } else {
@@ -1187,7 +1528,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $mysqli,
                     $unenrollId,
                     'JAMF_UNENROLL_FAILED',
-                    'Seriennummer: ' . $unenrollSerial . '; Fehler: ' . ($message ?: 'Unbekannter Fehler beim Jamf-Abruf.')
+                    'Seriennummer: ' . $unenrollSerial . ($allowSchoolLoan ? '; Schulgeräte-Check per Admin-Sonderweg übersprungen' : '') . '; Fehler: ' . ($message ?: 'Unbekannter Fehler beim Jamf-Abruf.')
                 );
                 $disownError = 'Unenroll fehlgeschlagen: ' . htmlspecialchars($message);
             }
@@ -1426,6 +1767,18 @@ $avgAdminProcessingText = format_duration_seconds($dashboard['avg_admin_processi
 $avgStudentResponseText = format_duration_seconds($dashboard['avg_student_response_seconds']);
 $jamfLicenseDashboard = load_jamf_license_dashboard($mysqli, $jamfLicenseBaseline);
 $releaseBrokerHealth = load_release_broker_health();
+$releaseBrokerToken = load_release_broker_token_expiry();
+$releaseBrokerTokenClassMap = [
+    'free' => 'license-dashboard-free',
+    'warn' => 'license-dashboard-warn',
+    'error' => 'license-dashboard-error',
+    'muted' => 'license-dashboard-muted',
+];
+$releaseBrokerTokenClass = $releaseBrokerTokenClassMap[$releaseBrokerToken['severity'] ?? 'muted'] ?? 'license-dashboard-muted';
+$releaseBrokerDashboardTitle = trim(($releaseBrokerHealth['message'] ?? '') . ' ' . ($releaseBrokerToken['message'] ?? ''));
+if ($releaseBrokerDashboardTitle === '') {
+    $releaseBrokerDashboardTitle = 'Release Broker Status';
+}
 $openDeviceCaseCount = 0;
 $openCaseResult = $mysqli->query("SELECT COUNT(*) AS total FROM device_cases WHERE status <> 'geklaert'");
 if ($openCaseResult) {
@@ -2069,12 +2422,131 @@ table {
     color: #94a3b8;
     font-size: 0.75rem;
 }
+.license-dashboard-token {
+    font-size: 0.75rem;
+    font-weight: 700;
+}
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 18px;
 }
+.admin-direct-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    margin: 28px 0 18px;
+    padding: 12px 14px;
+}
+.admin-direct-card summary {
+    color: #92400e;
+    cursor: pointer;
+    font-weight: 800;
+}
+.admin-direct-form {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+.admin-direct-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.admin-direct-grid label {
+    color: #475569;
+    display: grid;
+    font-size: 0.78rem;
+    font-weight: 700;
+    gap: 5px;
+}
+.admin-direct-note {
+    grid-column: 1 / -1;
+}
+.admin-direct-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+}
+.admin-direct-action-buttons {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.admin-direct-message {
+    margin: 28px 0 18px;
+}
+.admin-direct-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px;
+}
+.admin-direct-preview-title {
+    color: #0f172a;
+    font-weight: 800;
+}
+.admin-direct-facts {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.admin-direct-facts span {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    color: #0f172a;
+    display: grid;
+    font-size: 0.88rem;
+    gap: 3px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 8px 10px;
+}
+.admin-direct-facts strong {
+    color: #64748b;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+}
+.admin-direct-warning {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    color: #9a3412;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 8px 10px;
+}
+.admin-direct-confirm-form {
+    border-top: 1px solid #fde68a;
+    margin-top: 12px;
+    padding-top: 12px;
+}
+@media (max-width: 760px) {
+    .admin-direct-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .admin-direct-facts {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .admin-direct-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .admin-direct-actions .button {
+        width: 100%;
+    }
+}
+
 .bulk-toolbar {
     align-items: center;
     background: #ffffff;
@@ -2083,9 +2555,11 @@ table {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    justify-content: space-between;
     margin-bottom: 16px;
     padding: 10px 12px;
 }
+
 .bulk-status {
     color: #475569;
     font-size: 0.9rem;
@@ -2885,14 +3359,27 @@ tr:hover {
         font-size: 15px;
     }
     .page {
+        display: flex;
+        flex-direction: column;
         padding: 14px 10px;
+    }
+    .page > * {
+        order: 30;
     }
     .page-title {
         font-size: 1.55rem;
     }
     .header {
         gap: 12px;
-        margin-bottom: 14px;
+        margin-bottom: 10px;
+        order: 1;
+    }
+    .header > div:first-child {
+        flex: 0 1 auto;
+    }
+    .header-actions {
+        gap: 8px;
+        margin-left: 0;
     }
     .header-actions,
     .logo-actions,
@@ -2901,6 +3388,9 @@ tr:hover {
     }
     .logo-actions {
         justify-content: space-between;
+    }
+    .site-logo {
+        max-width: 150px;
     }
     .tool-links {
         display: grid;
@@ -2918,6 +3408,7 @@ tr:hover {
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 8px;
         margin-bottom: 12px;
+        order: 3;
     }
     .search-label {
         display: none;
@@ -2941,6 +3432,7 @@ tr:hover {
     .bulk-toolbar {
         align-items: stretch;
         flex-direction: column;
+        order: 7;
     }
     .bulk-toolbar .button {
         min-width: 0;
@@ -2949,6 +3441,7 @@ tr:hover {
     .filter-bar {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        order: 4;
     }
     .filter-link {
         width: 100%;
@@ -2958,6 +3451,7 @@ tr:hover {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 4px 0;
         padding: 8px;
+        order: 2;
     }
     .dashboard-stat {
         align-items: center;
@@ -2969,6 +3463,23 @@ tr:hover {
     }
     .pagination-top {
         margin: 8px 0 18px;
+        order: 8;
+    }
+    .request-trend-card {
+        order: 5;
+    }
+    .license-dashboard {
+        order: 6;
+    }
+    .message {
+        order: 9;
+    }
+    .asm-release-card,
+    .preview-card {
+        order: 10;
+    }
+    .table-card {
+        order: 11;
     }
     .card {
         border-radius: 14px;
@@ -3088,6 +3599,13 @@ tr:hover {
     .serial-cell {
         white-space: normal;
         overflow-wrap: anywhere;
+    }
+    td.nowrap-cell[data-label="ID"] {
+        grid-template-columns: minmax(82px, 34%) max-content;
+        justify-content: start;
+        overflow-wrap: normal;
+        white-space: nowrap;
+        word-break: normal;
     }
     .status-cell,
     .action-cell {
@@ -3252,7 +3770,7 @@ tr:hover {
         <?php else: ?>
             <span class="license-dashboard-item license-dashboard-error">Jamf-Abgleich aktuell nicht verfügbar</span>
         <?php endif; ?>
-        <span class="license-dashboard-item" title="<?=htmlspecialchars($releaseBrokerHealth['message'])?>">Release Broker
+        <span class="license-dashboard-item" title="<?=htmlspecialchars($releaseBrokerDashboardTitle)?>">Release Broker
             <?php if ($releaseBrokerHealth['ok']): ?>
                 <span class="license-dashboard-value license-dashboard-free">OK</span>
                 <?php if ($releaseBrokerHealth['version'] !== ''): ?>
@@ -3260,6 +3778,9 @@ tr:hover {
                 <?php endif; ?>
             <?php else: ?>
                 <span class="license-dashboard-value license-dashboard-error">Fehler</span>
+            <?php endif; ?>
+            <?php if (($releaseBrokerToken['label'] ?? '') !== ''): ?>
+                <span class="license-dashboard-token <?=htmlspecialchars($releaseBrokerTokenClass)?>"><?=htmlspecialchars($releaseBrokerToken['label'])?></span>
             <?php endif; ?>
         </span>
     </div>
@@ -3373,14 +3894,14 @@ tr:hover {
                 <p class="preview-subtitle">Die Freigabe wurde abgeschlossen. Danach kann die Abschlussmail versendet werden.</p>
             <?php elseif (!empty($asmReleasePreview['success'])): ?>
                 <div class="asm-release-actions">
-                    <form method="post">
+                    <form method="post" onsubmit="showSingleWorking('ASM/ADE-Freigabe läuft. Bitte warten und die Seite nicht neu laden.')">
                         <input type="hidden" name="asm_release_confirm" value="<?=htmlspecialchars((string) ($asmReleaseRequest['id'] ?? 0))?>">
                         <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
                         <button type="submit" class="button button-primary">
                             <?= $isDevMode ? 'Dry-Run erneut testen' : 'Jetzt ASM/ADE freigeben' ?>
                         </button>
                     </form>
-                    <form method="post" onsubmit="openAsmBeforeSubmit()">
+                    <form method="post" onsubmit="showSingleWorking('Notfall-Abschluss wird gespeichert. Bitte warten und die Seite nicht neu laden.'); openAsmBeforeSubmit()">
                         <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars((string) ($asmReleaseRequest['id'] ?? 0))?>">
                         <input type="hidden" name="asm_serial" value="<?=htmlspecialchars((string) ($asmReleaseRequest['serial'] ?? ''))?>">
                         <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
@@ -3610,7 +4131,7 @@ tr:hover {
                             <?php endif; ?>
 
                             <?php if ($canWrite && !$isHistoryImport && !$jamfUnenrolled): ?>
-                                <form method="post" class="action-form">
+                                <form method="post" class="action-form" onsubmit="showSingleWorking('ASM/ADE-Prüfung läuft. Bitte warten und die Seite nicht neu laden.')">
                                     <input type="hidden" name="unenroll" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="unenroll_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
@@ -3624,7 +4145,7 @@ tr:hover {
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
                                     <button type="submit" class="button button-primary">ASM prüfen</button>
                                 </form>
-                                <form method="post" class="action-form" onsubmit="openAsmBeforeSubmit()">
+                                <form method="post" class="action-form" onsubmit="showSingleWorking('Notfall-Abschluss wird gespeichert. Bitte warten und die Seite nicht neu laden.'); openAsmBeforeSubmit()">
                                     <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="asm_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
@@ -3749,6 +4270,84 @@ tr:hover {
         </div>
         <?php endif; ?>
     </div>
+    <?php if ($canWrite): ?>
+        <?php if ($adminDirectMessage): ?>
+            <div class="message success admin-direct-message"><?=htmlspecialchars($adminDirectMessage)?></div>
+        <?php endif; ?>
+        <?php if ($adminDirectError): ?>
+            <div class="message error admin-direct-message"><?=htmlspecialchars($adminDirectError)?></div>
+        <?php endif; ?>
+        <details class="admin-direct-card" <?=($adminDirectPreview || $adminDirectError || $adminDirectForm['serial'] !== '') ? 'open' : ''?>>
+            <summary>Admin-Sonderfreigabe für Defektgerät</summary>
+            <form method="post" class="admin-direct-form">
+                <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                <input type="hidden" name="admin_direct_preview" value="1">
+                <div class="admin-direct-grid">
+                    <label>
+                        <span>Seriennummer</span>
+                        <input class="preview-input" name="admin_direct_serial" type="text" required autocomplete="new-password" autocapitalize="characters" spellcheck="false" placeholder="z. B. DMRDJ9NHQ1GC" value="<?=htmlspecialchars($adminDirectForm['serial'])?>">
+                    </label>
+                    <label>
+                        <span>Hinweis optional</span>
+                        <input class="preview-input" name="admin_direct_note" type="text" autocomplete="new-password" spellcheck="false" placeholder="z. B. defektes Gerät, Freigabe durch Admin gestartet" value="<?=htmlspecialchars($adminDirectForm['note'])?>">
+                    </label>
+                </div>
+                <div class="admin-direct-actions">
+                    <span class="preview-subtitle">Erst Jamf-Daten laden, danach einen Antrag anlegen.</span>
+                    <button type="submit" class="button button-secondary">Seriennummer prüfen</button>
+                </div>
+            </form>
+
+            <?php if ($adminDirectPreview): ?>
+                <div class="admin-direct-preview">
+                    <div class="admin-direct-preview-title">Jamf-Daten gefunden</div>
+                    <div class="admin-direct-facts">
+                        <span><strong>Gerät</strong><?=htmlspecialchars($adminDirectPreview['device_name'] ?: 'unbekannt')?></span>
+                        <span><strong>Seriennummer</strong><?=htmlspecialchars($adminDirectPreview['serial'])?></span>
+                        <span><strong>Owner</strong><?=htmlspecialchars($adminDirectPreview['full_name'] ?: 'nicht gesetzt')?></span>
+                        <span><strong>IServ</strong><?=htmlspecialchars($adminDirectPreview['username'] ?: 'nicht gesetzt')?></span>
+                        <span><strong>E-Mail</strong><?=htmlspecialchars($adminDirectPreview['email'] ?: 'nicht gesetzt')?></span>
+                        <span><strong>Asset-Tag</strong><?=htmlspecialchars($adminDirectPreview['asset_tag'] ?: 'nicht gesetzt')?></span>
+                    </div>
+                    <?php if (!empty($adminDirectPreview['school_loan_reasons'])): ?>
+                        <div class="admin-direct-warning">Schulgeräte-Erkennung: <?=htmlspecialchars(implode(', ', $adminDirectPreview['school_loan_reasons']))?>. Dieser Sonderweg darf das bewusst umgehen.</div>
+                    <?php endif; ?>
+                </div>
+
+                <form method="post" class="admin-direct-form admin-direct-confirm-form">
+                    <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                    <input type="hidden" name="admin_direct_create" value="1">
+                    <input type="hidden" name="admin_direct_serial" value="<?=htmlspecialchars($adminDirectForm['serial'])?>">
+                    <input type="hidden" name="admin_direct_note" value="<?=htmlspecialchars($adminDirectForm['note'])?>">
+                    <div class="admin-direct-grid">
+                        <label>
+                            <span>Name</span>
+                            <input class="preview-input" name="admin_direct_full_name" type="text" autocomplete="new-password" spellcheck="false" value="<?=htmlspecialchars($adminDirectForm['full_name'])?>">
+                        </label>
+                        <label>
+                            <span>Schulische E-Mail</span>
+                            <input class="preview-input" name="admin_direct_email" type="text" inputmode="email" autocomplete="new-password" autocapitalize="none" spellcheck="false" value="<?=htmlspecialchars($adminDirectForm['email'])?>">
+                        </label>
+                        <label>
+                            <span>Private E-Mail optional</span>
+                            <input class="preview-input" name="admin_direct_private_email" type="text" inputmode="email" autocomplete="new-password" autocapitalize="none" spellcheck="false" value="<?=htmlspecialchars($adminDirectForm['private_email'])?>">
+                        </label>
+                    </div>
+                    <div class="admin-direct-actions">
+                        <span class="preview-subtitle">Der Antrag erscheint danach unten in der Tabelle. Jamf, ASM/ADE und Mail laufen über die normalen Admin-Schritte.</span>
+                        <span class="admin-direct-action-buttons">
+                            <a class="button button-secondary" href="<?=htmlspecialchars(admin_url(['page' => 1, 'export' => null]))?>">Abbrechen</a>
+                            <button type="submit" class="button button-primary">Antrag anlegen</button>
+                        </span>
+                    </div>
+                </form>
+            <?php else: ?>
+                <div class="admin-direct-actions">
+                    <span class="preview-subtitle">Nur dieser Admin-Sonderweg überspringt den Schulgeräte-Check. WebClip und Bulk bleiben geschützt.</span>
+                </div>
+            <?php endif; ?>
+        </details>
+    <?php endif; ?>
     <footer class="page-footer">
         <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
@@ -3968,6 +4567,19 @@ function showBulkWorking(action, count) {
     });
 }
 
+function showSingleWorking(text) {
+    const message = document.getElementById('bulkWorkingMessage');
+    if (message) {
+        message.textContent = text || 'Aktion läuft. Bitte warten und die Seite nicht neu laden.';
+        message.classList.remove('hidden');
+        message.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    document.querySelectorAll('.action-form button, .asm-release-actions button').forEach((element) => {
+        element.disabled = true;
+    });
+}
+
 function updateBulkAsmListFromSelection() {
     const selectedRows = getSelectedBulkRows();
     const textarea = document.getElementById('bulkAsmListText');
@@ -4140,13 +4752,13 @@ function showMailPreview(button) {
     const privateEmailInput = document.getElementById('previewPrivateEmailInput');
     const schoolEmailInput = document.getElementById('previewSchoolEmailInput');
 
-    privateRecipientRow.classList.toggle('hidden', privateEmail === '');
+    privateRecipientRow.classList.remove('hidden');
     privateEmailInput.value = privateEmail;
     schoolEmailInput.value = schoolEmail;
     sendPrivateEmail.checked = privateEmail !== '';
-    sendPrivateEmail.disabled = privateEmail === '';
+    sendPrivateEmail.disabled = false;
     sendSchoolEmail.checked = schoolEmail !== '';
-    sendSchoolEmail.disabled = schoolEmail === '';
+    sendSchoolEmail.disabled = false;
     document.getElementById('previewSubjectInput').value = mailSubject;
     document.getElementById('previewBodyInput').value = body;
     updateMailRecipients();
@@ -4213,6 +4825,21 @@ function updateMailRecipients() {
     const sendSchoolEmail = document.getElementById('sendSchoolEmail');
     const privateEmail = document.getElementById('previewPrivateEmailInput').value.trim();
     const schoolEmail = document.getElementById('previewSchoolEmailInput').value.trim();
+
+    sendPrivateEmail.disabled = false;
+    sendSchoolEmail.disabled = false;
+    if (privateEmail && !sendPrivateEmail.checked) {
+        sendPrivateEmail.checked = true;
+    }
+    if (schoolEmail && !sendSchoolEmail.checked) {
+        sendSchoolEmail.checked = true;
+    }
+    if (!privateEmail) {
+        sendPrivateEmail.checked = false;
+    }
+    if (!schoolEmail) {
+        sendSchoolEmail.checked = false;
+    }
 
     if (sendPrivateEmail.checked && privateEmail) {
         recipients.push(privateEmail);

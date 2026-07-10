@@ -272,7 +272,7 @@ function jamf_lookup_by_serial(string $serial): ?array
  * Unenroll a device from Jamf School by serial number.
  * This calls POST /api/devices/{UDID}/unenroll.
  */
-function jamf_unenroll_by_serial(string $serial): array
+function jamf_unenroll_by_serial(string $serial, bool $allowSchoolLoan = false): array
 {
     $serial = trim($serial);
     if ($serial === '') {
@@ -286,7 +286,7 @@ function jamf_unenroll_by_serial(string $serial): array
     }
 
     if (disown_is_dev_mode()) {
-        if (jamf_device_is_school_loan($device)) {
+        if (!$allowSchoolLoan && jamf_device_is_school_loan($device)) {
             return ['success' => false, 'message' => 'Dieses Gerät ist als schulisches Leih-/Koffergerät markiert und darf nicht per Jamf abgemeldet werden.'];
         }
         return ['success' => true, 'message' => 'DEV-Modus: Jamf-Unenroll wurde simuliert.'];
@@ -303,7 +303,7 @@ function jamf_unenroll_by_serial(string $serial): array
         return ['success' => false, 'message' => 'Gerät wurde in Jamf nicht gefunden.'];
     }
 
-    if (jamf_device_is_school_loan($fullDevice)) {
+    if (!$allowSchoolLoan && jamf_device_is_school_loan($fullDevice)) {
         return ['success' => false, 'message' => 'Dieses Gerät ist als schulisches Leih-/Koffergerät markiert und darf nicht per Jamf abgemeldet werden.'];
     }
 

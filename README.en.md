@@ -1,5 +1,7 @@
 # BBS Einbeck iPad Management
 
+[Deutsche Version](README.md)
+
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
 Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.0 automates the workflow through Apple ADE/ASM release by using a local release broker.
@@ -7,9 +9,9 @@ Web application for handling former student iPad returns and releases at BBS Ein
 ## Status
 
 - Version: `2.0`
-- Date: `9 July 2026`
-- Production path: `/var/www/example.org/disown`
-- Development path: `/var/www/example.org/disown-dev`
+- Date: `10 July 2026`
+- Production path: `/var/www/sicher.bbs-einbeck.de/disown`
+- Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public demo: sanitized variant without credentials and without local project-state files
 
 ## Features
@@ -17,6 +19,8 @@ Web application for handling former student iPad returns and releases at BBS Ein
 - Self-service WebClip for release requests.
 - Guard page for school-owned loaner/cart devices so they cannot be released accidentally.
 - Admin portal with search, status filters, bulk workflow, metrics, rolling 12-month view and Jamf license estimate.
+- Admin special release for defective devices by serial number, with explicit single-device review and without bypassing WebClip or bulk safeguards.
+- Release broker status including ADE token expiration in the admin dashboard.
 - Automated Jamf unenroll through the Jamf School API.
 - Automated ASM/ADE release through the Apple School Manager Public API and a local NanoDEP release broker.
 - Completion mail to school and private email addresses; partial mail failures are shown in red but the request can still be completed.
@@ -50,6 +54,12 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 The legacy database column `asm_manual_done` is kept for compatibility. Since version 2.0 it means that the ASM/ADE release step has been completed, usually automatically.
 
+## Admin Special Release
+
+The rare special path for defective devices is placed at the bottom of the admin portal above the footer. Admins first check the serial number against Jamf, review the name and mail addresses, and then create only a local request. Jamf unenroll, ASM/ADE release and completion mail continue through the normal table row.
+
+Only this admin-only path may intentionally bypass the school-device blocker. WebClip requests, normal requests and bulk processing remain protected against school-owned loaner/cart devices.
+
 ## Bulk Workflow
 
 Bulk processing intentionally remains step-based:
@@ -73,7 +83,7 @@ Important:
 
 - Releasing a device from the Apple organization is irreversible.
 - The broker only listens locally on `127.0.0.1:9001`.
-- Secrets live outside the web root; example paths are documented in the installation guide.
+- Secrets live outside the web root under `/srv/protected/asm-release-broker` and `/etc/disown`.
 - DEV only performs dry-runs.
 
 Example configuration:
@@ -126,5 +136,6 @@ Short version:
 ## History
 
 - `2.0`: automated ASM/ADE release through the release broker, NanoDEP service, improved bulk workflow, mail to both addresses with partial-success handling, updated docs and screenshots.
+- `2.0` maintenance 2026-07-10: admin special release for defective devices, ADE token hint, mail dialog fix and waiting indicator for single actions.
 - `1.9`: unified UI, rolling month overview, clarification cases, Jamf license indicator.
 - `1.8`: KUK devices, ADE intake, audit dashboard.

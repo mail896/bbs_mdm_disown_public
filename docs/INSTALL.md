@@ -19,8 +19,8 @@ Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Platt
 Empfohlene Struktur:
 
 ```text
-/var/www/example.org/disown          # PROD
-/var/www/example.org/disown-dev      # DEV
+/var/www/sicher.bbs-einbeck.de/disown          # PROD
+/var/www/sicher.bbs-einbeck.de/disown-dev      # DEV
 /srv/protected/disown                          # geschuetzte App-Daten, falls benoetigt
 /srv/protected/asm-release-broker              # NanoDEP Token, Key, DB
 /etc/disown                                    # Runtime-Konfiguration
@@ -95,7 +95,7 @@ curl -sS http://127.0.0.1:9001/version
 Das Repository enthaelt den Installer:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-service.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-service.sh
 ```
 
 Der Dienst:
@@ -113,27 +113,28 @@ systemctl status disown-nanodep.service --no-pager
 curl -sS http://127.0.0.1:9001/version
 ```
 
+Das Admin-Dashboard zeigt den Release-Broker-Status und den bekannten ADE-Token-Ablauf an. Der Ablaufwert kann aus der Runtime-Konfiguration oder einer geschuetzten Token-Datei gelesen werden; Secrets und Token-Dateien bleiben ausserhalb des Repositories.
+
 ### 4.4 Healthcheck und Logrotation
 
-Der Healthcheck prueft alle fuenf Minuten, ob der lokale NanoDEP-Dienst aktiv ist und die lokale Version-URL beantwortet:
+Optional, fuer PROD empfohlen:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-monitoring.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-monitoring.sh
 ```
 
-Installiert werden:
+Der Installer richtet ein:
 
-- `disown-nanodep-health.timer`
-- `disown-nanodep-health.service`
-- `/usr/local/sbin/disown-nanodep-health`
-- `/var/log/disown/nanodep-health.log`
-- `/etc/logrotate.d/disown-nanodep`
+- `disown-nanodep-health.timer` alle 5 Minuten.
+- `/usr/local/sbin/disown-nanodep-health`.
+- `/var/log/disown/nanodep-health.log`.
+- `/etc/logrotate.d/disown-nanodep`.
 
 Pruefung:
 
 ```bash
 systemctl status disown-nanodep-health.timer --no-pager
-tail -n 20 /var/log/disown/nanodep-health.log
+tail -n 50 /var/log/disown/nanodep-health.log
 journalctl -u disown-nanodep.service -n 50 --no-pager
 ```
 
@@ -192,6 +193,17 @@ Empfohlene Reihenfolge:
 - Broker-Token und ASM-API-Zugang regelmaessig auf Ablauf pruefen.
 - Public-Repo nur neutralisiert aktualisieren.
 - `PROJECT_STATE.*` nicht in Public veroeffentlichen.
+
+### 7.1 Admin-Sonderfreigabe fuer Defektgeraete
+
+Der Admin-Sonderweg ist fuer einzelne defekte Geraete gedacht, die nicht ueber den normalen WebClip-Antrag laufen koennen. Der Ablauf:
+
+1. Seriennummer unten im Adminportal pruefen.
+2. Jamf-Daten kontrollieren und E-Mail-Adressen bei Bedarf korrigieren.
+3. Lokalen Antrag anlegen.
+4. Die Tabellenzeile wie gewohnt ueber Jamf, ASM/ADE und Mail abarbeiten.
+
+Nur dieser Einzelfallweg ueberspringt den Schulgeraete-Blocker bewusst. Bulk und WebClip behalten den Schutz gegen schulische Leih-/Koffergeraete.
 
 ## 8. Rollback
 

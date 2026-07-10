@@ -19,8 +19,8 @@ This guide describes the runtime requirements for DISOWN version 2.0.
 Recommended layout:
 
 ```text
-/var/www/example.org/disown          # production
-/var/www/example.org/disown-dev      # development
+/var/www/sicher.bbs-einbeck.de/disown          # production
+/var/www/sicher.bbs-einbeck.de/disown-dev      # development
 /srv/protected/disown                          # protected app data, if needed
 /srv/protected/asm-release-broker              # NanoDEP token, key, DB
 /etc/disown                                    # runtime configuration
@@ -95,7 +95,7 @@ curl -sS http://127.0.0.1:9001/version
 The repository contains the installer:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-service.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-service.sh
 ```
 
 The service:
@@ -113,27 +113,28 @@ systemctl status disown-nanodep.service --no-pager
 curl -sS http://127.0.0.1:9001/version
 ```
 
+The admin dashboard shows the release broker status and the known ADE token expiration. The expiration value can be read from runtime configuration or a protected token file; secrets and token files remain outside the repository.
+
 ### 4.4 Health Check and Log Rotation
 
-The health check verifies every five minutes that the local NanoDEP service is active and responds on the local version endpoint:
+Optional, recommended for production:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-monitoring.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-monitoring.sh
 ```
 
-Installed components:
+The installer creates:
 
-- `disown-nanodep-health.timer`
-- `disown-nanodep-health.service`
-- `/usr/local/sbin/disown-nanodep-health`
-- `/var/log/disown/nanodep-health.log`
-- `/etc/logrotate.d/disown-nanodep`
+- `disown-nanodep-health.timer` every 5 minutes.
+- `/usr/local/sbin/disown-nanodep-health`.
+- `/var/log/disown/nanodep-health.log`.
+- `/etc/logrotate.d/disown-nanodep`.
 
 Check:
 
 ```bash
 systemctl status disown-nanodep-health.timer --no-pager
-tail -n 20 /var/log/disown/nanodep-health.log
+tail -n 50 /var/log/disown/nanodep-health.log
 journalctl -u disown-nanodep.service -n 50 --no-pager
 ```
 
@@ -192,6 +193,17 @@ Recommended order:
 - Track expiration of broker token and ASM API credentials.
 - Only publish sanitized files to the public repository.
 - Do not publish `PROJECT_STATE.*`.
+
+### 7.1 Admin Special Release for Defective Devices
+
+The admin special path is intended for individual defective devices that cannot use the normal WebClip request. Workflow:
+
+1. Check the serial number at the bottom of the admin portal.
+2. Review the Jamf data and adjust mail addresses if needed.
+3. Create the local request.
+4. Process the table row normally through Jamf, ASM/ADE and mail.
+
+Only this single-device admin path intentionally bypasses the school-device blocker. Bulk and WebClip keep the guard against school-owned loaner/cart devices.
 
 ## 8. Rollback
 
