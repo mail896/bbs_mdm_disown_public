@@ -12,8 +12,8 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 - Version: `2.0`
 - Datum: `10. Juli 2026`
-- Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
-- Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
+- Produktionsumgebung: private Schulserver-Installation
+- Entwicklungsumgebung: getrennte DEV-Instanz
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien
 
 ## Funktionsumfang

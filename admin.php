@@ -235,7 +235,7 @@ function create_admin_direct_request(mysqli $mysqli, array $jamf, array $input, 
         $schoolEmail = trim((string) ($jamf['email'] ?? ''));
     }
     if ($schoolEmail === '' && $username !== '' && str_contains($username, '.')) {
-        $schoolEmail = $username . '@bbs-einbeck.de';
+        $schoolEmail = $username . '@example.org';
     }
     $privateEmail = trim((string) ($input['private_email'] ?? ''));
     $fullName = trim((string) ($input['full_name'] ?? ''));
@@ -4349,7 +4349,7 @@ tr:hover {
         </details>
     <?php endif; ?>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:admin@example.org">Project maintainer</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>

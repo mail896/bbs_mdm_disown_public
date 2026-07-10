@@ -153,7 +153,7 @@ function audit_url(array $params): string
 function audit_display_user(?string $value): string
 {
     $user = (string) $value;
-    return str_ends_with($user, '@bbs-einbeck.de') ? substr($user, 0, -strlen('@bbs-einbeck.de')) : $user;
+    return str_ends_with($user, '@example.org') ? substr($user, 0, -strlen('@example.org')) : $user;
 }
 
 function audit_normalize_admin_user(?string $value): string
@@ -164,10 +164,7 @@ function audit_normalize_admin_user(?string $value): string
     }
 
     $shortUser = audit_display_user($user);
-    $aliases = [
-        'marc' => 'marc.schulz',
-        'arthur' => 'arthur.steblov',
-    ];
+    $aliases = [];
 
     return $aliases[$shortUser] ?? $shortUser;
 }
