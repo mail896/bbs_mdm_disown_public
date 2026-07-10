@@ -198,6 +198,32 @@
       width: 100%;
     }
 
+    figure a {
+      color: inherit;
+      display: block;
+      position: relative;
+    }
+
+    figure a::after {
+      background: rgba(15, 23, 42, 0.72);
+      border-radius: 6px;
+      bottom: 12px;
+      color: white;
+      content: "Original öffnen";
+      font-size: 0.84rem;
+      font-weight: 800;
+      opacity: 0;
+      padding: 6px 9px;
+      position: absolute;
+      right: 12px;
+      transition: opacity 0.16s ease;
+    }
+
+    figure a:hover::after,
+    figure a:focus-visible::after {
+      opacity: 1;
+    }
+
     figcaption {
       color: var(--muted);
       font-weight: 700;
@@ -275,20 +301,34 @@
       <h2>Screenshots</h2>
       <div class="screenshot-grid">
         <figure>
-          <img src="images/Demo-iPad-Managemnt-BBS-02.jpg" alt="Adminportal mit Dashboard und Antragsliste">
+          <a href="images/Demo-iPad-Managemnt-BBS-02.jpg">
+            <img src="images/Demo-iPad-Managemnt-BBS-02.jpg" alt="Adminportal mit Dashboard und Antragsliste">
+          </a>
           <figcaption>Adminportal mit Statusfiltern, Kennzahlen und Antragsliste</figcaption>
         </figure>
         <figure>
-          <img src="images/Demo-iPad-Managemnt-BBS-03.jpg" alt="Bulk Workflow im Adminportal">
-          <figcaption>Bulk-Workflow für Jamf, ASM/ADE und Mail</figcaption>
+          <a href="images/Demo-iPad-Managemnt-BBS-03.jpg">
+            <img src="images/Demo-iPad-Managemnt-BBS-03.jpg" alt="Bulk-Auswahl vor dem Jamf-Schritt">
+          </a>
+          <figcaption>Bulk-Auswahl mit nächstem Schritt Jamf</figcaption>
         </figure>
         <figure>
-          <img src="images/Demo-iPad-Managemnt-BBS-04.jpg" alt="ASM/ADE Release Ansicht">
-          <figcaption>ASM/ADE-Freigabe über Release Broker</figcaption>
+          <a href="images/Demo-iPad-Managemnt-BBS-04.jpg">
+            <img src="images/Demo-iPad-Managemnt-BBS-04.jpg" alt="Kopierbare ASM-Seriennummernliste">
+          </a>
+          <figcaption>Kopierbare Seriennummernliste für die Apple-Suche</figcaption>
         </figure>
         <figure>
-          <img src="images/Demo-iPad-Managemnt-BBS-06.jpg" alt="Audit Log mit Auswertung">
-          <figcaption>Audit-Log mit Export und Auswertung</figcaption>
+          <a href="images/Demo-iPad-Managemnt-BBS-05.jpg">
+            <img src="images/Demo-iPad-Managemnt-BBS-05.jpg" alt="ASM/ADE-Freigabe mit Wartehinweis">
+          </a>
+          <figcaption>ASM/ADE-Freigabe mit Wartehinweis für laufende Aktionen</figcaption>
+        </figure>
+        <figure>
+          <a href="images/Demo-iPad-Managemnt-BBS-06.jpg">
+            <img src="images/Demo-iPad-Managemnt-BBS-06.jpg" alt="Mail-Schritt nach abgeschlossener ASM/ADE-Freigabe">
+          </a>
+          <figcaption>Mail-Schritt nach abgeschlossener ASM/ADE-Freigabe</figcaption>
         </figure>
       </div>
     </section>
