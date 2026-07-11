@@ -124,6 +124,8 @@ Short version:
 - `audit_log.php` - audit log and reporting.
 - `config/asm-release-broker.example.conf` - broker runtime configuration example.
 - `tools/install-nanodep-service.sh` - systemd setup for the NanoDEP server.
+- `docs/RELEASE.md` - release checklist with backup, smoke and public checks.
+- `scripts/smoke_check.php` - read-only smoke check for deployments.
 
 ## Security
 

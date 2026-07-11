@@ -127,6 +127,8 @@ Kurzfassung:
 - `tools/install-nanodep-service.sh` - systemd-Installation des NanoDEP-Servers.
 - `tools/install-nanodep-monitoring.sh` - Healthcheck-Timer und Logrotation fuer NanoDEP.
 - `docs/SECRETS.md` - Ablageplan fuer Runtime-Secrets, Broker-Token und Logs.
+- `docs/RELEASE.md` - Release-Checkliste mit Backup-, Smoke- und Public-Pruefung.
+- `scripts/smoke_check.php` - read-only Smoke-Check fuer Deployments.
 
 ## Sicherheit
 
