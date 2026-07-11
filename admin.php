@@ -683,7 +683,7 @@ function load_release_broker_token_expiry(): array
         }
     }
     if ($tokenFile === '') {
-        $tokenFile = '/srv/protected/asm-release-broker/asm-release-broker-token.plist';
+        $tokenFile = '/srv/disown-protected/asm-release-broker/asm-release-broker-token.plist';
     }
 
     if ($expiry === '' && is_readable($tokenFile)) {

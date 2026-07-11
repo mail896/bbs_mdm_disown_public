@@ -4,7 +4,7 @@ set -euo pipefail
 NANODEP_SRC="${NANODEP_SRC:-/tmp/nanodep-test/nanodep-linux-amd64-v0.7.0}"
 NANODEP_VERSION="${NANODEP_VERSION:-v0.7.0}"
 INSTALL_DIR="/usr/local/lib/nanodep/${NANODEP_VERSION}"
-BROKER_DIR="/srv/protected/asm-release-broker"
+BROKER_DIR="/srv/disown-protected/asm-release-broker"
 BROKER_DB="${BROKER_DIR}/nanodep-db"
 BROKER_API_KEY="${BROKER_DIR}/nanodep-api.key"
 WRAPPER="/usr/local/sbin/disown-nanodep-server"
@@ -32,10 +32,16 @@ install -o root -g root -m 0755 "${NANODEP_SRC}/depserver-linux-amd64" "${INSTAL
 install -o root -g root -m 0755 "${NANODEP_SRC}/depsyncer-linux-amd64" "${INSTALL_DIR}/depsyncer-linux-amd64"
 install -o root -g root -m 0755 "${NANODEP_SRC}/deptokens-linux-amd64" "${INSTALL_DIR}/deptokens-linux-amd64"
 
-install -d -o www-data -g www-data -m 0750 "${BROKER_DB}"
-chown -R www-data:www-data "${BROKER_DB}"
-chgrp www-data "${BROKER_API_KEY}"
-chmod 0640 "${BROKER_API_KEY}"
+install -d -o root -g root -m 0711 "$(dirname "${BROKER_DIR}")"
+install -d -o root -g root -m 0750 "${BROKER_DIR}"
+install -d -o root -g root -m 0700 "${BROKER_DB}"
+chown -R root:root "${BROKER_DIR}"
+find "${BROKER_DIR}" -maxdepth 1 -type f -exec chmod 0600 {} \;
+setfacl -m u:www-data:--x "$(dirname "${BROKER_DIR}")"
+setfacl -m u:www-data:r-x "${BROKER_DIR}"
+setfacl -m u:www-data:r "${BROKER_API_KEY}"
+setfacl -R -m u:www-data:rwX "${BROKER_DB}"
+setfacl -R -d -m u:www-data:rwX "${BROKER_DB}"
 
 cat > "${WRAPPER}" <<EOF
 #!/usr/bin/env bash

@@ -85,7 +85,7 @@ Important:
 
 - Releasing a device from the Apple organization is irreversible.
 - The broker only listens locally on `127.0.0.1:9001`.
-- Secrets live outside the web root under `/srv/protected/asm-release-broker` and `/etc/disown`.
+- Secrets live outside the web root under `/srv/disown-protected/asm-release-broker` and `/etc/disown`.
 - DEV only performs dry-runs.
 
 Example configuration:

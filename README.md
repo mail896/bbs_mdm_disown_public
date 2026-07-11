@@ -85,7 +85,7 @@ Wichtig:
 
 - Die Freigabe aus der Apple-Organisation ist irreversibel.
 - Der Broker lauscht nur lokal auf `127.0.0.1:9001`.
-- Secrets liegen ausserhalb des Webroots unter `/srv/protected/asm-release-broker` und `/etc/disown`.
+- Secrets liegen ausserhalb des Webroots unter `/srv/disown-protected/asm-release-broker` und `/etc/disown`.
 - DEV fuehrt nur Dry-Runs aus.
 
 Die Beispielkonfiguration liegt unter:

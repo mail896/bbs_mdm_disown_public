@@ -41,36 +41,45 @@ Purpose:
 Directory:
 
 ```text
-/srv/protected/asm-release-broker
+/srv/disown-protected/asm-release-broker
 ```
 
 Expected files:
 
 ```text
-/srv/protected/asm-release-broker/asm-release-broker.key
-/srv/protected/asm-release-broker/asm-release-broker-public.pem
-/srv/protected/asm-release-broker/asm-release-broker-token.p7m
-/srv/protected/asm-release-broker/nanodep-api.key
-/srv/protected/asm-release-broker/nanodep-db/
+/srv/disown-protected/asm-release-broker/asm-release-broker.key
+/srv/disown-protected/asm-release-broker/asm-release-broker-public.pem
+/srv/disown-protected/asm-release-broker/asm-release-broker-token.p7m
+/srv/disown-protected/asm-release-broker/nanodep-api.key
+/srv/disown-protected/asm-release-broker/nanodep-db/
 ```
 
 Optional/development-only decoded token artifacts, if temporarily needed:
 
 ```text
-/srv/protected/asm-release-broker/asm-release-broker-token.plist
+/srv/disown-protected/asm-release-broker/asm-release-broker-token.plist
 ```
 
 Recommended permissions:
 
 ```bash
-chown -R root:www-data /srv/protected/asm-release-broker
-chmod 750 /srv/protected/asm-release-broker
-chmod 600 /srv/protected/asm-release-broker/asm-release-broker.key
-chmod 640 /srv/protected/asm-release-broker/asm-release-broker-public.pem
-chmod 640 /srv/protected/asm-release-broker/asm-release-broker-token.p7m
-chmod 640 /srv/protected/asm-release-broker/nanodep-api.key
-chmod 770 /srv/protected/asm-release-broker/nanodep-db
+chown -R root:root /srv/disown-protected/asm-release-broker
+chmod 711 /srv/disown-protected
+chmod 750 /srv/disown-protected/asm-release-broker
+chmod 600 /srv/disown-protected/asm-release-broker/asm-release-broker.key
+chmod 600 /srv/disown-protected/asm-release-broker/asm-release-broker-public.pem
+chmod 600 /srv/disown-protected/asm-release-broker/asm-release-broker-token.p7m
+chmod 600 /srv/disown-protected/asm-release-broker/nanodep-api.key
+chmod 700 /srv/disown-protected/asm-release-broker/nanodep-db
+setfacl -m u:www-data:--x /srv/disown-protected
+setfacl -m u:www-data:r-x /srv/disown-protected/asm-release-broker
+setfacl -m u:www-data:r /srv/disown-protected/asm-release-broker/nanodep-api.key
+setfacl -R -m u:www-data:rwX /srv/disown-protected/asm-release-broker/nanodep-db
+setfacl -R -d -m u:www-data:rwX /srv/disown-protected/asm-release-broker/nanodep-db
 ```
+
+Use user ACLs for `www-data`, not group ownership, because other local users
+may be members of the `www-data` group.
 
 Purpose:
 

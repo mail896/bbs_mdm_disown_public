@@ -22,7 +22,7 @@ Recommended layout:
 /var/www/example.org/disown                     # production
 /var/www/example.org/disown-dev                 # development
 /srv/protected/disown                          # protected app data, if needed
-/srv/protected/asm-release-broker              # NanoDEP token, key, DB
+/srv/disown-protected/asm-release-broker              # NanoDEP token, key, DB
 /etc/disown                                    # runtime configuration
 ```
 
@@ -54,25 +54,34 @@ Since version 2.0 DISOWN automates the Apple release in two steps:
 2. Upload a dedicated certificate/public key.
 3. Enable `Allow this device management service to release devices`.
 4. Download the service token.
-5. Store the token and private key below `/srv/protected/asm-release-broker`.
+5. Store the token and private key below `/srv/disown-protected/asm-release-broker`.
 
 Example files:
 
 ```text
-/srv/protected/asm-release-broker/asm-release-broker.key
-/srv/protected/asm-release-broker/asm-release-broker-public.pem
-/srv/protected/asm-release-broker/asm-release-broker-token.p7m
-/srv/protected/asm-release-broker/nanodep-api.key
-/srv/protected/asm-release-broker/nanodep-db/
+/srv/disown-protected/asm-release-broker/asm-release-broker.key
+/srv/disown-protected/asm-release-broker/asm-release-broker-public.pem
+/srv/disown-protected/asm-release-broker/asm-release-broker-token.p7m
+/srv/disown-protected/asm-release-broker/nanodep-api.key
+/srv/disown-protected/asm-release-broker/nanodep-db/
 ```
 
 Permissions should be restrictive:
 
 ```bash
-chmod 700 /srv/protected/asm-release-broker
-chmod 600 /srv/protected/asm-release-broker/*.key
-chmod 600 /srv/protected/asm-release-broker/nanodep-api.key
+chown -R root:root /srv/disown-protected/asm-release-broker
+chmod 711 /srv/disown-protected
+chmod 700 /srv/disown-protected/asm-release-broker
+chmod 600 /srv/disown-protected/asm-release-broker/*.key
+chmod 600 /srv/disown-protected/asm-release-broker/nanodep-api.key
+setfacl -m u:www-data:--x /srv/disown-protected
+setfacl -m u:www-data:r-x /srv/disown-protected/asm-release-broker
+setfacl -m u:www-data:r /srv/disown-protected/asm-release-broker/nanodep-api.key
+setfacl -R -m u:www-data:rwX /srv/disown-protected/asm-release-broker/nanodep-db
 ```
+
+Grant `www-data` user ACLs, not group ownership. This keeps other local users
+who are members of the `www-data` group out of the broker secret directory.
 
 ### 4.2 Prepare NanoDEP
 
@@ -103,8 +112,8 @@ The service:
 - is named `disown-nanodep.service`
 - runs as `www-data`
 - listens only on `127.0.0.1:9001`
-- uses `/srv/protected/asm-release-broker/nanodep-db`
-- reads the API key from `/srv/protected/asm-release-broker/nanodep-api.key`
+- uses `/srv/disown-protected/asm-release-broker/nanodep-db`
+- reads the API key from `/srv/disown-protected/asm-release-broker/nanodep-api.key`
 
 Check:
 
@@ -153,7 +162,7 @@ ASM_JAMF_MDM_SERVER_ID="..."
 ASM_BROKER_MDM_SERVER_ID="..."
 ASM_BROKER_DEP_BASE_URL="http://127.0.0.1:9001"
 ASM_BROKER_DEP_NAME="asm-release-broker"
-ASM_BROKER_DEP_API_KEY_FILE="/srv/protected/asm-release-broker/nanodep-api.key"
+ASM_BROKER_DEP_API_KEY_FILE="/srv/disown-protected/asm-release-broker/nanodep-api.key"
 ```
 
 The MDM server IDs come from the Apple School Manager API (`mdmServers`). The tool only assigns the concrete device currently being processed to the broker, never the full fleet.
