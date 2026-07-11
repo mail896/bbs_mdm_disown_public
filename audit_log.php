@@ -371,6 +371,16 @@ body {
     background: #dcfce7;
     border-color: #4ade80;
 }
+.admin-home-link {
+    background: #dcfce7;
+    border-width: 2px;
+    color: #064e3b;
+    font-weight: 700;
+}
+.admin-home-link:hover {
+    background: #bbf7d0;
+    border-color: #22c55e;
+}
 .export-link {
     font-size: 0.9rem;
     font-weight: 600;
@@ -822,7 +832,7 @@ tr:hover {
         </div>
         <div class="header-actions">
             <a class="admin-user" href="<?=audit_h($logoutPath)?>"><span class="admin-user-icon">👤</span><span class="admin-user-name"><?=htmlspecialchars($currentAdminUser)?></span></a>
-            <a class="button button-secondary admin-nav-link" href="<?=audit_h($adminPath)?>">Adminportal</a>
+            <a class="button button-secondary admin-nav-link admin-home-link" href="<?=audit_h($adminPath)?>">Adminportal</a>
             <a class="button button-secondary admin-nav-link" href="<?=audit_h($adePath)?>">ADE-Aufnahmen</a>
             <a class="button button-secondary admin-nav-link" href="<?=audit_h($kukPath)?>">KUK-Geräte</a>
             <a class="button button-secondary export-link" href="<?=htmlspecialchars($exportUrl)?>">CSV exportieren</a>

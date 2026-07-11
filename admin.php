@@ -2822,17 +2822,31 @@ th {
     color: #334155;
     font-size: 0.95rem;
 }
-tr:hover {
+.request-row:hover td {
     background: #f8fafc;
 }
-.case-row-clickable {
+.case-row-clickable td {
     cursor: pointer;
 }
-.case-row-clickable:hover {
-    background: #fffbeb;
+.case-row-has-case td:first-child {
+    box-shadow: inset 4px 0 0 #f59e0b;
 }
-.case-row-clickable .device-case-button {
-    text-decoration-color: #fbbf24;
+.case-row-open td {
+    background: #fffbeb;
+    border-bottom-color: #fde68a;
+}
+.case-row-open:hover td {
+    background: #fef3c7;
+}
+.case-row-closed td {
+    background: #f8fafc;
+    border-bottom-color: #dbe3ee;
+}
+.case-row-closed td:first-child {
+    box-shadow: inset 4px 0 0 #94a3b8;
+}
+.case-row-closed:hover td {
+    background: #eef2f7;
 }
 .nowrap-cell,
 .email-cell a,
@@ -2985,6 +2999,7 @@ tr:hover {
     align-items: center;
     background: transparent;
     border: 0;
+    border-radius: 999px;
     color: #1e293b;
     cursor: pointer;
     display: inline-flex;
@@ -2993,16 +3008,28 @@ tr:hover {
     font-weight: 600;
     gap: 0.35rem;
     line-height: 1.2;
+    margin: -0.16rem -0.34rem;
     max-width: 100%;
     min-width: 0;
-    padding: 0;
+    padding: 0.16rem 0.34rem;
     text-align: left;
     text-decoration: none;
+    transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
     vertical-align: top;
     white-space: nowrap;
 }
+.device-case-button.case-create-button {
+    color: #1e293b;
+}
 .device-case-button:hover {
-    color: #166534;
+    background: #fef3c7;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    color: #92400e;
+}
+.device-case-button.case-create-button:hover {
+    background: #fef3c7;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    color: #92400e;
 }
 .device-case-label {
     display: inline-block;
@@ -3022,6 +3049,29 @@ tr:hover {
     font-weight: 600;
     line-height: 1;
     padding: 0.2rem 0.38rem;
+}
+.case-status-badge {
+    border-radius: 999px;
+    display: inline-flex;
+    font-family: Inter, Arial, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.24rem 0.48rem;
+}
+.case-status-badge.case-status-open {
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    color: #92400e;
+}
+.case-status-badge.case-status-closed {
+    background: #eef2f7;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+}
+.case-row-badge-line {
+    display: flex;
+    margin-top: 6px;
 }
 .case-chip-list {
     display: flex;
@@ -3953,7 +4003,7 @@ tr:hover {
                         $bulkKeepSelected = in_array((int) $row['id'], $bulkLastIds, true);
                         $openCaseCount = (int) ($row['open_case_count'] ?? 0);
                         $latestCaseId = (int) ($row['latest_case_id'] ?? 0);
-                        $latestCaseStatus = (string) ($row['latest_case_status'] ?? 'offen');
+                        $latestCaseStatus = normalize_device_case_status((string) ($row['latest_case_status'] ?? 'offen'));
                         $defaultCaseTitle = 'Klärfall ' . (string) ($row['serial'] ?? '');
                         if (!empty($row['jamf_unenrolled']) && !empty($row['asm_manual_done']) && empty($row['mail_sent'])) {
                             $defaultCaseTitle = 'Workflow vor Mail prüfen';
@@ -3962,9 +4012,13 @@ tr:hover {
                         }
                         $rowSerial = strtoupper(trim((string) ($row['serial'] ?? '')));
                         $rowCases = $casesBySerial[$rowSerial] ?? [];
-                        $rowOpensCase = false;
+                        $rowHasCase = $latestCaseId > 0 || count($rowCases) > 0;
+                        $rowOpensCase = $canWrite && $rowHasCase && !empty($row['serial']);
+                        $rowCaseClosed = $rowHasCase && $openCaseCount === 0 && $latestCaseStatus === 'geklaert';
+                        $rowCaseClass = $rowHasCase ? ($rowCaseClosed ? ' case-row-has-case case-row-closed' : ' case-row-has-case case-row-open') : '';
+                        $deviceCaseTooltip = $rowHasCase ? 'Klärfall zum Gerät öffnen' : 'Klärfall zum Gerät anlegen';
                     ?>
-                <tr class="request-row<?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
+                <tr class="request-row<?= $rowCaseClass ?><?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
                     data-id="<?=htmlspecialchars($row['id'])?>"
                     data-full-name="<?=htmlspecialchars($row['full_name'])?>"
                     data-username="<?=htmlspecialchars($row['username'])?>"
@@ -3972,6 +4026,8 @@ tr:hover {
                     data-private-email="<?=htmlspecialchars($row['private_email'] ?? '')?>"
                     data-serial="<?=htmlspecialchars($row['serial'])?>"
                     <?php if ($rowOpensCase): ?>
+                        title="<?=htmlspecialchars($deviceCaseTooltip)?>"
+                        aria-label="<?=htmlspecialchars($deviceCaseTooltip . ': ' . (string) $row['device_name'])?>"
                         data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
                         data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
                         data-source="admin"
@@ -4018,7 +4074,7 @@ tr:hover {
                     <td class="device-cell" data-label="Gerät">
                         <?php if ($canWrite && !empty($row['serial'])): ?>
                             <button type="button"
-                                class="device-case-button"
+                                class="device-case-button<?= $rowHasCase ? '' : ' case-create-button' ?>"
                                 data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
                                 data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
                                 data-serial="<?=htmlspecialchars($row['serial'])?>"
@@ -4028,16 +4084,24 @@ tr:hover {
                                 data-note="<?=htmlspecialchars((string) ($row['latest_case_note'] ?? ''))?>"
                                 data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
                                 data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
+                                title="<?=htmlspecialchars($deviceCaseTooltip)?>"
+                                aria-label="<?=htmlspecialchars($deviceCaseTooltip . ': ' . (string) $row['device_name'])?>"
                                 onclick="showDeviceCase(this)">
                                 <span class="device-case-label"><?=htmlspecialchars($row['device_name'])?></span>
-                                <?php if ($openCaseCount > 0): ?>
-                                    <span class="case-badge"><?=htmlspecialchars((string) $openCaseCount)?></span>
-                                <?php endif; ?>
                             </button>
                         <?php else: ?>
                             <div><?=htmlspecialchars($row['device_name'])?></div>
                         <?php endif; ?>
                         <div class="serial-cell"><?=htmlspecialchars($row['serial'])?></div>
+                        <?php if ($canWrite && $rowHasCase): ?>
+                            <div class="case-row-badge-line">
+                                <?php if ($openCaseCount > 0): ?>
+                                    <span class="case-status-badge case-status-open"><?=htmlspecialchars($openCaseCount > 1 ? 'Klärfälle ' . $openCaseCount : 'Klärfall')?></span>
+                                <?php else: ?>
+                                    <span class="case-status-badge case-status-closed">geklärt</span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                         <?php if ($canWrite && count($rowCases) > 1): ?>
                             <div class="case-chip-list" aria-label="Klärfälle zu dieser Seriennummer">
                             <?php foreach ($rowCases as $caseIndex => $deviceCase): ?>

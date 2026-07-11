@@ -865,6 +865,16 @@ button {
     background: #dcfce7;
     border-color: #4ade80;
 }
+.admin-home-link {
+    background: #dcfce7;
+    border-width: 2px;
+    color: #064e3b;
+    font-weight: 700;
+}
+.admin-home-link:hover {
+    background: #bbf7d0;
+    border-color: #22c55e;
+}
 .button[aria-disabled="true"] {
     cursor: not-allowed;
     opacity: 0.55;
@@ -1414,7 +1424,7 @@ tr:last-child td {
         <div class="header-actions">
             <a class="admin-user" href="<?=kuk_h($logoutPath)?>">👤 <?=kuk_h($currentAdminUser ?: 'Admin')?></a>
             <div class="actions-row">
-                <a class="button button-secondary admin-nav-link" href="<?=kuk_h($adminPath)?>">Adminportal</a>
+                <a class="button button-secondary admin-nav-link admin-home-link" href="<?=kuk_h($adminPath)?>">Adminportal</a>
                 <a class="button button-secondary admin-nav-link" href="<?=kuk_h($adePath)?>">ADE-Aufnahmen</a>
                 <a class="button button-secondary admin-nav-link" href="<?=kuk_h($auditLogPath)?>">Audit-Log</a>
                 <a class="button button-secondary" href="<?=kuk_h($exportUrl)?>">CSV exportieren</a>
