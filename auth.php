@@ -25,6 +25,16 @@ function disown_config_path(string $name): string
     return '/etc/disown/' . $name . '.conf';
 }
 
+function disown_asset_url(string $appBasePath, string $relativePath): string
+{
+    $relativePath = ltrim($relativePath, '/');
+    $publicPath = rtrim($appBasePath, '/') . '/' . $relativePath;
+    $localPath = __DIR__ . '/' . $relativePath;
+    $version = is_readable($localPath) ? (string) filemtime($localPath) : '0';
+
+    return $publicPath . '?v=' . rawurlencode($version);
+}
+
 function disown_load_ini_config(string $path): array
 {
     if (!is_readable($path)) {
