@@ -21,6 +21,11 @@ function smoke_ok(string $message): void
     smoke_line('OK', $message);
 }
 
+function smoke_info(string $message): void
+{
+    smoke_line('INFO', $message);
+}
+
 function smoke_warn(string $message): void
 {
     global $warnings;
@@ -79,7 +84,7 @@ function smoke_required_keys(array $config, array $keys, string $label): void
     }
 }
 
-function smoke_http_status(string $url, int $expected = 200): void
+function smoke_http_status(string $url, int|array $expected = 200): void
 {
     if (!function_exists('curl_init')) {
         smoke_warn("curl fehlt, HTTP-Check uebersprungen: {$url}");
@@ -103,13 +108,14 @@ function smoke_http_status(string $url, int $expected = 200): void
     $error = curl_error($curl);
     curl_close($curl);
 
-    if ($status === $expected) {
+    $expectedStatuses = is_array($expected) ? array_map('intval', $expected) : [(int) $expected];
+    if (in_array($status, $expectedStatuses, true)) {
         smoke_ok("HTTP {$status}: {$url}");
         return;
     }
 
     $detail = $error !== '' ? " ({$error})" : '';
-    smoke_warn("HTTP {$status}, erwartet {$expected}: {$url}{$detail}");
+    smoke_warn("HTTP {$status}, erwartet " . implode('/', $expectedStatuses) . ": {$url}{$detail}");
 }
 
 function smoke_table_exists(mysqli $mysqli, string $table): bool
@@ -180,7 +186,13 @@ if ($mailConfig) {
     smoke_required_keys($mailConfig, ['MAIL_HOST', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM'], 'mail.conf');
 }
 smoke_parse_ini('/etc/disown/jamf.conf', false);
-$brokerConfig = smoke_parse_ini('/etc/disown/asm-release-broker.conf', false);
+$brokerConfigPath = '/etc/disown/asm-release-broker.conf';
+$brokerConfig = [];
+if (is_readable($brokerConfigPath)) {
+    $brokerConfig = smoke_parse_ini($brokerConfigPath, false);
+} else {
+    smoke_info("Konfiguration fuer aktuellen CLI-User nicht lesbar oder nicht vorhanden: {$brokerConfigPath}");
+}
 if ($brokerConfig) {
     foreach (['ASM_JAMF_MDM_SERVER_ID', 'ASM_BROKER_MDM_SERVER_ID', 'ASM_BROKER_DEP_BASE_URL'] as $key) {
         if (trim((string) ($brokerConfig[$key] ?? '')) === '') {
@@ -265,6 +277,10 @@ if ($baseUrl !== '') {
     foreach ([
         '/PROJECT_STATE.md',
         '/PROJECT_STATE.yaml',
+    ] as $path) {
+        smoke_http_status($baseUrl . $path, [403, 404]);
+    }
+    foreach ([
         '/config/db.example.conf',
         '/vendor/autoload.php',
     ] as $path) {
