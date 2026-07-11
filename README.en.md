@@ -6,12 +6,12 @@
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.0 automates the workflow through Apple ADE/ASM release by using a local release broker.
+Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.1 modernizes the UI structure; since version 2.0 DISOWN automates the workflow through Apple ADE/ASM release by using a local release broker.
 
 ## Status
 
-- Version: `2.0`
-- Date: `10 July 2026`
+- Version: `2.1`
+- Date: `11 July 2026`
 - Production environment: private school-server installation
 - Development environment: separate DEV instance
 - Public demo: sanitized variant without credentials and without local project-state files
@@ -20,7 +20,7 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 - Self-service WebClip for release requests.
 - Guard page for school-owned loaner/cart devices so they cannot be released accidentally.
-- Admin portal with search, status filters, bulk workflow, metrics, rolling 12-month view and Jamf license estimate.
+- Admin portal with calmer auto-search, status filters, bulk workflow, metrics, rolling 12-month view and Jamf license estimate.
 - Admin special release for defective devices by serial number, with explicit single-device review and without bypassing WebClip or bulk safeguards.
 - Release broker status including ADE token expiration in the admin dashboard.
 - Automated Jamf unenroll through the Jamf School API.
@@ -76,7 +76,7 @@ The selection is kept until the mail step has finished. This prevents admins fro
 
 ## ASM/ADE Release Broker
 
-Version 2.0 uses two separate Apple paths:
+Since version 2.0 DISOWN uses two separate Apple paths:
 
 - Apple School Manager Public API: assigns one device to the release-broker MDM service.
 - Apple ADE/DEP API through NanoDEP: performs the `disown` call for this device.
@@ -137,6 +137,7 @@ Short version:
 
 ## History
 
+- `2.1`: UI structure modernization; admin, ADE, audit and KUK styles/scripts live in `assets/`, search reacts more calmly and keeps focus after auto-refresh.
 - `2.0`: automated ASM/ADE release through the release broker, NanoDEP service, improved bulk workflow, mail to both addresses with partial-success handling, updated docs and screenshots.
 - `2.0` maintenance 2026-07-10: admin special release for defective devices, ADE token hint, mail dialog fix and waiting indicator for single actions.
 - `1.9`: unified UI, rolling month overview, clarification cases, Jamf license indicator.

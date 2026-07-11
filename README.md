@@ -6,12 +6,12 @@
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.0 automatisiert den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
+Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.1 modernisiert die UI-Struktur; seit Version 2.0 automatisiert DISOWN den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
 
 ## Stand
 
-- Version: `2.0`
-- Datum: `10. Juli 2026`
+- Version: `2.1`
+- Datum: `11. Juli 2026`
 - Produktionsumgebung: private Schulserver-Installation
 - Entwicklungsumgebung: getrennte DEV-Instanz
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien
@@ -20,7 +20,7 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 - Self-Service-Webclip fuer Rueckgabeantraege.
 - Schutzseite fuer schulische Leih-/Koffergeraete, damit diese nicht versehentlich freigegeben werden.
-- Adminportal mit Suche, Statusfiltern, Bulk-Verarbeitung, Kennzahlen, Jahresverlauf und Jamf-Lizenztrend.
+- Adminportal mit beruhigter Auto-Suche, Statusfiltern, Bulk-Verarbeitung, Kennzahlen, Jahresverlauf und Jamf-Lizenztrend.
 - Admin-Sonderfreigabe fuer defekte Geraete per Seriennummer, mit bewusster Einzelfall-Pruefung und ohne Bulk/WebClip-Bypass.
 - Release-Broker-Status inklusive ADE-Token-Ablauf im Admin-Dashboard.
 - Automatischer Jamf-Unenroll per Jamf-School-API.
@@ -54,7 +54,7 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 6. Abschlussmail wird an alle vorhandenen Empfaengeradressen gesendet.
 7. Der Antrag ist erledigt; Teilerfolge und Fehler stehen im Audit-Log.
 
-Die alte Spalte `asm_manual_done` bleibt aus Kompatibilitaetsgruenden bestehen, bedeutet ab Version 2.0 aber: ASM/ADE-Freigabe wurde erledigt, in der Regel automatisch.
+Die alte Spalte `asm_manual_done` bleibt aus Kompatibilitaetsgruenden bestehen, bedeutet seit Version 2.0 aber: ASM/ADE-Freigabe wurde erledigt, in der Regel automatisch.
 
 ## Admin-Sonderfreigabe
 
@@ -76,7 +76,7 @@ Die Auswahl bleibt bis zum Mail-Schritt erhalten. Erst nach dem Mailversand wird
 
 ## ASM/ADE Release Broker
 
-Version 2.0 nutzt zwei getrennte Apple-Wege:
+Seit Version 2.0 nutzt DISOWN zwei getrennte Apple-Wege:
 
 - Apple School Manager Public API: weist ein einzelnes Geraet dem Release-Broker-MDM-Dienst zu.
 - Apple ADE/DEP API ueber NanoDEP: fuehrt danach `disown` fuer dieses Geraet aus.
@@ -140,6 +140,7 @@ Kurzfassung:
 
 ## Historie
 
+- `2.1`: UI-Struktur modernisiert; Admin-, ADE-, Audit- und KUK-Styles/Skripte liegen in `assets/`, Suche reagiert ruhiger und behaelt nach Auto-Aktualisierung den Fokus.
 - `2.0`: automatische ASM/ADE-Freigabe ueber Release Broker, NanoDEP-Dienst, verbesserter Bulk-Workflow, Mail an beide Adressen mit Teilerfolg, neue Doku und Screenshots.
 - `2.0` Nachpflege 2026-07-10: Admin-Sonderfreigabe fuer defekte Geraete, ADE-Token-Hinweis, Mail-Dialog-Korrektur und Wartehinweis fuer Einzelaktionen.
 - `1.9`: UI-Vereinheitlichung, Monatsuebersicht, Klärfaelle, Jamf-Lizenzindikator.

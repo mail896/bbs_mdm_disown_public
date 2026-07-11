@@ -1,6 +1,6 @@
 # Installation und Betrieb
 
-Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.0.
+Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.1.
 
 ## 1. Voraussetzungen
 
@@ -43,7 +43,7 @@ Die Public- und Beispielkonfigurationen enthalten nur Platzhalter. Secrets niema
 
 ## 4. ASM/ADE Release Broker
 
-Version 2.0 automatisiert die Apple-Freigabe in zwei Schritten:
+Seit Version 2.0 automatisiert DISOWN die Apple-Freigabe in zwei Schritten:
 
 1. Apple School Manager Public API weist genau ein Geraet dem Release-Broker-MDM-Dienst zu.
 2. NanoDEP fuehrt fuer diesen Broker den ADE/DEP-Disown aus.
@@ -215,3 +215,7 @@ Bei Problemen:
 4. Im Audit-Log betroffene Antraege pruefen.
 
 Bereits per ADE/DEP freigegebene Geraete koennen nicht automatisch in die Organisation zurueckgeholt werden. Sie muessen ueber Apple Configurator oder ASM-Prozess neu aufgenommen werden.
+
+### 7.2 Frontend-Assets ab 2.1
+
+Ab Version 2.1 liegen die CSS- und JavaScript-Dateien der Admin-, ADE-, Audit- und KUK-Seiten unter `assets/`. Die Anwendung haengt per `filemtime` automatisch einen Cache-Buster an. Nach Deployments muss daher kein manueller Browser-Cache geleert werden.

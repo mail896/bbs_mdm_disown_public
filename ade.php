@@ -5,7 +5,7 @@ require __DIR__ . '/db.php';
 
 $currentAdminUser = disown_current_admin_user();
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.1-dev' : '1.9';
+$appVersion = $isDevMode ? '2.1-dev' : '2.1';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
