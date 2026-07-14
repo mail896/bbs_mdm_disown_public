@@ -65,6 +65,15 @@ function setBulkButtonActive(button, active) {
     button.classList.toggle('button-secondary', !active);
 }
 
+function setBulkButtonEnabled(button, enabled) {
+    if (!button) {
+        return;
+    }
+    button.disabled = !enabled;
+    button.classList.remove('button-primary');
+    button.classList.add('button-secondary');
+}
+
 function setBulkButtonState(step, fallbackStep) {
     const jamfButton = document.getElementById('bulkJamfButton');
     const copyButton = document.getElementById('bulkCopyButton');
@@ -73,7 +82,7 @@ function setBulkButtonState(step, fallbackStep) {
     const hasAsmList = step === 'asm' || fallbackStep === 'asm';
 
     setBulkButtonActive(jamfButton, step === 'jamf');
-    setBulkButtonActive(copyButton, hasAsmList);
+    setBulkButtonEnabled(copyButton, hasAsmList);
     setBulkButtonActive(asmButton, hasAsmList);
     setBulkButtonActive(mailButton, step === 'mail' || fallbackStep === 'mail');
 }
@@ -229,7 +238,18 @@ function updateBulkAsmListFromSelection() {
         .filter(Boolean);
     textarea.dataset.serverList = '0';
     textarea.value = Array.from(new Set(serials)).join(', ');
+}
+
+function showBulkAsmList() {
+    updateBulkAsmListFromSelection();
+    const textarea = document.getElementById('bulkAsmListText');
+    const panel = document.getElementById('bulkAsmList');
+    if (!textarea || !panel || !textarea.value.trim()) {
+        alert('Es gibt aktuell keine Seriennummernliste zum Anzeigen.');
+        return;
+    }
     panel.classList.remove('hidden');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function hideBulkAsmList() {

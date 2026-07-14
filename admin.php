@@ -2190,25 +2190,25 @@ if ($pageSerials) {
         <div class="bulk-toolbar" aria-label="Massenverarbeitung">
             <span class="bulk-status" id="bulkSelectionStatus">Keine Anträge ausgewählt</span>
             <button type="button" id="bulkJamfButton" class="button button-secondary" onclick="submitBulkAction('bulk_jamf_unenroll')" disabled>Jamf für Auswahl</button>
-            <button type="button" id="bulkCopyButton" class="button button-secondary" onclick="copyBulkAsmList()" disabled>Liste kopieren</button>
+            <button type="button" id="bulkCopyButton" class="button button-secondary bulk-serials-button" onclick="showBulkAsmList()" title="Nur fuer manuelle Kontrolle oder Notfall-Abschluss" disabled>Seriennummern</button>
             <button type="button" id="bulkAsmButton" class="button button-secondary" onclick="submitBulkAction('bulk_asm_release')" disabled>ASM/ADE für Auswahl</button>
             <button type="button" id="bulkMailButton" class="button button-secondary" onclick="submitBulkAction('bulk_mail_send')" disabled>Mail für Auswahl</button>
         </div>
         <div id="bulkWorkingMessage" class="bulk-working hidden" role="status" aria-live="polite"></div>
     <?php endif; ?>
 
-    <div id="bulkAsmList" class="preview-card bulk-asm-list <?= $bulkAsmSerials ? '' : 'hidden' ?>">
+    <div id="bulkAsmList" class="preview-card bulk-asm-list hidden">
         <div class="preview-header">
             <div>
-                <h2>ASM-Seriennummern</h2>
-                <p class="preview-subtitle">Kommagetrennt für die Apple-Suche.</p>
+                <h2>Notfall-Seriennummern</h2>
+                <p class="preview-subtitle">Normaler Ablauf: ASM/ADE läuft automatisch über den Release Broker. Diese Liste ist nur für manuelle Kontrolle oder Notfall-Abschluss.</p>
             </div>
             <button type="button" class="button button-secondary small-button" onclick="hideBulkAsmList()">Schließen</button>
         </div>
-        <textarea id="bulkAsmListText" class="bulk-list-textarea" data-server-list="<?= $bulkAsmSerials ? '1' : '0' ?>" data-auto-copy="<?= $bulkAsmSerials ? '1' : '0' ?>" readonly><?=htmlspecialchars(implode(', ', $bulkAsmSerials))?></textarea>
+        <textarea id="bulkAsmListText" class="bulk-list-textarea" data-server-list="<?= $bulkAsmSerials ? '1' : '0' ?>" data-auto-copy="0" readonly><?=htmlspecialchars(implode(', ', $bulkAsmSerials))?></textarea>
         <div class="editor-actions">
             <span id="bulkCopyStatus" class="bulk-copy-status"></span>
-            <button type="button" class="button button-primary" onclick="copyBulkAsmList()">Liste kopieren</button>
+            <button type="button" class="button button-secondary" onclick="copyBulkAsmList()">Seriennummern kopieren</button>
         </div>
     </div>
 

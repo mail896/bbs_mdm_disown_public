@@ -2285,3 +2285,38 @@ th {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.35); opacity: 0.72; }
 }
+
+/* Version 2.2 follow-up: keep serial copying as an emergency aid, not the normal Broker workflow. */
+.bulk-toolbar .bulk-serials-button:not(:disabled) {
+    background: rgba(248, 250, 252, 0.92);
+    border-color: rgba(203, 213, 225, 0.9);
+    box-shadow: none;
+    color: #475569;
+}
+.bulk-toolbar .bulk-serials-button:not(:disabled):hover {
+    background: rgba(241, 245, 249, 0.96);
+    border-color: rgba(148, 163, 184, 0.9);
+    color: #1f2937;
+    transform: translateY(-1px);
+}
+.bulk-asm-list.preview-card {
+    background: linear-gradient(180deg, rgba(255, 251, 235, 0.96), rgba(248, 250, 252, 0.92));
+    border-color: rgba(253, 230, 138, 0.9);
+    box-shadow: 0 14px 30px rgba(120, 113, 108, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
+    margin-top: 4px;
+}
+.bulk-asm-list.preview-card::before {
+    background: linear-gradient(180deg, #f59e0b, #94a3b8);
+}
+.bulk-asm-list .preview-header h2 {
+    font-size: 1.05rem;
+}
+.bulk-asm-list .preview-subtitle {
+    max-width: 58rem;
+}
+.bulk-asm-list .bulk-list-textarea {
+    min-height: 86px;
+}
+.bulk-asm-list .editor-actions .button {
+    box-shadow: none;
+}
