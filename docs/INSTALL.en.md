@@ -1,6 +1,6 @@
 # Installation and Operation
 
-This guide describes the runtime requirements for DISOWN version 2.1.
+This guide describes the runtime requirements for DISOWN version 2.2.
 
 ## 1. Requirements
 
@@ -19,8 +19,8 @@ This guide describes the runtime requirements for DISOWN version 2.1.
 Recommended layout:
 
 ```text
-/var/www/example.org/disown                     # production
-/var/www/example.org/disown-dev                 # development
+/var/www/sicher.bbs-einbeck.de/disown          # production
+/var/www/sicher.bbs-einbeck.de/disown-dev      # development
 /srv/protected/disown                          # protected app data, if needed
 /srv/disown-protected/asm-release-broker              # NanoDEP token, key, DB
 /etc/disown                                    # runtime configuration
@@ -104,7 +104,7 @@ curl -sS http://127.0.0.1:9001/version
 The repository contains the installer:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-service.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-service.sh
 ```
 
 The service:
@@ -129,7 +129,7 @@ The admin dashboard shows the release broker status and the known ADE token expi
 Optional, recommended for production:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-monitoring.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-monitoring.sh
 ```
 
 The installer creates:
@@ -227,4 +227,4 @@ Devices already released through ADE/DEP cannot be automatically returned to the
 
 ### 7.2 Frontend assets since 2.1
 
-Starting with version 2.1, CSS and JavaScript files for the admin, ADE, audit and KUK pages live in `assets/`. The application appends a `filemtime` cache buster automatically, so deployments do not require manual browser-cache clearing.
+Starting with version 2.2, CSS and JavaScript files for the admin, ADE, audit and KUK pages live in `assets/`. The application appends a `filemtime` cache buster automatically, so deployments do not require manual browser-cache clearing.

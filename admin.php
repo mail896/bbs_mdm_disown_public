@@ -35,8 +35,8 @@ $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.1-dev' : '2.1';
-$appVersionDate = $isDevMode ? '11. Juli 2026' : '11. Juli 2026';
+$appVersion = $isDevMode ? '2.2-dev' : '2.2';
+$appVersionDate = $isDevMode ? '14. Juli 2026' : '14. Juli 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -2067,6 +2067,7 @@ if ($pageSerials) {
         <input type="hidden" name="page" value="1">
         <label for="searchInput" class="search-label">Suche</label>
         <div class="search-field">
+            <span class="search-icon" aria-hidden="true">⌕</span>
             <input id="searchInput" name="q" type="search" class="search-input" placeholder="Name, Klasse, IServ-Benutzer, E-Mail oder Seriennummer" value="<?=htmlspecialchars($searchTerm)?>" autocomplete="off">
             <?php if ($searchTerm !== ''): ?>
                 <a class="clear-search" href="<?=htmlspecialchars(admin_url(['q' => '', 'page' => 1, 'search_focus' => null, 'export' => null]))?>" aria-label="Suche löschen">×</a>
@@ -2332,6 +2333,19 @@ if ($pageSerials) {
                 </tr>
             </thead>
             <tbody>
+                <?php if (!$rows): ?>
+                    <tr class="empty-row">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon" aria-hidden="true">✓</div>
+                                <div>
+                                    <strong>Keine passenden Anträge</strong>
+                                    <span>Filter, Suche oder Monat liefern aktuell keine Treffer.</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <?php
                         $bulkMailSent = !empty($row['mail_sent']);

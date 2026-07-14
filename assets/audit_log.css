@@ -554,3 +554,136 @@ tr:hover {
         text-align: center;
     }
 }
+
+/* DEV UI polish: align Audit page with the refreshed admin surface */
+.header {
+    align-items: start;
+    display: grid;
+    grid-template-columns: minmax(440px, 1fr) auto;
+}
+.header-actions {
+    min-width: 500px;
+}
+.page-title {
+    letter-spacing: 0;
+}
+.button,
+.pagination-link,
+.filter-pill,
+.table-link {
+    transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+.button:hover,
+.pagination-link:hover:not(.disabled),
+.filter-pill:hover {
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+.admin-home-link,
+.admin-nav-link {
+    border-radius: 999px;
+}
+.search-toolbar,
+.audit-metrics,
+.audit-admins,
+.card {
+    border-color: rgba(203, 213, 225, 0.78);
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.search-toolbar,
+.audit-metrics,
+.audit-admins {
+    backdrop-filter: blur(4px);
+}
+.metric-value,
+.admin-rank-count {
+    font-variant-numeric: tabular-nums;
+}
+.metric-card {
+    min-height: 58px;
+}
+.metric-card:first-child .metric-value,
+.metric-card:nth-child(2) .metric-value {
+    background: #f0fdf4;
+    border-radius: 999px;
+    display: inline-block;
+    padding: 0.08rem 0.36rem;
+}
+.metric-card:nth-child(3) .metric-value,
+.metric-card:nth-child(4) .metric-value {
+    background: #eff6ff;
+    border-radius: 999px;
+    display: inline-block;
+    padding: 0.08rem 0.36rem;
+}
+.search-input-wrap::before {
+    color: #94a3b8;
+    content: "⌕";
+    font-size: 1.08rem;
+    font-weight: 800;
+    left: 0.88rem;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-52%);
+    z-index: 2;
+}
+.search-input {
+    border-color: #d5dce7;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    padding-left: 2.35rem;
+}
+.search-input:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.28), 0 1px 2px rgba(15, 23, 42, 0.04);
+    outline: none;
+}
+.filter-pill {
+    border: 1px solid rgba(226, 232, 240, 0.92);
+    box-shadow: 0 1px 1px rgba(15, 23, 42, 0.025);
+    font-weight: 600;
+}
+.card.table-wrap {
+    border-radius: 18px;
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    padding: 18px;
+}
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+th {
+    background: rgba(248, 250, 252, 0.92);
+    border-bottom-color: #dbe3ee;
+    color: #253348;
+    font-size: 0.88rem;
+}
+thead th:first-child { border-top-left-radius: 10px; }
+thead th:last-child { border-top-right-radius: 10px; }
+td {
+    transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+tbody tr:hover td {
+    background: rgba(248, 250, 252, 0.9);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78), inset 0 -1px 0 rgba(226, 232, 240, 0.92);
+}
+.action-pill {
+    border-radius: 999px;
+    display: inline-flex;
+    font-weight: 700;
+    padding: 0.2rem 0.48rem;
+}
+.pagination-link {
+    border-radius: 999px;
+}
+@media (max-width: 900px) {
+    .header {
+        grid-template-columns: 1fr;
+    }
+    .header-actions {
+        justify-content: flex-start;
+        min-width: 0;
+        width: 100%;
+    }
+}

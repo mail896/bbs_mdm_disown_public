@@ -1,6 +1,6 @@
 # Installation und Betrieb
 
-Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.1.
+Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.2.
 
 ## 1. Voraussetzungen
 
@@ -19,8 +19,8 @@ Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Platt
 Empfohlene Struktur:
 
 ```text
-/var/www/example.org/disown                     # PROD
-/var/www/example.org/disown-dev                 # DEV
+/var/www/sicher.bbs-einbeck.de/disown          # PROD
+/var/www/sicher.bbs-einbeck.de/disown-dev      # DEV
 /srv/protected/disown                          # geschuetzte App-Daten, falls benoetigt
 /srv/disown-protected/asm-release-broker              # NanoDEP Token, Key, DB
 /etc/disown                                    # Runtime-Konfiguration
@@ -105,7 +105,7 @@ curl -sS http://127.0.0.1:9001/version
 Das Repository enthaelt den Installer:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-service.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-service.sh
 ```
 
 Der Dienst:
@@ -130,7 +130,7 @@ Das Admin-Dashboard zeigt den Release-Broker-Status und den bekannten ADE-Token-
 Optional, fuer PROD empfohlen:
 
 ```bash
-sudo /var/www/example.org/disown/tools/install-nanodep-monitoring.sh
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-nanodep-monitoring.sh
 ```
 
 Der Installer richtet ein:
