@@ -32,7 +32,7 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 ## Screenshots
 
-![Admin portal](images/Demo-iPad-Managemnt-BBS-02.jpg)
+![Admin portal](images/disown-admin-portal.png)
 
 ![Bulk workflow](images/Demo-iPad-Managemnt-BBS-03.jpg)
 

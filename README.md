@@ -32,7 +32,7 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 ## Screenshots
 
-![Adminportal](images/Demo-iPad-Managemnt-BBS-02.jpg)
+![Adminportal](images/disown-admin-portal.png)
 
 ![Bulk Workflow](images/Demo-iPad-Managemnt-BBS-03.jpg)
 
