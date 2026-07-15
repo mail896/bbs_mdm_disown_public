@@ -7,7 +7,7 @@ require __DIR__ . '/vendor/autoload.php';
 $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.2-dev' : '2.2';
+$appVersion = $isDevMode ? '2.3-dev' : '2.3';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';

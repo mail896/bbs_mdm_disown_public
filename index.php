@@ -2,6 +2,7 @@
 require_once __DIR__ . '/security.php';
 require 'db.php';
 require 'jamf.php';
+require_once __DIR__ . '/notify.php';
 
 disown_send_security_headers();
 
@@ -107,8 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
 
             if ($stmt->affected_rows > 0) {
+                $requestId = (int) $mysqli->insert_id;
                 $message = 'Ihr Antrag wurde gespeichert. Unser Team prüft ihn jetzt.';
                 $messageType = 'success';
+                disown_send_new_request_push_mail($mysqli, $requestId);
             } else {
                 $message = 'Für dieses Gerät wurde bereits ein Antrag erfasst.';
                 $messageType = 'warning';

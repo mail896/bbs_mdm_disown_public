@@ -4,12 +4,12 @@
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.2 refines the visual interface; since version 2.0 DISOWN automates the workflow through Apple ADE/ASM release by using a local release broker.
+Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.3 adds a switchable email push watch for new requests; since version 2.0 DISOWN automates the workflow through Apple ADE/ASM release by using a local release broker.
 
 ## Status
 
-- Version: `2.2`
-- Date: `14 July 2026`
+- Version: `2.3`
+- Date: `15 July 2026`
 - Production path: `/var/www/sicher.bbs-einbeck.de/disown`
 - Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public demo: sanitized variant without credentials and without local project-state files
@@ -137,6 +137,7 @@ Short version:
 
 ## History
 
+- `2.3`: Switchable email push for new WebClip requests; the admin portal stores the on/off state in `app_settings`, recipients stay in `/etc/disown/notify.conf`.
 - `2.2`: Visual release with a polished admin table, selected-row treatment, clearer actions and a unified look for admin, ADE intake, audit log and KUK.
 - `2.1`: UI structure modernization; admin, ADE, audit and KUK styles/scripts live in `assets/`, search reacts more calmly and keeps focus after auto-refresh.
 - `2.0`: automated ASM/ADE release through the release broker, NanoDEP service, improved bulk workflow, mail to both addresses with partial-success handling, updated docs and screenshots.

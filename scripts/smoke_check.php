@@ -227,6 +227,7 @@ if ($dbConfig) {
             'kuk_devices',
             'kuk_owner_history',
             'kuk_device_workflow',
+            'app_settings',
         ] as $table) {
             smoke_table_exists($mysqli, $table)
                 ? smoke_ok("Tabelle vorhanden: {$table}")

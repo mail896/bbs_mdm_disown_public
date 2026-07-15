@@ -4,6 +4,7 @@ disown_require_admin();
 require 'db.php';
 require __DIR__ . '/jamf.php';
 require __DIR__ . '/asm_release.php';
+require_once __DIR__ . '/notify.php';
 require __DIR__ . '/vendor/autoload.php';
 
 $templateMessage = '';
@@ -26,6 +27,8 @@ $adminDirectForm = [
 ];
 $caseMessage = '';
 $caseError = '';
+$pushMailMessage = '';
+$pushMailError = '';
 $asmReleasePreview = null;
 $asmReleaseRequest = null;
 $bulkAsmSerials = [];
@@ -35,8 +38,8 @@ $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.2-dev' : '2.2';
-$appVersionDate = $isDevMode ? '14. Juli 2026' : '14. Juli 2026';
+$appVersion = $isDevMode ? '2.3-dev' : '2.3';
+$appVersionDate = $isDevMode ? '15. Juli 2026' : '15. Juli 2026';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -793,6 +796,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             log_request_action($mysqli, 0, 'TEMPLATE_UPDATED', 'Mailvorlage aktualisiert.');
             $templateMessage = 'Vorlage erfolgreich gespeichert.';
+        }
+    }
+
+    if (isset($_POST['toggle_push_mail'])) {
+        $enablePushMail = ($_POST['push_mail_enabled'] ?? '') === '1';
+        if (disown_push_mail_set_enabled($mysqli, $enablePushMail, $currentAdminUser ?: 'admin')) {
+            log_request_action(
+                $mysqli,
+                0,
+                $enablePushMail ? 'PUSH_MAIL_ENABLED' : 'PUSH_MAIL_DISABLED',
+                'E-Mail-Push für neue Anträge wurde ' . ($enablePushMail ? 'aktiviert.' : 'deaktiviert.')
+            );
+            $pushMailMessage = 'E-Mail-Push wurde ' . ($enablePushMail ? 'aktiviert.' : 'deaktiviert.') . '.';
+        } else {
+            $pushMailError = 'E-Mail-Push konnte nicht umgeschaltet werden.';
         }
     }
 
@@ -1782,6 +1800,7 @@ $releaseBrokerDashboardTitle = trim(($releaseBrokerHealth['message'] ?? '') . ' 
 if ($releaseBrokerDashboardTitle === '') {
     $releaseBrokerDashboardTitle = 'Release Broker Status';
 }
+$pushMailStatus = disown_push_mail_status($mysqli);
 $openDeviceCaseCount = 0;
 $openCaseResult = $mysqli->query("SELECT COUNT(*) AS total FROM device_cases WHERE status <> 'geklaert'");
 if ($openCaseResult) {
@@ -2055,6 +2074,20 @@ if ($pageSerials) {
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($adePath)?>">ADE-Aufnahmen</a>
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($kukPath)?>">KUK-Geräte</a>
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($auditLogPath)?>">Audit-Log</a>
+                <?php if ($canWrite): ?>
+                    <form method="post" class="push-mail-toggle-form" title="Kurze E-Mail beim neuen WebClip-Antrag. Empfänger: <?=htmlspecialchars((string) $pushMailStatus['recipient_count'])?>">
+                        <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                        <input type="hidden" name="toggle_push_mail" value="1">
+                        <input type="hidden" name="push_mail_enabled" value="<?=$pushMailStatus['enabled'] ? '0' : '1'?>">
+                        <button type="submit" class="push-mail-switch <?=$pushMailStatus['enabled'] ? 'active' : ''?>" aria-pressed="<?=$pushMailStatus['enabled'] ? 'true' : 'false'?>">
+                            <span class="push-mail-switch-label">E-Mail-Push</span>
+                            <span class="push-mail-switch-track" aria-hidden="true">
+                                <span class="push-mail-switch-knob"></span>
+                            </span>
+                            <span class="push-mail-switch-state"><?=$pushMailStatus['enabled'] ? 'Ein' : 'Aus'?></span>
+                        </button>
+                    </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -2249,6 +2282,12 @@ if ($pageSerials) {
     <?php endif; ?>
     <?php if ($caseError): ?>
         <div class="message error"><?=htmlspecialchars($caseError)?></div>
+    <?php endif; ?>
+    <?php if ($pushMailMessage): ?>
+        <div class="message success"><?=htmlspecialchars($pushMailMessage)?></div>
+    <?php endif; ?>
+    <?php if ($pushMailError): ?>
+        <div class="message error"><?=htmlspecialchars($pushMailError)?></div>
     <?php endif; ?>
 
     <?php if ($asmReleasePreview && $asmReleaseRequest): ?>

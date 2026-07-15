@@ -4,12 +4,12 @@
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.2 verfeinert die visuelle Oberflaeche; seit Version 2.0 automatisiert DISOWN den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
+Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.3 ergänzt eine schaltbare E-Mail-Push-Wache für neue Anträge; seit Version 2.0 automatisiert DISOWN den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
 
 ## Stand
 
-- Version: `2.2`
-- Datum: `14. Juli 2026`
+- Version: `2.3`
+- Datum: `15. Juli 2026`
 - Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
 - Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien
@@ -140,6 +140,7 @@ Kurzfassung:
 
 ## Historie
 
+- `2.3`: Schaltbarer E-Mail-Push fuer neue WebClip-Antraege; Adminportal speichert den Ein/Aus-Zustand in `app_settings`, Empfaenger bleiben in `/etc/disown/notify.conf`.
 - `2.2`: Visuelles Release mit polierter Admin-Tabelle, ausgewaehlten Zeilen, deutlicheren Aktionen und vereinheitlichtem Look fuer Admin, ADE-Aufnahmen, Audit-Log und KUK.
 - `2.1`: UI-Struktur modernisiert; Admin-, ADE-, Audit- und KUK-Styles/Skripte liegen in `assets/`, Suche reagiert ruhiger und behaelt nach Auto-Aktualisierung den Fokus.
 - `2.0`: automatische ASM/ADE-Freigabe ueber Release Broker, NanoDEP-Dienst, verbesserter Bulk-Workflow, Mail an beide Adressen mit Teilerfolg, neue Doku und Screenshots.

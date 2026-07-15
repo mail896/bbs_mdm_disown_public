@@ -1,6 +1,6 @@
 # Installation and Operation
 
-This guide describes the runtime requirements for DISOWN version 2.2.
+This guide describes the runtime requirements for DISOWN version 2.3.
 
 ## 1. Requirements
 
@@ -227,4 +227,4 @@ Devices already released through ADE/DEP cannot be automatically returned to the
 
 ### 7.2 Frontend assets since 2.1
 
-Starting with version 2.2, CSS and JavaScript files for the admin, ADE, audit and KUK pages live in `assets/`. The application appends a `filemtime` cache buster automatically, so deployments do not require manual browser-cache clearing.
+Starting with version 2.3, CSS and JavaScript files for the admin, ADE, audit and KUK pages live in `assets/`. The application appends a `filemtime` cache buster automatically, so deployments do not require manual browser-cache clearing.

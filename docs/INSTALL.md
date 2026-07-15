@@ -1,6 +1,6 @@
 # Installation und Betrieb
 
-Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.2.
+Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.3.
 
 ## 1. Voraussetzungen
 
