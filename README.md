@@ -44,11 +44,11 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 ## Mobile Screenshots
 
-![Adminportal mobil](images/disown-admin-mobile.png)
-
-![ADE-Aufnahmen mobil](images/disown-ade-mobile.png)
-
-![KUK-Geraete mobil](images/disown-kuk-mobile.png)
+<p>
+  <img src="images/disown-admin-mobile.png" alt="Adminportal mobil" width="240">
+  <img src="images/disown-ade-mobile.png" alt="ADE-Aufnahmen mobil" width="240">
+  <img src="images/disown-kuk-mobile.png" alt="KUK-Geraete mobil" width="240">
+</p>
 
 ## Standardablauf
 

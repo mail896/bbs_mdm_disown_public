@@ -44,11 +44,11 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 ## Mobile Screenshots
 
-![Admin portal mobile](images/disown-admin-mobile.png)
-
-![ADE intake mobile](images/disown-ade-mobile.png)
-
-![KUK devices mobile](images/disown-kuk-mobile.png)
+<p>
+  <img src="images/disown-admin-mobile.png" alt="Admin portal mobile" width="240">
+  <img src="images/disown-ade-mobile.png" alt="ADE intake mobile" width="240">
+  <img src="images/disown-kuk-mobile.png" alt="KUK devices mobile" width="240">
+</p>
 
 ## Standard Workflow
 
