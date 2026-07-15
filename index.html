@@ -183,6 +183,13 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .mobile-screenshot-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, minmax(0, 300px));
+      justify-content: start;
+    }
+
     figure {
       background: white;
       border: 1px solid var(--line);
@@ -248,7 +255,8 @@
     @media (max-width: 880px) {
       .feature-grid,
       .workflow,
-      .screenshot-grid {
+      .screenshot-grid,
+      .mobile-screenshot-grid {
         grid-template-columns: 1fr;
       }
 
@@ -308,12 +316,6 @@
           <figcaption>Adminportal mit Statusfiltern, Kennzahlen und Antragsliste</figcaption>
         </figure>
         <figure>
-          <a href="images/disown-admin-mobile.png">
-            <img src="images/disown-admin-mobile.png" alt="Adminportal auf einem mobilen Viewport">
-          </a>
-          <figcaption>Mobile Ansicht des Adminportals</figcaption>
-        </figure>
-        <figure>
           <a href="images/disown-admin-cases.png">
             <img src="images/disown-admin-cases.png" alt="Adminportal mit Klärfallansicht">
           </a>
@@ -336,6 +338,30 @@
             <img src="images/disown-audit-log.png" alt="Audit-Log mit Dashboard und Einträgen">
           </a>
           <figcaption>Audit-Log mit Dashboard, Suche und nachvollziehbaren Einträgen</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Mobile Screenshots</h2>
+      <div class="mobile-screenshot-grid">
+        <figure>
+          <a href="images/disown-admin-mobile.png">
+            <img src="images/disown-admin-mobile.png" alt="Adminportal auf einem mobilen Viewport">
+          </a>
+          <figcaption>Mobile Ansicht des Adminportals</figcaption>
+        </figure>
+        <figure>
+          <a href="images/disown-ade-mobile.png">
+            <img src="images/disown-ade-mobile.png" alt="ADE-Aufnahmen auf einem mobilen Viewport">
+          </a>
+          <figcaption>Mobile Ansicht der ADE-Aufnahmen</figcaption>
+        </figure>
+        <figure>
+          <a href="images/disown-kuk-mobile.png">
+            <img src="images/disown-kuk-mobile.png" alt="KUK-Geräte auf einem mobilen Viewport">
+          </a>
+          <figcaption>Mobile Ansicht der KUK-Geräte</figcaption>
         </figure>
       </div>
     </section>

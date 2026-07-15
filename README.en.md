@@ -34,8 +34,6 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 ![Admin portal](images/disown-admin-portal.png)
 
-![Admin portal mobile](images/disown-admin-mobile.png)
-
 ![Admin portal clarification cases](images/disown-admin-cases.png)
 
 ![ADE intake](images/disown-ade.png)
@@ -43,6 +41,14 @@ Web application for handling former student iPad returns and releases at BBS Ein
 ![KUK devices](images/disown-kuk.png)
 
 ![Audit log](images/disown-audit-log.png)
+
+## Mobile Screenshots
+
+![Admin portal mobile](images/disown-admin-mobile.png)
+
+![ADE intake mobile](images/disown-ade-mobile.png)
+
+![KUK devices mobile](images/disown-kuk-mobile.png)
 
 ## Standard Workflow
 

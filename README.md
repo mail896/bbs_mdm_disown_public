@@ -34,8 +34,6 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 ![Adminportal](images/disown-admin-portal.png)
 
-![Adminportal mobil](images/disown-admin-mobile.png)
-
 ![Adminportal Klärfälle](images/disown-admin-cases.png)
 
 ![ADE-Aufnahmen](images/disown-ade.png)
@@ -43,6 +41,14 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 ![KUK-Geraete](images/disown-kuk.png)
 
 ![Audit-Log](images/disown-audit-log.png)
+
+## Mobile Screenshots
+
+![Adminportal mobil](images/disown-admin-mobile.png)
+
+![ADE-Aufnahmen mobil](images/disown-ade-mobile.png)
+
+![KUK-Geraete mobil](images/disown-kuk-mobile.png)
 
 ## Standardablauf
 
