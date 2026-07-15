@@ -168,13 +168,25 @@
       border-radius: 8px;
       min-height: 112px;
       padding: 16px;
+      position: relative;
+      overflow: hidden;
     }
 
     .step-number {
-      color: var(--green);
-      font-size: 0.86rem;
+      color: rgba(5, 150, 105, 0.16);
+      font-size: clamp(3.6rem, 7vw, 5.8rem);
       font-weight: 900;
-      margin-bottom: 10px;
+      line-height: 0.82;
+      margin-bottom: 12px;
+    }
+
+    .step-title {
+      display: block;
+      font-size: 1.05rem;
+      font-weight: 750;
+      line-height: 1.35;
+      position: relative;
+      z-index: 1;
     }
 
     .screenshot-grid {
@@ -305,11 +317,11 @@
     <section>
       <h2>Standardablauf</h2>
       <div class="workflow">
-        <div class="step"><div class="step-number">01</div>WebClip-Antrag erfassen</div>
-        <div class="step"><div class="step-number">02</div>Jamf-Unenroll ausführen</div>
-        <div class="step"><div class="step-number">03</div>ASM/ADE über Release Broker freigeben</div>
-        <div class="step"><div class="step-number">04</div>Abschlussmail an vorhandene Adressen senden</div>
-        <div class="step"><div class="step-number">05</div>Workflow und Details im Audit-Log nachvollziehen</div>
+        <div class="step"><div class="step-number">01</div><span class="step-title">WebClip-Antrag erfassen</span></div>
+        <div class="step"><div class="step-number">02</div><span class="step-title">Jamf-Unenroll ausführen</span></div>
+        <div class="step"><div class="step-number">03</div><span class="step-title">ASM/ADE über Release Broker freigeben</span></div>
+        <div class="step"><div class="step-number">04</div><span class="step-title">Abschlussmail an vorhandene Adressen senden</span></div>
+        <div class="step"><div class="step-number">05</div><span class="step-title">Workflow und Details im Audit-Log nachvollziehen</span></div>
       </div>
     </section>
 
@@ -380,7 +392,7 @@
   </main>
 
   <footer>
-    Version 2.3 · Stand 15. Juli 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
+    <a href="https://github.com/mail896/bbs_mdm_disown_public">Version 2.3</a> · Stand 15. Juli 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
   </footer>
 </body>
 </html>

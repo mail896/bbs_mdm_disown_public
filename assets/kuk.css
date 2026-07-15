@@ -808,3 +808,34 @@ tbody tr:hover td {
         justify-content: flex-start;
     }
 }
+
+@media (max-width: 700px) {
+    .header-actions {
+        align-items: stretch;
+    }
+    .actions-row {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+    .actions-row form {
+        display: contents;
+    }
+    .actions-row .button,
+    .actions-row button {
+        justify-content: center;
+        min-width: 0;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        text-align: center;
+        white-space: nowrap;
+        width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .actions-row {
+        grid-template-columns: 1fr;
+    }
+}

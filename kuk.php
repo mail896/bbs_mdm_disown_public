@@ -8,6 +8,7 @@ $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '2.3-dev' : '2.3';
+$sourceRepoUrl = 'https://github.com/mail896/bbs_mdm_disown_public';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -1029,7 +1030,7 @@ function kuk_url(array $params): string
 
     <footer class="footer">
         Stand: <?=kuk_h(kuk_display_datetime($summary['last_sync_at'] ?? null))?> ·
-        © 2026 Marc Schulz · Version <?=kuk_h($appVersion)?> · KUK-Geräte
+        © 2026 Marc Schulz · <a href="<?=kuk_h($sourceRepoUrl)?>">Version <?=kuk_h($appVersion)?></a> · KUK-Geräte
     </footer>
 </div>
 <script src="<?=kuk_h($searchJsUrl)?>" defer></script>

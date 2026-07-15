@@ -40,6 +40,7 @@ $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
 $isDevMode = basename(__DIR__) === 'disown-dev';
 $appVersion = $isDevMode ? '2.3-dev' : '2.3';
 $appVersionDate = $isDevMode ? '15. Juli 2026' : '15. Juli 2026';
+$sourceRepoUrl = 'https://github.com/mail896/bbs_mdm_disown_public';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -2805,7 +2806,7 @@ if ($pageSerials) {
         </details>
     <?php endif; ?>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:admin@example.org">Project maintainer</a> · Version <?=htmlspecialchars($appVersion)?> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:admin@example.org">Project maintainer</a> · <a href="<?=htmlspecialchars($sourceRepoUrl)?>">Version <?=htmlspecialchars($appVersion)?></a> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>
