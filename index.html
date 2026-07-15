@@ -185,9 +185,16 @@
 
     .mobile-screenshot-grid {
       display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(3, minmax(0, 300px));
+      gap: 16px;
+      grid-template-columns: repeat(3, minmax(0, 240px));
       justify-content: start;
+      max-width: 780px;
+    }
+
+    .mobile-screenshot-grid figure img {
+      aspect-ratio: 9 / 14;
+      object-fit: cover;
+      object-position: top center;
     }
 
     figure {
