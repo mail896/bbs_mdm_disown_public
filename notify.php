@@ -235,7 +235,7 @@ function disown_notify_text_body(array $request, int $requestId): string
         'Private E-Mail: ' . disown_notify_value($request['private_email'] ?? ''),
         'Gerät: ' . disown_notify_value($request['device_name'] ?? ''),
         'Seriennummer: ' . disown_notify_value($request['serial'] ?? ''),
-        'Wunschdatum: ' . disown_notify_value($request['requested_release_date'] ?? ''),
+        'Wunschdatum: ' . disown_notify_date($request['requested_release_date'] ?? ''),
         'Zeit: ' . date('d.m.Y H:i'),
         '',
         'Adminportal:',
@@ -254,33 +254,43 @@ function disown_notify_html_body(array $request, int $requestId): string
         'Private E-Mail' => disown_notify_value($request['private_email'] ?? ''),
         'Gerät' => disown_notify_value($request['device_name'] ?? ''),
         'Seriennummer' => disown_notify_value($request['serial'] ?? ''),
-        'Wunschdatum' => disown_notify_value($request['requested_release_date'] ?? ''),
+        'Wunschdatum' => disown_notify_date($request['requested_release_date'] ?? ''),
         'Zeit' => date('d.m.Y H:i'),
     ];
 
     $rowHtml = '';
     foreach ($rows as $label => $value) {
         $rowHtml .= '<tr>'
-            . '<th style="padding:7px 16px 7px 0;text-align:left;vertical-align:top;color:#5b6472;font-size:14px;font-weight:700;white-space:nowrap;">' . disown_notify_html($label) . '</th>'
-            . '<td style="padding:7px 0;text-align:left;vertical-align:top;color:#121826;font-size:15px;font-weight:600;">' . disown_notify_html($value) . '</td>'
+            . '<th style="padding:5px 14px 5px 0;text-align:left;vertical-align:top;color:#5b6472;font-size:13px;font-weight:700;white-space:nowrap;">' . disown_notify_html($label) . '</th>'
+            . '<td style="padding:5px 0;text-align:left;vertical-align:top;color:#121826;font-size:14px;font-weight:400;">' . disown_notify_html($value) . '</td>'
             . '</tr>';
     }
 
     $adminUrl = disown_notify_admin_url();
     return '<!doctype html><html><body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#121826;">'
-        . '<div style="max-width:640px;margin:0;padding:24px;">'
-        . '<div style="background:#ffffff;border:1px solid #dfe6ef;border-radius:14px;padding:22px 24px;box-shadow:0 8px 24px rgba(18,24,38,.08);">'
-        . '<div style="font-size:12px;line-height:1.2;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#276ef1;margin-bottom:8px;">DISOWN E-Mail-Push</div>'
-        . '<div style="font-size:22px;line-height:1.25;font-weight:800;color:#121826;margin-bottom:6px;">Neuer iPad-Freigabeantrag</div>'
-        . '<div style="font-size:15px;line-height:1.45;color:#4b5565;margin-bottom:18px;">Ein neuer Antrag ist eingegangen und wartet im Adminportal.</div>'
-        . '<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;margin:0 0 22px 0;">'
+        . '<div style="max-width:560px;margin:0;padding:20px;">'
+        . '<div style="background:#ffffff;border:1px solid #dfe6ef;border-radius:12px;padding:18px 20px;box-shadow:0 8px 22px rgba(18,24,38,.07);">'
+        . '<div style="font-size:11px;line-height:1.2;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#276ef1;margin-bottom:7px;">DISOWN E-Mail-Push</div>'
+        . '<div style="font-size:20px;line-height:1.25;font-weight:800;color:#121826;margin-bottom:5px;">Neuer iPad-Freigabeantrag</div>'
+        . '<div style="font-size:14px;line-height:1.4;color:#4b5565;margin-bottom:14px;">Ein neuer Antrag ist eingegangen und wartet im Adminportal.</div>'
+        . '<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;margin:0 0 18px 0;">'
         . $rowHtml
         . '</table>'
-        . '<a href="' . disown_notify_html($adminUrl) . '" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:999px;padding:10px 16px;font-size:14px;font-weight:800;">Adminportal öffnen</a>'
-        . '<div style="margin-top:14px;font-size:12px;line-height:1.4;color:#6b7280;">' . disown_notify_html($adminUrl) . '</div>'
+        . '<a href="' . disown_notify_html($adminUrl) . '" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:999px;padding:9px 14px;font-size:13px;font-weight:800;">Adminportal öffnen</a>'
         . '</div>'
         . '</div>'
         . '</body></html>';
+}
+
+function disown_notify_date($value): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return '-';
+    }
+
+    $date = DateTimeImmutable::createFromFormat('Y-m-d', $value);
+    return $date instanceof DateTimeImmutable ? $date->format('d.m.Y') : $value;
 }
 
 function disown_notify_html($value): string
