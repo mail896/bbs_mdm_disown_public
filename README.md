@@ -34,13 +34,15 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 ![Adminportal](images/disown-admin-portal.png)
 
-![Bulk Workflow](images/Demo-iPad-Managemnt-BBS-03.jpg)
+![Adminportal mobil](images/disown-admin-mobile.png)
 
-![ASM/ADE Release](images/Demo-iPad-Managemnt-BBS-04.jpg)
+![Adminportal Klärfälle](images/disown-admin-cases.png)
 
-![KUK-Geraete](images/Demo-iPad-Managemnt-BBS-05.jpg)
+![ADE-Aufnahmen](images/disown-ade.png)
 
-![Audit-Log](images/Demo-iPad-Managemnt-BBS-06.jpg)
+![KUK-Geraete](images/disown-kuk.png)
+
+![Audit-Log](images/disown-audit-log.png)
 
 ## Standardablauf
 
