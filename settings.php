@@ -937,7 +937,7 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                         <form method="post" class="critical-root-form">
                             <input type="hidden" name="csrf_token" value="<?=settings_h($_SESSION['csrf_token'])?>">
                             <label class="confirmation-check">
-                                <input type="checkbox" name="confirm_root_action" value="1" required>
+                                <input type="checkbox" name="confirm_root_action" value="1" required oninvalid="this.setCustomValidity('Bitte bestätige die Root-Aktion.')" onchange="this.setCustomValidity('')">
                                 <span>Root-Aktion für die DISOWN-Log-ACLs bestätigen</span>
                             </label>
                             <button class="button button-primary" type="submit" name="settings_action" value="repair_log_permissions" <?=$canWrite ? '' : 'disabled'?>>Jetzt reparieren</button>
@@ -1168,7 +1168,7 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                             <form method="post" class="critical-root-form">
                                 <input type="hidden" name="csrf_token" value="<?=settings_h($_SESSION['csrf_token'])?>">
                                 <label class="confirmation-check">
-                                    <input type="checkbox" name="confirm_root_action" value="1" required>
+                                    <input type="checkbox" name="confirm_root_action" value="1" required oninvalid="this.setCustomValidity('Bitte bestätige die Backup-Erstellung.')" onchange="this.setCustomValidity('')">
                                     <span>Neues Code- und Datenbank-Backup bestätigen</span>
                                 </label>
                                 <button class="button button-primary" type="submit" name="settings_action" value="create_backup" <?=$canWrite ? '' : 'disabled'?>>Backup jetzt erstellen</button>
@@ -1233,10 +1233,10 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                             <input type="hidden" name="settings_action" value="delete_untouched_request">
                             <label class="delete-id-field">
                                 <span>Antrag-ID</span>
-                                <input type="number" name="request_id" min="1" inputmode="numeric" required>
+                                <input type="number" name="request_id" min="1" inputmode="numeric" required oninvalid="this.setCustomValidity('Bitte gib eine gültige Antrag-ID ein.')" oninput="this.setCustomValidity('')">
                             </label>
                             <label class="confirmation-check">
-                                <input type="checkbox" name="confirm_request_deletion" value="1" required>
+                                <input type="checkbox" name="confirm_request_deletion" value="1" required oninvalid="this.setCustomValidity('Bitte bestätige die endgültige Löschung.')" onchange="this.setCustomValidity('')">
                                 <span>Endgültige Löschung bestätigen</span>
                             </label>
                             <button class="button button-danger" type="submit" <?=$canWrite ? '' : 'disabled'?>>Antrag löschen</button>

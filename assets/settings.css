@@ -381,7 +381,7 @@ select:focus {
     border-radius: 12px;
     display: grid;
     gap: 10px;
-    grid-template-columns: minmax(220px, 0.9fr) 84px minmax(280px, 1.4fr) 116px;
+    grid-template-columns: minmax(220px, 0.9fr) 84px minmax(280px, 1.4fr) 200px;
     padding: 13px 14px;
 }
 .file-row > span:first-child {
@@ -399,9 +399,9 @@ select:focus {
     justify-self: end;
 }
 .inline-tool-form .button {
-    min-height: 2rem;
-    padding: 0.36rem 0.78rem;
-    width: 104px;
+    min-height: 2.35rem;
+    padding: 0.45rem 0.9rem;
+    width: 190px;
 }
 .tool-result {
     border: 1px solid #dbe3ee;
@@ -575,22 +575,30 @@ select:focus {
     width: 100%;
 }
 .backup-actions .inline-tool-form .button {
-    width: min(100%, 520px);
+    width: min(100%, 190px);
 }
 .backup-actions .critical-root-form {
     align-items: center;
-    grid-template-columns: minmax(260px, 1fr) minmax(280px, 520px);
+    column-gap: 28px;
+    grid-template-columns: minmax(260px, 1fr) 190px;
     width: 100%;
+}
+.backup-actions .critical-root-form .confirmation-check {
+    align-items: center;
+    justify-self: end;
+}
+.backup-actions .critical-root-form .confirmation-check input[type="checkbox"] {
+    margin-top: 0;
 }
 .backup-actions .critical-root-form .button {
     width: 100%;
 }
 .backup-actions > .button {
     justify-self: end;
-    width: min(100%, 520px);
+    width: min(100%, 190px);
 }
 .backup-actions .button {
-    min-height: 2.7rem;
+    min-height: 2.35rem;
 }
 .critical-root-form {
     display: grid;
@@ -616,8 +624,8 @@ select:focus {
 .critical-delete-form {
     align-items: end;
     display: grid;
-    gap: 20px;
-    grid-template-columns: minmax(130px, 180px) minmax(220px, 1fr) minmax(160px, 220px);
+    gap: 28px;
+    grid-template-columns: minmax(130px, 180px) minmax(220px, 1fr) 190px;
     width: 100%;
 }
 .request-delete-tool .maintenance-command {
@@ -625,7 +633,7 @@ select:focus {
     width: 100%;
 }
 .request-delete-tool .maintenance-command > .button {
-    width: min(100%, 220px);
+    width: min(100%, 190px);
 }
 .delete-id-field {
     display: grid;
@@ -638,10 +646,17 @@ select:focus {
     margin: 0;
 }
 .critical-delete-form .confirmation-check {
-    align-self: center;
+    align-items: center;
+    align-self: end;
+    justify-self: end;
+    min-height: 2.35rem;
+}
+.critical-delete-form .confirmation-check input[type="checkbox"] {
+    margin-top: 0;
 }
 .critical-delete-form .button {
-    min-height: 2.7rem;
+    min-height: 2.35rem;
+    width: 190px;
 }
 .security-callout {
     background: #eff6ff;

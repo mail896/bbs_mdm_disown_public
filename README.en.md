@@ -42,12 +42,15 @@ Web application for handling former student iPad returns and releases at BBS Ein
 
 ![Audit log](images/disown-audit-log.png)
 
+![Settings and system tools](images/disown-settings.png)
+
 ## Mobile Screenshots
 
 <p>
   <img src="images/disown-admin-mobile.png" alt="Admin portal mobile" width="240">
   <img src="images/disown-ade-mobile.png" alt="ADE intake mobile" width="240">
   <img src="images/disown-kuk-mobile.png" alt="KUK devices mobile" width="240">
+  <img src="images/disown-settings-mobile.png" alt="Settings mobile" width="240">
 </p>
 
 ## Standard Workflow
@@ -149,7 +152,7 @@ Short version:
 ## History
 
 - `2.4`: settings portal for email push, SMTP, jobs, security and system operations; Critical Mode protects root-helper actions with a separate password, short lifetime and audit logging.
-- `2.4` maintenance: Completely untouched accidental requests can be deleted with confirmation in the admin portal while retaining an audit record.
+- `2.4` maintenance: Completely untouched accidental requests can only be deleted from Settings → System → Tools with Critical Mode, request ID and explicit confirmation while retaining an audit record.
 - `2.4` maintenance: Backup status and new code/database backups are available in the settings portal through Critical Mode and the narrowly scoped root helper.
 - `2.3`: Switchable email push for new WebClip requests; the admin portal stores the on/off state in `app_settings`, recipients stay in `/etc/disown/notify.conf`.
 - `2.2`: Visual release with a polished admin table, selected-row treatment, clearer actions and a unified look for admin, ADE intake, audit log and KUK.

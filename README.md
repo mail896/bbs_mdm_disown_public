@@ -42,12 +42,15 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 
 ![Audit-Log](images/disown-audit-log.png)
 
+![Einstellungen und Systemwerkzeuge](images/disown-settings.png)
+
 ## Mobile Screenshots
 
 <p>
   <img src="images/disown-admin-mobile.png" alt="Adminportal mobil" width="240">
   <img src="images/disown-ade-mobile.png" alt="ADE-Aufnahmen mobil" width="240">
   <img src="images/disown-kuk-mobile.png" alt="KUK-Geraete mobil" width="240">
+  <img src="images/disown-settings-mobile.png" alt="Einstellungen mobil" width="240">
 </p>
 
 ## Standardablauf
@@ -152,7 +155,7 @@ Kurzfassung:
 ## Historie
 
 - `2.4`: Einstellungsportal mit E-Mail-Push-, SMTP-, Job-, Sicherheits- und Systembereichen; Critical Mode schützt Root-Helper-Aktionen mit separatem Kennwort, kurzer Laufzeit und Audit-Log.
-- `2.4` Nachpflege: Vollständig unbearbeitete Fehlanträge können mit Bestätigung im Adminportal gelöscht werden; die Löschung bleibt im Audit-Log dokumentiert.
+- `2.4` Nachpflege: Vollständig unbearbeitete Fehlanträge können ausschließlich unter Einstellungen → System → Werkzeuge mit Critical Mode, Antrag-ID und Bestätigung gelöscht werden; die Löschung bleibt im Audit-Log dokumentiert.
 - `2.4` Nachpflege: Backup-Status und neue Code-/DB-Sicherungen sind über Critical Mode und den fest begrenzten Root-Helper im Einstellungsportal verfügbar.
 - `2.3`: Schaltbarer E-Mail-Push fuer neue WebClip-Antraege; Adminportal speichert den Ein/Aus-Zustand in `app_settings`, Empfaenger bleiben in `/etc/disown/notify.conf`.
 - `2.2`: Visuelles Release mit polierter Admin-Tabelle, ausgewaehlten Zeilen, deutlicheren Aktionen und vereinheitlichtem Look fuer Admin, ADE-Aufnahmen, Audit-Log und KUK.
