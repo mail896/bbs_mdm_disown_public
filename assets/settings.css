@@ -585,6 +585,10 @@ select:focus {
 .backup-actions .critical-root-form .button {
     width: 100%;
 }
+.backup-actions > .button {
+    justify-self: end;
+    width: min(100%, 520px);
+}
 .backup-actions .button {
     min-height: 2.7rem;
 }
@@ -599,15 +603,29 @@ select:focus {
     font-size: 0.9rem;
     gap: 8px;
 }
-.confirmation-check input {
+.confirmation-check input[type="checkbox"] {
+    flex: 0 0 auto;
+    min-height: 0;
     margin-top: 3px;
+    padding: 0;
+    width: auto;
+}
+.confirmation-check span {
+    margin: 0;
 }
 .critical-delete-form {
     align-items: end;
     display: grid;
-    gap: 12px;
+    gap: 20px;
     grid-template-columns: minmax(130px, 180px) minmax(220px, 1fr) minmax(160px, 220px);
     width: 100%;
+}
+.request-delete-tool .maintenance-command {
+    justify-items: end;
+    width: 100%;
+}
+.request-delete-tool .maintenance-command > .button {
+    width: min(100%, 220px);
 }
 .delete-id-field {
     display: grid;
