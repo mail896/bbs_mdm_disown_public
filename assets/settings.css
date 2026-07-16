@@ -558,12 +558,22 @@ select:focus {
 }
 .backup-actions {
     justify-items: stretch;
-    max-width: 520px;
     width: 100%;
 }
-.backup-actions .inline-tool-form,
-.backup-actions .critical-root-form,
-.backup-actions .button {
+.backup-actions .inline-tool-form {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+}
+.backup-actions .inline-tool-form .button {
+    width: min(100%, 520px);
+}
+.backup-actions .critical-root-form {
+    align-items: center;
+    grid-template-columns: minmax(260px, 1fr) minmax(280px, 520px);
+    width: 100%;
+}
+.backup-actions .critical-root-form .button {
     width: 100%;
 }
 .backup-actions .button {
@@ -671,6 +681,9 @@ select:focus {
         flex-direction: column;
     }
     .maintenance-card {
+        grid-template-columns: 1fr;
+    }
+    .backup-actions .critical-root-form {
         grid-template-columns: 1fr;
     }
     .field-wide {
