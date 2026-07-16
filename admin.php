@@ -37,10 +37,6 @@ $bulkLastStep = '';
 $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
 $accessLabel = $canWrite ? 'Admin' : 'Nur Lesen';
-$isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.3-dev' : '2.3';
-$appVersionDate = $isDevMode ? '15. Juli 2026' : '15. Juli 2026';
-$sourceRepoUrl = 'https://github.com/mail896/bbs_mdm_disown_public';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -2830,10 +2826,13 @@ if ($pageSerials) {
             <?php endif; ?>
         </details>
     <?php endif; ?>
-    <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · <a href="<?=htmlspecialchars($sourceRepoUrl)?>">Version <?=htmlspecialchars($appVersion)?></a> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
-        <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
-    </footer>
+    <?php
+        $footerExportUrl = htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        disown_render_site_footer('Adminportal', [
+            'class' => 'page-footer',
+            'extra_html' => '<a class="footer-export-link" href="' . $footerExportUrl . '" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>',
+        ]);
+    ?>
 </div>
 
 <script>

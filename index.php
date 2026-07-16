@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/site.php';
 require 'db.php';
 require 'jamf.php';
 require_once __DIR__ . '/notify.php';
@@ -415,6 +416,15 @@ body {
     color: #6b7280;
     margin: clamp(14px, 2vh, 24px) 0 0;
 }
+.site-footer {
+    color: #64748b;
+    font-size: 0.82rem;
+    margin-top: auto;
+    padding-top: clamp(18px, 3vh, 34px);
+}
+.site-footer a {
+    color: #2563eb;
+}
 @media (max-width: 560px) {
     body {
         background-attachment: scroll;
@@ -485,8 +495,9 @@ body {
 	                    <p class="description">Dieses schulische Leihgerät wird nicht freigegeben.<br>Bitte setzen Sie es zurück und geben Sie es gereinigt ab.</p>
 	                <?php else: ?>
 	                    <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
-	                <?php endif; ?>
-	            </div>
+            <?php endif; ?>
+            <?php disown_render_site_footer('iPad-Freigabe', ['class' => 'site-footer']); ?>
+	    </div>
 	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
 	        </div>
 

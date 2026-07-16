@@ -4,9 +4,6 @@ disown_require_admin();
 require __DIR__ . '/db.php';
 
 $currentAdminUser = disown_current_admin_user();
-$isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.3-dev' : '2.3';
-$sourceRepoUrl = 'https://github.com/mail896/bbs_mdm_disown_public';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -345,10 +342,7 @@ function ade_url(array $params): string
         </div>
     </section>
 
-    <footer class="footer">
-        Stand: <?=ade_h(ade_display_datetime($summary['last_sync_at'] ?? null))?> ·
-        © 2026 Marc Schulz · <a href="<?=ade_h($sourceRepoUrl)?>">Version <?=ade_h($appVersion)?></a> · ADE-Aufnahmen
-    </footer>
+    <?php disown_render_site_footer('ADE-Aufnahmen', ['data_status' => ade_display_datetime($summary['last_sync_at'] ?? null)]); ?>
 </div>
 <script src="<?=ade_h($searchJsUrl)?>" defer></script>
 <script src="<?=ade_h($adeJsUrl)?>" defer></script>

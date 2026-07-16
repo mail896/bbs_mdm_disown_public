@@ -132,6 +132,7 @@ Short version:
 - `kuk/index.php` - KUK devices.
 - `audit_log.php` - audit log and reporting.
 - `settings.php` - operations, mail, jobs, security and system settings.
+- `site.php` - central version, release and footer metadata for every page.
 - `config/asm-release-broker.example.conf` - broker runtime configuration example.
 - `tools/install-nanodep-service.sh` - systemd setup for the NanoDEP server.
 - `tools/install-settings-root-helper.sh` - installs the narrowly scoped Critical Mode root helper.

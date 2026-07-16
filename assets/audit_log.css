@@ -678,6 +678,13 @@ tbody tr:hover td {
 .pagination-link {
     border-radius: 999px;
 }
+.footer {
+    color: #64748b;
+    padding: 16px 0 26px;
+}
+.footer a {
+    color: #2563eb;
+}
 @media (max-width: 900px) {
     .header {
         grid-template-columns: 1fr;

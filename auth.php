@@ -1,14 +1,10 @@
 <?php
 
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/site.php';
 
 disown_send_security_headers();
 disown_secure_session_start();
-
-function disown_is_dev_mode(): bool
-{
-    return basename(__DIR__) === 'disown-dev';
-}
 
 function disown_config_path(string $name): string
 {
@@ -795,7 +791,7 @@ function disown_oidc_redirect_uri(): string
 
 function disown_absolute_url(string $path): string
 {
-    $host = $_SERVER['HTTP_HOST'] ?? 'example.org';
+    $host = $_SERVER['HTTP_HOST'] ?? 'sicher.bbs-einbeck.de';
     return 'https://' . $host . $path;
 }
 

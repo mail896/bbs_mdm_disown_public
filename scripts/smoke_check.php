@@ -144,6 +144,7 @@ foreach ([
     'kuk.php',
     'settings.php',
     'auth.php',
+    'site.php',
     'jamf.php',
     'asm_release.php',
     'templates/mail_release.txt',
@@ -176,7 +177,7 @@ foreach (['mysqli', 'curl', 'json', 'openssl'] as $extension) {
 }
 
 echo "\nSyntax\n";
-foreach (['admin.php', 'ade.php', 'audit_log.php', 'kuk.php', 'settings.php', 'auth.php', 'jamf.php', 'asm_release.php'] as $relativePath) {
+foreach (['admin.php', 'ade.php', 'audit_log.php', 'kuk.php', 'settings.php', 'auth.php', 'site.php', 'jamf.php', 'asm_release.php'] as $relativePath) {
     $command = 'php -l ' . escapeshellarg($root . '/' . $relativePath) . ' 2>&1';
     exec($command, $output, $exitCode);
     $exitCode === 0 ? smoke_ok("php -l: {$relativePath}") : smoke_fail("php -l fehlgeschlagen: {$relativePath}");

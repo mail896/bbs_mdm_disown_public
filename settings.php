@@ -6,9 +6,10 @@ require_once __DIR__ . '/notify.php';
 
 $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
-$isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.4-dev' : '2.4';
-$sourceRepoUrl = 'https://github.com/mail896/bbs_mdm_disown_public';
+$isDevMode = disown_is_dev_mode();
+$appMetadata = disown_app_metadata();
+$appVersion = $appMetadata['version'];
+$sourceRepoUrl = $appMetadata['repository_url'];
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -1278,9 +1279,7 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
         </section>
     <?php endif; ?>
 
-    <footer class="footer">
-        © 2026 Marc Schulz · <a href="<?=settings_h($sourceRepoUrl)?>" target="_blank" rel="noopener noreferrer">Version <?=settings_h($appVersion)?></a> · Einstellungen
-    </footer>
+    <?php disown_render_site_footer('Einstellungen'); ?>
 </div>
 </body>
 </html>

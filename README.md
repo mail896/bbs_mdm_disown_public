@@ -133,6 +133,7 @@ Kurzfassung:
 - `kuk/index.php` - KUK-Geraete.
 - `audit_log.php` - Audit-Log und Auswertungen.
 - `settings.php` - Betriebs-, Mail-, Job-, Sicherheits- und System-Einstellungen.
+- `site.php` - zentrale Versions-, Release- und Footer-Metadaten fuer alle Seiten.
 - `config/asm-release-broker.example.conf` - Beispiel fuer Broker-Konfiguration.
 - `tools/install-nanodep-service.sh` - systemd-Installation des NanoDEP-Servers.
 - `tools/install-nanodep-monitoring.sh` - Healthcheck-Timer und Logrotation fuer NanoDEP.

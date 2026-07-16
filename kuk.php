@@ -3,12 +3,10 @@ require __DIR__ . '/auth.php';
 disown_require_admin();
 require __DIR__ . '/db.php';
 require __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/notify.php';
 
 $currentAdminUser = disown_current_admin_user();
 $canWrite = disown_can_write();
-$isDevMode = basename(__DIR__) === 'disown-dev';
-$appVersion = $isDevMode ? '2.3-dev' : '2.3';
-$sourceRepoUrl = 'https://github.com/mail896/bbs_mdm_disown_public';
 $appBasePath = rtrim(disown_admin_base_path(), '/');
 $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
@@ -78,9 +76,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['send_kuk_i
         exit;
     }
 
-    $mailConfig = parse_ini_file('/etc/disown/mail.conf');
-    if ($mailConfig === false || empty($mailConfig['MAIL_HOST']) || empty($mailConfig['MAIL_PORT']) || empty($mailConfig['MAIL_USERNAME']) || empty($mailConfig['MAIL_PASSWORD']) || empty($mailConfig['MAIL_FROM'])) {
-        $_SESSION['kuk_mail_error'] = 'SMTP-Konfiguration fehlt oder ist unvollständig. Bitte /etc/disown/mail.conf prüfen.';
+    $mailConfig = disown_mail_config($mysqli);
+    if (!disown_mail_config_is_complete($mailConfig)) {
+        $_SESSION['kuk_mail_error'] = 'SMTP-Konfiguration fehlt oder ist unvollständig. Bitte Einstellungen prüfen.';
         header('Location: ' . $returnTo);
         exit;
     }
@@ -1028,10 +1026,7 @@ function kuk_url(array $params): string
         </div>
     <?php endif; ?>
 
-    <footer class="footer">
-        Stand: <?=kuk_h(kuk_display_datetime($summary['last_sync_at'] ?? null))?> ·
-        © 2026 Marc Schulz · <a href="<?=kuk_h($sourceRepoUrl)?>">Version <?=kuk_h($appVersion)?></a> · KUK-Geräte
-    </footer>
+    <?php disown_render_site_footer('KUK-Geräte', ['data_status' => kuk_display_datetime($summary['last_sync_at'] ?? null)]); ?>
 </div>
 <script src="<?=kuk_h($searchJsUrl)?>" defer></script>
 <script src="<?=kuk_h($kukJsUrl)?>" defer></script>

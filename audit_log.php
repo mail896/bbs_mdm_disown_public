@@ -418,6 +418,7 @@ $toRow = min($offset + $perPage, $totalRows);
             </div>
         </nav>
     </div>
+    <?php disown_render_site_footer('Audit-Log'); ?>
 </div>
 <script src="<?=audit_h($searchJsUrl)?>" defer></script>
 <script src="<?=audit_h($auditLogJsUrl)?>" defer></script>
