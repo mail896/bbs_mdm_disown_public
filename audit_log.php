@@ -220,6 +220,7 @@ function audit_display_action(?string $value): string
         'SETTINGS_BACKUP_STATUS' => 'Backup-Status',
         'SETTINGS_BACKUP_CREATED' => 'Backup erstellt',
         'SETTINGS_BACKUP_FAILED' => 'Backup Fehler',
+        'SETTINGS_REQUEST_DELETE_DENIED' => 'Löschung blockiert',
         'SETTINGS_TOOL_RUN' => 'Werkzeug ausgeführt',
     ];
 

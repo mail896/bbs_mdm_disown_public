@@ -208,49 +208,6 @@ function load_request_for_action($mysqli, int $requestId): ?array
     return $row ?: null;
 }
 
-function load_request_for_deletion(mysqli $mysqli, int $requestId): ?array
-{
-    $stmt = $mysqli->prepare(
-        "SELECT r.*,
-                (SELECT COUNT(*) FROM request_audit_log ral WHERE ral.request_id = r.id) AS audit_count,
-                (SELECT COUNT(*) FROM request_audit_log ral WHERE ral.request_id = r.id AND ral.action = 'REQUEST_CREATED') AS creation_audit_count,
-                (SELECT COUNT(*) FROM device_cases dc WHERE dc.request_id = r.id) AS request_case_count
-         FROM requests r
-         WHERE r.id = ?
-         FOR UPDATE"
-    );
-    if (!$stmt) {
-        return null;
-    }
-
-    $stmt->bind_param('i', $requestId);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    return $row ?: null;
-}
-
-function request_is_untouched_for_deletion(array $row): bool
-{
-    return strtolower(trim((string) ($row['status'] ?? ''))) === 'offen'
-        && empty($row['jamf_unenrolled'])
-        && empty($row['asm_manual_done'])
-        && empty($row['asm_disowned'])
-        && empty($row['mail_sent'])
-        && trim((string) ($row['jamf_unenrolled_at'] ?? '')) === ''
-        && trim((string) ($row['asm_manual_done_at'] ?? '')) === ''
-        && trim((string) ($row['asm_disowned_at'] ?? '')) === ''
-        && trim((string) ($row['mail_sent_at'] ?? '')) === ''
-        && trim((string) ($row['completed_at'] ?? '')) === ''
-        && trim((string) ($row['jamf_unenroll_error'] ?? '')) === ''
-        && trim((string) ($row['asm_error'] ?? '')) === ''
-        && trim((string) ($row['asm_task_id'] ?? '')) === ''
-        && (int) ($row['audit_count'] ?? 0) === 1
-        && (int) ($row['creation_audit_count'] ?? 0) === 1
-        && (int) ($row['request_case_count'] ?? 0) === 0;
-}
-
 function load_open_request_by_serial(mysqli $mysqli, string $serial): ?array
 {
     $stmt = $mysqli->prepare(
@@ -860,60 +817,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $pushMailMessage = 'E-Mail-Push wurde ' . ($enablePushMail ? 'aktiviert.' : 'deaktiviert.') . '.';
         } else {
             $pushMailError = 'E-Mail-Push konnte nicht umgeschaltet werden.';
-        }
-    }
-
-    if (isset($_POST['delete_untouched_request'])) {
-        $deleteRequestId = (int) ($_POST['delete_untouched_request'] ?? 0);
-        if ($deleteRequestId <= 0) {
-            $disownError = 'Ungültiger Antrag. Bitte lade die Seite neu.';
-        } else {
-            try {
-                $mysqli->begin_transaction();
-                $deleteRequest = load_request_for_deletion($mysqli, $deleteRequestId);
-                if (!$deleteRequest) {
-                    throw new RuntimeException('Antrag wurde nicht gefunden.');
-                }
-                if (!request_is_untouched_for_deletion($deleteRequest)) {
-                    throw new RuntimeException('Der Antrag ist nicht mehr vollständig unbearbeitet und darf nicht gelöscht werden.');
-                }
-
-                $deleteStmt = $mysqli->prepare('DELETE FROM requests WHERE id = ?');
-                if (!$deleteStmt) {
-                    throw new RuntimeException('Löschung konnte nicht vorbereitet werden.');
-                }
-                $deleteStmt->bind_param('i', $deleteRequestId);
-                if (!$deleteStmt->execute() || $deleteStmt->affected_rows !== 1) {
-                    $deleteStmt->close();
-                    throw new RuntimeException('Antrag konnte nicht gelöscht werden.');
-                }
-                $deleteStmt->close();
-
-                $auditAction = 'REQUEST_DELETED';
-                $auditAdmin = $currentAdminUser !== '' ? $currentAdminUser : 'admin';
-                $auditDetails = 'Unbearbeiteten Antrag gelöscht; Name: ' . trim((string) ($deleteRequest['full_name'] ?? ''))
-                    . '; Seriennummer: ' . strtoupper(trim((string) ($deleteRequest['serial'] ?? '')));
-                $auditStmt = $mysqli->prepare(
-                    'INSERT INTO request_audit_log (request_id, action, admin_user, details) VALUES (?, ?, ?, ?)'
-                );
-                if (!$auditStmt) {
-                    throw new RuntimeException('Audit-Eintrag konnte nicht vorbereitet werden.');
-                }
-                $auditStmt->bind_param('isss', $deleteRequestId, $auditAction, $auditAdmin, $auditDetails);
-                if (!$auditStmt->execute()) {
-                    $auditStmt->close();
-                    throw new RuntimeException('Audit-Eintrag konnte nicht gespeichert werden.');
-                }
-                $auditStmt->close();
-
-                $mysqli->commit();
-                $_SESSION['flash_disown_message'] = 'Unbearbeiteter Antrag #' . $deleteRequestId . ' wurde gelöscht.';
-                header('Location: ' . admin_url());
-                exit;
-            } catch (Throwable $e) {
-                $mysqli->rollback();
-                $disownError = $e->getMessage();
-            }
         }
     }
 
@@ -2532,7 +2435,6 @@ if ($pageSerials) {
                         $rowCaseClosed = $rowHasCase && $openCaseCount === 0 && $latestCaseStatus === 'geklaert';
                         $rowCaseClass = $rowHasCase ? ($rowCaseClosed ? ' case-row-has-case case-row-closed' : ' case-row-has-case case-row-open') : '';
                         $deviceCaseTooltip = $rowHasCase ? 'Klärfall zum Gerät öffnen' : 'Klärfall zum Gerät anlegen';
-                        $canDeleteUntouchedRequest = $canWrite && request_is_untouched_for_deletion($row);
                     ?>
                 <tr class="request-row<?= $rowCaseClass ?><?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
                     data-id="<?=htmlspecialchars($row['id'])?>"
@@ -2716,14 +2618,6 @@ if ($pageSerials) {
                                     <input type="hidden" name="unenroll_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
                                     <button type="submit" class="button button-primary">Jamf Unenroll</button>
-                                </form>
-                            <?php endif; ?>
-
-                            <?php if ($canDeleteUntouchedRequest): ?>
-                                <form method="post" class="action-form" onsubmit="return confirm('Unbearbeiteten Antrag #<?=htmlspecialchars((string) $row['id'])?> von <?=htmlspecialchars((string) $row['full_name'], ENT_QUOTES)?> wirklich löschen?')">
-                                    <input type="hidden" name="delete_untouched_request" value="<?=htmlspecialchars((string) $row['id'])?>">
-                                    <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                                    <button type="submit" class="button button-danger">Antrag löschen</button>
                                 </form>
                             <?php endif; ?>
 

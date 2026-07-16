@@ -95,6 +95,10 @@ input:disabled {
     background: #e2e8f0;
     color: #1f2937;
 }
+.button-danger {
+    background: linear-gradient(180deg, #dc2626, #b91c1c);
+    color: #fff;
+}
 .admin-nav-link {
     background: #ecfdf5;
     border: 1px solid #86efac;
@@ -551,6 +555,11 @@ select:focus {
     overflow-wrap: anywhere;
     padding: 8px 10px;
 }
+.maintenance-card.danger {
+    background: #fff7ed;
+    border-color: #fdba74;
+    margin-top: 16px;
+}
 .maintenance-command {
     display: grid;
     gap: 10px;
@@ -592,6 +601,29 @@ select:focus {
 }
 .confirmation-check input {
     margin-top: 3px;
+}
+.critical-delete-form {
+    align-items: end;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(130px, 180px) minmax(220px, 1fr) minmax(160px, 220px);
+    width: 100%;
+}
+.delete-id-field {
+    display: grid;
+    gap: 5px;
+}
+.delete-id-field span {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 800;
+    margin: 0;
+}
+.critical-delete-form .confirmation-check {
+    align-self: center;
+}
+.critical-delete-form .button {
+    min-height: 2.7rem;
 }
 .security-callout {
     background: #eff6ff;
@@ -684,6 +716,9 @@ select:focus {
         grid-template-columns: 1fr;
     }
     .backup-actions .critical-root-form {
+        grid-template-columns: 1fr;
+    }
+    .critical-delete-form {
         grid-template-columns: 1fr;
     }
     .field-wide {

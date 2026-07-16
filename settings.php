@@ -313,6 +313,49 @@ function settings_root_helper_current(string $sourcePath, string $installedPath)
     return is_string($sourceHash) && is_string($installedHash) && hash_equals($sourceHash, $installedHash);
 }
 
+function settings_load_request_for_deletion(mysqli $mysqli, int $requestId): ?array
+{
+    $stmt = $mysqli->prepare(
+        "SELECT r.*,
+                (SELECT COUNT(*) FROM request_audit_log ral WHERE ral.request_id = r.id) AS audit_count,
+                (SELECT COUNT(*) FROM request_audit_log ral WHERE ral.request_id = r.id AND ral.action = 'REQUEST_CREATED') AS creation_audit_count,
+                (SELECT COUNT(*) FROM device_cases dc WHERE dc.request_id = r.id) AS request_case_count
+         FROM requests r
+         WHERE r.id = ?
+         FOR UPDATE"
+    );
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $requestId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $row ?: null;
+}
+
+function settings_request_is_untouched_for_deletion(array $row): bool
+{
+    return strtolower(trim((string) ($row['status'] ?? ''))) === 'offen'
+        && empty($row['jamf_unenrolled'])
+        && empty($row['asm_manual_done'])
+        && empty($row['asm_disowned'])
+        && empty($row['mail_sent'])
+        && trim((string) ($row['jamf_unenrolled_at'] ?? '')) === ''
+        && trim((string) ($row['asm_manual_done_at'] ?? '')) === ''
+        && trim((string) ($row['asm_disowned_at'] ?? '')) === ''
+        && trim((string) ($row['mail_sent_at'] ?? '')) === ''
+        && trim((string) ($row['completed_at'] ?? '')) === ''
+        && trim((string) ($row['jamf_unenroll_error'] ?? '')) === ''
+        && trim((string) ($row['asm_error'] ?? '')) === ''
+        && trim((string) ($row['asm_task_id'] ?? '')) === ''
+        && (int) ($row['audit_count'] ?? 0) === 1
+        && (int) ($row['creation_audit_count'] ?? 0) === 1
+        && (int) ($row['request_case_count'] ?? 0) === 0;
+}
+
 $tabs = [
     'overview' => 'Übersicht',
     'push' => 'E-Mail-Push',
@@ -505,6 +548,70 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             header('Location: ' . settings_url(['tab' => 'system', 'tool_result' => '1']));
             exit;
         }
+    } elseif ($action === 'delete_untouched_request') {
+        $activeTab = 'system';
+        $deleteRequestId = (int) ($_POST['request_id'] ?? 0);
+        $result = ['title' => 'Antrag löschen', 'ok' => false, 'output' => ''];
+
+        if (!settings_critical_active()) {
+            disown_log_audit_action($mysqli, 0, 'SETTINGS_REQUEST_DELETE_DENIED', $currentAdminUser, 'Antragslöschung ohne aktiven Critical Mode abgewiesen.');
+            $result['output'] = 'Critical Mode ist nicht aktiv oder abgelaufen.';
+        } elseif ($deleteRequestId <= 0) {
+            $result['output'] = 'Bitte gib eine gültige Antrag-ID ein.';
+        } elseif (($_POST['confirm_request_deletion'] ?? '') !== '1') {
+            $result['output'] = 'Bitte bestätige die Löschung ausdrücklich.';
+        } else {
+            try {
+                $mysqli->begin_transaction();
+                $deleteRequest = settings_load_request_for_deletion($mysqli, $deleteRequestId);
+                if (!$deleteRequest) {
+                    throw new RuntimeException('Antrag #' . $deleteRequestId . ' wurde nicht gefunden.');
+                }
+                if (!settings_request_is_untouched_for_deletion($deleteRequest)) {
+                    throw new RuntimeException('Antrag #' . $deleteRequestId . ' ist nicht mehr vollständig unbearbeitet und darf nicht gelöscht werden.');
+                }
+
+                $deleteStmt = $mysqli->prepare('DELETE FROM requests WHERE id = ?');
+                if (!$deleteStmt) {
+                    throw new RuntimeException('Löschung konnte nicht vorbereitet werden.');
+                }
+                $deleteStmt->bind_param('i', $deleteRequestId);
+                if (!$deleteStmt->execute() || $deleteStmt->affected_rows !== 1) {
+                    $deleteStmt->close();
+                    throw new RuntimeException('Antrag konnte nicht gelöscht werden.');
+                }
+                $deleteStmt->close();
+
+                $auditAction = 'REQUEST_DELETED';
+                $auditAdmin = $currentAdminUser !== '' ? $currentAdminUser : 'admin';
+                $auditDetails = 'Unbearbeiteten Antrag gelöscht; Name: ' . trim((string) ($deleteRequest['full_name'] ?? ''))
+                    . '; Seriennummer: ' . strtoupper(trim((string) ($deleteRequest['serial'] ?? '')));
+                $auditStmt = $mysqli->prepare(
+                    'INSERT INTO request_audit_log (request_id, action, admin_user, details) VALUES (?, ?, ?, ?)'
+                );
+                if (!$auditStmt) {
+                    throw new RuntimeException('Audit-Eintrag konnte nicht vorbereitet werden.');
+                }
+                $auditStmt->bind_param('isss', $deleteRequestId, $auditAction, $auditAdmin, $auditDetails);
+                if (!$auditStmt->execute()) {
+                    $auditStmt->close();
+                    throw new RuntimeException('Audit-Eintrag konnte nicht gespeichert werden.');
+                }
+                $auditStmt->close();
+
+                $mysqli->commit();
+                $result['ok'] = true;
+                $result['output'] = 'Unbearbeiteter Antrag #' . $deleteRequestId . ' wurde gelöscht. Die ID wird nicht erneut vergeben.';
+            } catch (Throwable $e) {
+                $mysqli->rollback();
+                disown_log_audit_action($mysqli, 0, 'SETTINGS_REQUEST_DELETE_DENIED', $currentAdminUser, 'Antragslöschung #' . $deleteRequestId . ' abgewiesen: ' . $e->getMessage());
+                $result['output'] = $e->getMessage();
+            }
+        }
+
+        $_SESSION['settings_tool_result'] = $result;
+        header('Location: ' . settings_url(['tab' => 'system', 'tool_result' => '1']));
+        exit;
     } elseif ($action === 'repair_log_permissions') {
         $activeTab = 'jobs';
         if (!settings_critical_active()) {
@@ -1113,6 +1220,31 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                 <?php endforeach; ?>
                 <div class="file-row"><span>Mail-Konfig</span><?=settings_status_badge($mailConfigStatus['readable'])?><small><?=settings_h($mailConfigStatus['path'])?></small></div>
                 <div class="file-row"><span>Notify-Konfig</span><?=settings_status_badge($notifyConfigStatus['readable'])?><small><?=settings_h($notifyConfigStatus['path'])?></small></div>
+            </div>
+            <div class="maintenance-card danger request-delete-tool">
+                <div>
+                    <strong>Unbearbeiteten Antrag löschen</strong>
+                    <span>Nur für versehentliche Anträge: offen, ohne Bearbeitung, Fehler oder Klärfall und ausschließlich mit dem ursprünglichen Erstellungs-Audit.</span>
+                </div>
+                <div class="maintenance-command">
+                    <?php if ($criticalActive): ?>
+                        <form method="post" class="critical-delete-form" onsubmit="return confirm('Den vollständig unbearbeiteten Antrag mit der eingegebenen ID wirklich löschen?')">
+                            <input type="hidden" name="csrf_token" value="<?=settings_h($_SESSION['csrf_token'])?>">
+                            <input type="hidden" name="settings_action" value="delete_untouched_request">
+                            <label class="delete-id-field">
+                                <span>Antrag-ID</span>
+                                <input type="number" name="request_id" min="1" inputmode="numeric" required>
+                            </label>
+                            <label class="confirmation-check">
+                                <input type="checkbox" name="confirm_request_deletion" value="1" required>
+                                <span>Endgültige Löschung bestätigen</span>
+                            </label>
+                            <button class="button button-danger" type="submit" <?=$canWrite ? '' : 'disabled'?>>Antrag löschen</button>
+                        </form>
+                    <?php else: ?>
+                        <a class="button button-secondary" href="<?=settings_h(settings_url(['tab' => 'security']))?>">Critical Mode entsperren</a>
+                    <?php endif; ?>
+                </div>
             </div>
             <?php if ($toolResult && !$backupToolResult): ?>
                 <div class="tool-result <?=$toolResult['ok'] ? 'ok' : 'warn'?>">
