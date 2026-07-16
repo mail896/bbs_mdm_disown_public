@@ -537,6 +537,10 @@ $toolResult = null;
 if (($_GET['tool_result'] ?? '') === '1' && !empty($_SESSION['settings_tool_result']) && is_array($_SESSION['settings_tool_result'])) {
     $toolResult = $_SESSION['settings_tool_result'];
 }
+$backupToolResult = null;
+if ($toolResult && in_array((string) ($toolResult['title'] ?? ''), ['Backup-Status', 'Backup erstellen'], true)) {
+    $backupToolResult = $toolResult;
+}
 
 $pushStatus = disown_push_mail_status($mysqli);
 $pushRecipientRecords = $pushStatus['recipient_records'];
@@ -1045,7 +1049,7 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                     <strong>DISOWN-Sicherung</strong>
                     <span>Status prüfen oder nach ausdrücklicher Freigabe ein neues Code- und DB-Backup erzeugen.</span>
                 </div>
-                <div class="maintenance-command">
+                <div class="maintenance-command backup-actions">
                     <?php if (!$rootHelperCurrent): ?>
                         <code>sudo <?=settings_h($rootHelperInstaller)?> install</code>
                     <?php else: ?>
@@ -1068,6 +1072,18 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                     <?php endif; ?>
                 </div>
             </div>
+            <?php if ($backupToolResult): ?>
+                <div class="tool-result <?=$backupToolResult['ok'] ? 'ok' : 'warn'?>">
+                    <div class="tool-result-head">
+                        <strong><?=settings_h((string) ($backupToolResult['title'] ?? 'Backup'))?></strong>
+                        <div class="tool-result-actions">
+                            <?=settings_status_badge(!empty($backupToolResult['ok']), 'OK', 'Prüfen')?>
+                            <a class="button button-secondary tool-close-button" href="<?=settings_h(settings_current_url_without_tool_result())?>">Schließen</a>
+                        </div>
+                    </div>
+                    <pre><?=settings_h((string) ($backupToolResult['output'] ?? 'Keine Ausgabe.'))?></pre>
+                </div>
+            <?php endif; ?>
         </section>
         <section class="panel">
             <div class="panel-heading">
@@ -1098,7 +1114,7 @@ $brokerTokenUntil = trim((string) ($notifyConfig['RELEASE_BROKER_TOKEN_EXPIRES']
                 <div class="file-row"><span>Mail-Konfig</span><?=settings_status_badge($mailConfigStatus['readable'])?><small><?=settings_h($mailConfigStatus['path'])?></small></div>
                 <div class="file-row"><span>Notify-Konfig</span><?=settings_status_badge($notifyConfigStatus['readable'])?><small><?=settings_h($notifyConfigStatus['path'])?></small></div>
             </div>
-            <?php if ($toolResult): ?>
+            <?php if ($toolResult && !$backupToolResult): ?>
                 <div class="tool-result <?=$toolResult['ok'] ? 'ok' : 'warn'?>">
                     <div class="tool-result-head">
                         <strong><?=settings_h((string) ($toolResult['title'] ?? 'Werkzeug'))?></strong>

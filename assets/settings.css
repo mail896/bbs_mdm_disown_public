@@ -556,6 +556,19 @@ select:focus {
     gap: 10px;
     justify-items: start;
 }
+.backup-actions {
+    justify-items: stretch;
+    max-width: 520px;
+    width: 100%;
+}
+.backup-actions .inline-tool-form,
+.backup-actions .critical-root-form,
+.backup-actions .button {
+    width: 100%;
+}
+.backup-actions .button {
+    min-height: 2.7rem;
+}
 .critical-root-form {
     display: grid;
     gap: 10px;
