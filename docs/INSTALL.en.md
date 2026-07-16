@@ -1,6 +1,6 @@
 # Installation and Operation
 
-This guide describes the runtime requirements for DISOWN version 2.3.
+This guide describes the runtime requirements for DISOWN version 2.4.
 
 ## 1. Requirements
 
@@ -203,7 +203,24 @@ Recommended order:
 - Only publish sanitized files to the public repository.
 - Do not publish `PROJECT_STATE.*`.
 
-### 7.1 Admin Special Release for Defective Devices
+### 7.1 Critical Mode and Root Helper
+
+Critical Mode uses a separate password that can only be set from the root CLI. Set or rotate it with:
+
+```bash
+sudo php /var/www/sicher.bbs-einbeck.de/disown/scripts/set_critical_password.php
+```
+
+The web server receives no general root permission. The installer copies a root-owned helper to `/usr/local/sbin` and grants `www-data` only the explicitly listed log-ACL and backup helper actions through sudoers:
+
+```bash
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-settings-root-helper.sh install
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-settings-root-helper.sh check
+```
+
+The helper deliberately never executes scripts from the writable web root as root. The backup action exclusively starts the root-owned `/usr/local/sbin/backup-disown.sh`. UI write actions require the write role, CSRF protection, active Critical Mode and explicit confirmation; results are audited.
+
+### 7.2 Admin Special Release for Defective Devices
 
 The admin special path is intended for individual defective devices that cannot use the normal WebClip request. Workflow:
 

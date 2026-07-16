@@ -338,7 +338,7 @@ tr:hover {
     white-space: nowrap;
 }
 .action-cell {
-    width: 10.5rem;
+    width: 15rem;
 }
 .request-cell {
     width: 5.5rem;
@@ -354,9 +354,10 @@ tr:hover {
     font-size: 0.72rem;
     font-weight: 700;
     max-width: 100%;
-    overflow-wrap: normal;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
     padding: 0.22rem 0.48rem;
-    white-space: nowrap;
+    white-space: normal;
 }
 .details {
     color: #475569;

@@ -142,12 +142,14 @@ foreach ([
     'ade.php',
     'audit_log.php',
     'kuk.php',
+    'settings.php',
     'auth.php',
     'jamf.php',
     'asm_release.php',
     'templates/mail_release.txt',
     'assets/search.js',
     'assets/admin.css',
+    'assets/settings.css',
     'assets/admin.js',
     'assets/ade.css',
     'assets/ade.js',
@@ -155,6 +157,8 @@ foreach ([
     'assets/audit_log.js',
     'assets/kuk.css',
     'assets/kuk.js',
+    'tools/disown-settings-helper',
+    'tools/install-settings-root-helper.sh',
 ] as $relativePath) {
     smoke_readable($root . '/' . $relativePath);
 }
@@ -172,10 +176,15 @@ foreach (['mysqli', 'curl', 'json', 'openssl'] as $extension) {
 }
 
 echo "\nSyntax\n";
-foreach (['admin.php', 'ade.php', 'audit_log.php', 'kuk.php', 'auth.php', 'jamf.php', 'asm_release.php'] as $relativePath) {
+foreach (['admin.php', 'ade.php', 'audit_log.php', 'kuk.php', 'settings.php', 'auth.php', 'jamf.php', 'asm_release.php'] as $relativePath) {
     $command = 'php -l ' . escapeshellarg($root . '/' . $relativePath) . ' 2>&1';
     exec($command, $output, $exitCode);
     $exitCode === 0 ? smoke_ok("php -l: {$relativePath}") : smoke_fail("php -l fehlgeschlagen: {$relativePath}");
+}
+foreach (['tools/disown-settings-helper', 'tools/install-settings-root-helper.sh'] as $relativePath) {
+    $command = 'bash -n ' . escapeshellarg($root . '/' . $relativePath) . ' 2>&1';
+    exec($command, $output, $exitCode);
+    $exitCode === 0 ? smoke_ok("bash -n: {$relativePath}") : smoke_fail("bash -n fehlgeschlagen: {$relativePath}");
 }
 
 echo "\nRuntime-Konfiguration\n";
@@ -263,8 +272,10 @@ if ($baseUrl !== '') {
         '/ade.php',
         '/audit_log.php',
         '/kuk/',
+        '/settings.php',
         '/assets/search.js',
         '/assets/admin.css',
+        '/assets/settings.css',
         '/assets/admin.js',
         '/assets/ade.css',
         '/assets/ade.js',

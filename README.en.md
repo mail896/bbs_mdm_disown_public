@@ -4,12 +4,12 @@
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.3 adds a switchable email push watch for new requests; since version 2.0 DISOWN automates the workflow through Apple ADE/ASM release by using a local release broker.
+Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.4 adds a settings portal with Critical Mode and a narrowly scoped root helper; since version 2.0 DISOWN automates the workflow through Apple ADE/ASM release by using a local release broker.
 
 ## Status
 
-- Version: `2.3`
-- Date: `15 July 2026`
+- Version: `2.4`
+- Date: `16 July 2026`
 - Production path: `/var/www/sicher.bbs-einbeck.de/disown`
 - Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public demo: sanitized variant without credentials and without local project-state files
@@ -128,8 +128,10 @@ Short version:
 - `ade.php` - ADE intake view.
 - `kuk/index.php` - KUK devices.
 - `audit_log.php` - audit log and reporting.
+- `settings.php` - operations, mail, jobs, security and system settings.
 - `config/asm-release-broker.example.conf` - broker runtime configuration example.
 - `tools/install-nanodep-service.sh` - systemd setup for the NanoDEP server.
+- `tools/install-settings-root-helper.sh` - installs the narrowly scoped Critical Mode root helper.
 - `docs/RELEASE.md` - release checklist with backup, smoke and public checks.
 - `scripts/smoke_check.php` - read-only smoke check for deployments.
 
@@ -137,14 +139,18 @@ Short version:
 
 - No secrets in the repository.
 - Runtime configuration lives under `/etc/disown`.
-- Tokens and keys live under `/srv/protected`.
+- Tokens and keys live under `/srv/disown-protected`.
 - The public repository is sanitized.
 - Write actions are admin-only.
 - KUK is read-only against Jamf.
 - Critical actions are audited.
+- Critical Mode expires automatically; the root helper only allows fixed commands.
 
 ## History
 
+- `2.4`: settings portal for email push, SMTP, jobs, security and system operations; Critical Mode protects root-helper actions with a separate password, short lifetime and audit logging.
+- `2.4` maintenance: Completely untouched accidental requests can be deleted with confirmation in the admin portal while retaining an audit record.
+- `2.4` maintenance: Backup status and new code/database backups are available in the settings portal through Critical Mode and the narrowly scoped root helper.
 - `2.3`: Switchable email push for new WebClip requests; the admin portal stores the on/off state in `app_settings`, recipients stay in `/etc/disown/notify.conf`.
 - `2.2`: Visual release with a polished admin table, selected-row treatment, clearer actions and a unified look for admin, ADE intake, audit log and KUK.
 - `2.1`: UI structure modernization; admin, ADE, audit and KUK styles/scripts live in `assets/`, search reacts more calmly and keeps focus after auto-refresh.

@@ -4,12 +4,12 @@
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.3 ergänzt eine schaltbare E-Mail-Push-Wache für neue Anträge; seit Version 2.0 automatisiert DISOWN den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
+Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.4 ergänzt ein Einstellungsportal mit Critical Mode und eng begrenztem Root-Helper; seit Version 2.0 automatisiert DISOWN den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
 
 ## Stand
 
-- Version: `2.3`
-- Datum: `15. Juli 2026`
+- Version: `2.4`
+- Datum: `16. Juli 2026`
 - Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
 - Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien
@@ -129,9 +129,11 @@ Kurzfassung:
 - `ade.php` - ADE-Aufnahmen.
 - `kuk/index.php` - KUK-Geraete.
 - `audit_log.php` - Audit-Log und Auswertungen.
+- `settings.php` - Betriebs-, Mail-, Job-, Sicherheits- und System-Einstellungen.
 - `config/asm-release-broker.example.conf` - Beispiel fuer Broker-Konfiguration.
 - `tools/install-nanodep-service.sh` - systemd-Installation des NanoDEP-Servers.
 - `tools/install-nanodep-monitoring.sh` - Healthcheck-Timer und Logrotation fuer NanoDEP.
+- `tools/install-settings-root-helper.sh` - Installation des eng begrenzten Root-Helpers fuer Critical Mode.
 - `docs/SECRETS.md` - Ablageplan fuer Runtime-Secrets, Broker-Token und Logs.
 - `docs/RELEASE.md` - Release-Checkliste mit Backup-, Smoke- und Public-Pruefung.
 - `scripts/smoke_check.php` - read-only Smoke-Check fuer Deployments.
@@ -140,14 +142,18 @@ Kurzfassung:
 
 - Keine Secrets im Repository.
 - Runtime-Konfiguration unter `/etc/disown`.
-- Geschuetzte Token/Keys unter `/srv/protected`.
+- Geschuetzte Token/Keys unter `/srv/disown-protected`.
 - Public-Repository ist neutralisiert.
 - Schreibende Aktionen sind Admin-only.
 - KUK-Seite ist read-only gegen Jamf.
 - Alle kritischen Aktionen werden auditiert.
+- Critical Mode ist zeitlich begrenzt; der Root-Helper erlaubt nur fest definierte Kommandos.
 
 ## Historie
 
+- `2.4`: Einstellungsportal mit E-Mail-Push-, SMTP-, Job-, Sicherheits- und Systembereichen; Critical Mode schützt Root-Helper-Aktionen mit separatem Kennwort, kurzer Laufzeit und Audit-Log.
+- `2.4` Nachpflege: Vollständig unbearbeitete Fehlanträge können mit Bestätigung im Adminportal gelöscht werden; die Löschung bleibt im Audit-Log dokumentiert.
+- `2.4` Nachpflege: Backup-Status und neue Code-/DB-Sicherungen sind über Critical Mode und den fest begrenzten Root-Helper im Einstellungsportal verfügbar.
 - `2.3`: Schaltbarer E-Mail-Push fuer neue WebClip-Antraege; Adminportal speichert den Ein/Aus-Zustand in `app_settings`, Empfaenger bleiben in `/etc/disown/notify.conf`.
 - `2.2`: Visuelles Release mit polierter Admin-Tabelle, ausgewaehlten Zeilen, deutlicheren Aktionen und vereinheitlichtem Look fuer Admin, ADE-Aufnahmen, Audit-Log und KUK.
 - `2.1`: UI-Struktur modernisiert; Admin-, ADE-, Audit- und KUK-Styles/Skripte liegen in `assets/`, Suche reagiert ruhiger und behaelt nach Auto-Aktualisierung den Fokus.

@@ -46,6 +46,7 @@ $adminPath = $appBasePath . '/admin.php';
 $adePath = $appBasePath . '/ade.php';
 $kukPath = $appBasePath . '/kuk/';
 $auditLogPath = $appBasePath . '/audit_log.php';
+$settingsPath = $appBasePath . '/settings.php';
 $logoutPath = $appBasePath . '/logout.php';
 $faviconPath = $appBasePath . '/favicon.svg';
 $logoPath = $appBasePath . '/logo.png';
@@ -207,6 +208,49 @@ function load_request_for_action($mysqli, int $requestId): ?array
     return $row ?: null;
 }
 
+function load_request_for_deletion(mysqli $mysqli, int $requestId): ?array
+{
+    $stmt = $mysqli->prepare(
+        "SELECT r.*,
+                (SELECT COUNT(*) FROM request_audit_log ral WHERE ral.request_id = r.id) AS audit_count,
+                (SELECT COUNT(*) FROM request_audit_log ral WHERE ral.request_id = r.id AND ral.action = 'REQUEST_CREATED') AS creation_audit_count,
+                (SELECT COUNT(*) FROM device_cases dc WHERE dc.request_id = r.id) AS request_case_count
+         FROM requests r
+         WHERE r.id = ?
+         FOR UPDATE"
+    );
+    if (!$stmt) {
+        return null;
+    }
+
+    $stmt->bind_param('i', $requestId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $row ?: null;
+}
+
+function request_is_untouched_for_deletion(array $row): bool
+{
+    return strtolower(trim((string) ($row['status'] ?? ''))) === 'offen'
+        && empty($row['jamf_unenrolled'])
+        && empty($row['asm_manual_done'])
+        && empty($row['asm_disowned'])
+        && empty($row['mail_sent'])
+        && trim((string) ($row['jamf_unenrolled_at'] ?? '')) === ''
+        && trim((string) ($row['asm_manual_done_at'] ?? '')) === ''
+        && trim((string) ($row['asm_disowned_at'] ?? '')) === ''
+        && trim((string) ($row['mail_sent_at'] ?? '')) === ''
+        && trim((string) ($row['completed_at'] ?? '')) === ''
+        && trim((string) ($row['jamf_unenroll_error'] ?? '')) === ''
+        && trim((string) ($row['asm_error'] ?? '')) === ''
+        && trim((string) ($row['asm_task_id'] ?? '')) === ''
+        && (int) ($row['audit_count'] ?? 0) === 1
+        && (int) ($row['creation_audit_count'] ?? 0) === 1
+        && (int) ($row['request_case_count'] ?? 0) === 0;
+}
+
 function load_open_request_by_serial(mysqli $mysqli, string $serial): ?array
 {
     $stmt = $mysqli->prepare(
@@ -242,7 +286,7 @@ function create_admin_direct_request(mysqli $mysqli, array $jamf, array $input, 
         $schoolEmail = trim((string) ($jamf['email'] ?? ''));
     }
     if ($schoolEmail === '' && $username !== '' && str_contains($username, '.')) {
-        $schoolEmail = $username . '@example.org';
+        $schoolEmail = $username . '@bbs-einbeck.de';
     }
     $privateEmail = trim((string) ($input['private_email'] ?? ''));
     $fullName = trim((string) ($input['full_name'] ?? ''));
@@ -756,6 +800,10 @@ if (!empty($_SESSION['flash_mail_error'])) {
     $mailError = $_SESSION['flash_mail_error'];
     unset($_SESSION['flash_mail_error']);
 }
+if (!empty($_SESSION['flash_disown_message'])) {
+    $disownMessage = (string) $_SESSION['flash_disown_message'];
+    unset($_SESSION['flash_disown_message']);
+}
 if (!empty($_SESSION['bulk_asm_serials']) && is_array($_SESSION['bulk_asm_serials'])) {
     $bulkAsmSerials = array_values(array_filter(array_map('strval', $_SESSION['bulk_asm_serials'])));
     unset($_SESSION['bulk_asm_serials']);
@@ -812,6 +860,60 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $pushMailMessage = 'E-Mail-Push wurde ' . ($enablePushMail ? 'aktiviert.' : 'deaktiviert.') . '.';
         } else {
             $pushMailError = 'E-Mail-Push konnte nicht umgeschaltet werden.';
+        }
+    }
+
+    if (isset($_POST['delete_untouched_request'])) {
+        $deleteRequestId = (int) ($_POST['delete_untouched_request'] ?? 0);
+        if ($deleteRequestId <= 0) {
+            $disownError = 'Ungültiger Antrag. Bitte lade die Seite neu.';
+        } else {
+            try {
+                $mysqli->begin_transaction();
+                $deleteRequest = load_request_for_deletion($mysqli, $deleteRequestId);
+                if (!$deleteRequest) {
+                    throw new RuntimeException('Antrag wurde nicht gefunden.');
+                }
+                if (!request_is_untouched_for_deletion($deleteRequest)) {
+                    throw new RuntimeException('Der Antrag ist nicht mehr vollständig unbearbeitet und darf nicht gelöscht werden.');
+                }
+
+                $deleteStmt = $mysqli->prepare('DELETE FROM requests WHERE id = ?');
+                if (!$deleteStmt) {
+                    throw new RuntimeException('Löschung konnte nicht vorbereitet werden.');
+                }
+                $deleteStmt->bind_param('i', $deleteRequestId);
+                if (!$deleteStmt->execute() || $deleteStmt->affected_rows !== 1) {
+                    $deleteStmt->close();
+                    throw new RuntimeException('Antrag konnte nicht gelöscht werden.');
+                }
+                $deleteStmt->close();
+
+                $auditAction = 'REQUEST_DELETED';
+                $auditAdmin = $currentAdminUser !== '' ? $currentAdminUser : 'admin';
+                $auditDetails = 'Unbearbeiteten Antrag gelöscht; Name: ' . trim((string) ($deleteRequest['full_name'] ?? ''))
+                    . '; Seriennummer: ' . strtoupper(trim((string) ($deleteRequest['serial'] ?? '')));
+                $auditStmt = $mysqli->prepare(
+                    'INSERT INTO request_audit_log (request_id, action, admin_user, details) VALUES (?, ?, ?, ?)'
+                );
+                if (!$auditStmt) {
+                    throw new RuntimeException('Audit-Eintrag konnte nicht vorbereitet werden.');
+                }
+                $auditStmt->bind_param('isss', $deleteRequestId, $auditAction, $auditAdmin, $auditDetails);
+                if (!$auditStmt->execute()) {
+                    $auditStmt->close();
+                    throw new RuntimeException('Audit-Eintrag konnte nicht gespeichert werden.');
+                }
+                $auditStmt->close();
+
+                $mysqli->commit();
+                $_SESSION['flash_disown_message'] = 'Unbearbeiteter Antrag #' . $deleteRequestId . ' wurde gelöscht.';
+                header('Location: ' . admin_url());
+                exit;
+            } catch (Throwable $e) {
+                $mysqli->rollback();
+                $disownError = $e->getMessage();
+            }
         }
     }
 
@@ -1221,8 +1323,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $mailConfig = null;
 
             if (!$isDevMode) {
-                $mailConfig = parse_ini_file('/etc/disown/mail.conf');
-                if ($mailConfig === false || empty($mailConfig['MAIL_HOST']) || empty($mailConfig['MAIL_PORT']) || empty($mailConfig['MAIL_USERNAME']) || empty($mailConfig['MAIL_PASSWORD']) || empty($mailConfig['MAIL_FROM'])) {
+                $mailConfig = disown_mail_config($mysqli);
+                if (!disown_mail_config_is_complete($mailConfig)) {
                     $bulkError = 'SMTP-Konfiguration fehlt oder ist unvollständig. Bulk-Mail wurde nicht ausgeführt.';
                 }
             }
@@ -1411,8 +1513,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             header('Location: ' . $adminPath);
             exit;
         } else {
-            $mailConfig = parse_ini_file('/etc/disown/mail.conf');
-            if ($mailConfig === false || empty($mailConfig['MAIL_HOST']) || empty($mailConfig['MAIL_PORT']) || empty($mailConfig['MAIL_USERNAME']) || empty($mailConfig['MAIL_PASSWORD']) || empty($mailConfig['MAIL_FROM'])) {
+            $mailConfig = disown_mail_config($mysqli);
+            if (!disown_mail_config_is_complete($mailConfig)) {
                 if ($sendRequestId > 0) {
                     $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
                     complete_request_with_mail_failure(
@@ -1928,6 +2030,11 @@ $result = $mysqli->prepare(
          mail_sent_at,
          mail_sent_to,
          completed_by,
+         completed_at,
+         asm_disowned,
+         asm_disowned_at,
+         asm_task_id,
+         asm_error,
          (
              SELECT COUNT(*)
              FROM device_cases dc_open
@@ -1990,6 +2097,22 @@ $result = $mysqli->prepare(
              ORDER BY ral.created_at DESC, ral.id DESC
              LIMIT 1
          ) AS last_audit_at
+         ,(
+             SELECT COUNT(*)
+             FROM request_audit_log ral_count
+             WHERE ral_count.request_id = requests.id
+         ) AS audit_count
+         ,(
+             SELECT COUNT(*)
+             FROM request_audit_log ral_created
+             WHERE ral_created.request_id = requests.id
+               AND ral_created.action = 'REQUEST_CREATED'
+         ) AS creation_audit_count
+         ,(
+             SELECT COUNT(*)
+             FROM device_cases dc_request
+             WHERE dc_request.request_id = requests.id
+         ) AS request_case_count
      FROM requests
      {$whereSql}
      ORDER BY created_at DESC
@@ -2075,20 +2198,19 @@ if ($pageSerials) {
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($adePath)?>">ADE-Aufnahmen</a>
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($kukPath)?>">KUK-Geräte</a>
                 <a class="button button-secondary audit-log-link" href="<?=htmlspecialchars($auditLogPath)?>">Audit-Log</a>
-                <?php if ($canWrite): ?>
-                    <form method="post" class="push-mail-toggle-form" title="Kurze E-Mail beim neuen WebClip-Antrag. Empfänger: <?=htmlspecialchars((string) $pushMailStatus['recipient_count'])?>">
-                        <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                        <input type="hidden" name="toggle_push_mail" value="1">
-                        <input type="hidden" name="push_mail_enabled" value="<?=$pushMailStatus['enabled'] ? '0' : '1'?>">
-                        <button type="submit" class="push-mail-switch <?=$pushMailStatus['enabled'] ? 'active' : ''?>" aria-pressed="<?=$pushMailStatus['enabled'] ? 'true' : 'false'?>">
-                            <span class="push-mail-switch-label">E-Mail-Push</span>
-                            <span class="push-mail-switch-track" aria-hidden="true">
-                                <span class="push-mail-switch-knob"></span>
-                            </span>
-                            <span class="push-mail-switch-state"><?=$pushMailStatus['enabled'] ? 'Ein' : 'Aus'?></span>
-                        </button>
-                    </form>
-                <?php endif; ?>
+                <a class="tool-link settings-tool-link" href="<?=htmlspecialchars($settingsPath)?>" title="Einstellungen öffnen" aria-label="Einstellungen öffnen">
+                    <svg class="settings-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h8"></path>
+                        <path d="M16 7h4"></path>
+                        <circle cx="14" cy="7" r="2"></circle>
+                        <path d="M4 12h3"></path>
+                        <path d="M11 12h9"></path>
+                        <circle cx="9" cy="12" r="2"></circle>
+                        <path d="M4 17h10"></path>
+                        <path d="M18 17h2"></path>
+                        <circle cx="16" cy="17" r="2"></circle>
+                    </svg>
+                </a>
             </div>
         </div>
     </div>
@@ -2410,6 +2532,7 @@ if ($pageSerials) {
                         $rowCaseClosed = $rowHasCase && $openCaseCount === 0 && $latestCaseStatus === 'geklaert';
                         $rowCaseClass = $rowHasCase ? ($rowCaseClosed ? ' case-row-has-case case-row-closed' : ' case-row-has-case case-row-open') : '';
                         $deviceCaseTooltip = $rowHasCase ? 'Klärfall zum Gerät öffnen' : 'Klärfall zum Gerät anlegen';
+                        $canDeleteUntouchedRequest = $canWrite && request_is_untouched_for_deletion($row);
                     ?>
                 <tr class="request-row<?= $rowCaseClass ?><?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
                     data-id="<?=htmlspecialchars($row['id'])?>"
@@ -2593,6 +2716,14 @@ if ($pageSerials) {
                                     <input type="hidden" name="unenroll_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
                                     <button type="submit" class="button button-primary">Jamf Unenroll</button>
+                                </form>
+                            <?php endif; ?>
+
+                            <?php if ($canDeleteUntouchedRequest): ?>
+                                <form method="post" class="action-form" onsubmit="return confirm('Unbearbeiteten Antrag #<?=htmlspecialchars((string) $row['id'])?> von <?=htmlspecialchars((string) $row['full_name'], ENT_QUOTES)?> wirklich löschen?')">
+                                    <input type="hidden" name="delete_untouched_request" value="<?=htmlspecialchars((string) $row['id'])?>">
+                                    <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
+                                    <button type="submit" class="button button-danger">Antrag löschen</button>
                                 </form>
                             <?php endif; ?>
 
@@ -2806,7 +2937,7 @@ if ($pageSerials) {
         </details>
     <?php endif; ?>
     <footer class="page-footer">
-        <span>&copy; 2026 <a href="mailto:admin@example.org">Project maintainer</a> · <a href="<?=htmlspecialchars($sourceRepoUrl)?>">Version <?=htmlspecialchars($appVersion)?></a> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
+        <span>&copy; 2026 <a href="mailto:marc.schulz@bbs-einbeck.de">Marc Schulz</a> · <a href="<?=htmlspecialchars($sourceRepoUrl)?>">Version <?=htmlspecialchars($appVersion)?></a> · Stand: <?=htmlspecialchars($appVersionDate)?></span>
         <a class="footer-export-link" href="<?=htmlspecialchars(admin_url(['filter' => $filter, 'export' => 'requests_csv']))?>" title="Anträge exportieren" aria-label="Anträge exportieren">⬇</a>
     </footer>
 </div>

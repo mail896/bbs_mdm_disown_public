@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+umask 027
+
+readonly WEB_USER="www-data"
+readonly LOG_DIR="/var/log/disown"
+readonly BACKUP_DIR="/root/disown-backups"
+readonly BACKUP_SCRIPT="/usr/local/sbin/backup-disown.sh"
+
+say() {
+  printf '%s\n' "$*"
+}
+
+fail() {
+  say "[FAIL] $*"
+  exit 1
+}
+
+require_root() {
+  [[ "$(id -u)" == "0" ]] || fail "Der DISOWN Root-Helper muss als root laufen."
+}
+
+check_dependencies() {
+  local command_name
+  for command_name in install setfacl getfacl runuser; do
+    command -v "$command_name" >/dev/null 2>&1 || fail "Systemwerkzeug fehlt: $command_name"
+  done
+}
+
+check_log_access() {
+  [[ -d "$LOG_DIR" ]] || fail "Log-Verzeichnis fehlt: $LOG_DIR"
+  runuser -u "$WEB_USER" -- test -x "$LOG_DIR" || fail "$WEB_USER darf $LOG_DIR nicht betreten."
+
+  local log_file
+  local log_count=0
+  shopt -s nullglob
+  for log_file in "$LOG_DIR"/*.log; do
+    log_count=$((log_count + 1))
+    runuser -u "$WEB_USER" -- test -r "$log_file" || fail "$WEB_USER darf nicht lesen: $log_file"
+  done
+  shopt -u nullglob
+
+  say "[OK] Root-Helper ist einsatzbereit."
+  say "[OK] $WEB_USER darf $LOG_DIR betreten."
+  say "[OK] Lesbare DISOWN-Logs geprüft: $log_count"
+}
+
+repair_log_permissions() {
+  if [[ ! -d "$LOG_DIR" ]]; then
+    install -d -o root -g adm -m 2750 "$LOG_DIR"
+  fi
+
+  setfacl -m "u:${WEB_USER}:rx" "$LOG_DIR"
+  setfacl -d -m "u:${WEB_USER}:rx" "$LOG_DIR"
+
+  local log_files=()
+  shopt -s nullglob
+  log_files=("$LOG_DIR"/*.log)
+  shopt -u nullglob
+  if [[ "${#log_files[@]}" -gt 0 ]]; then
+    setfacl -m "u:${WEB_USER}:r" "${log_files[@]}"
+  fi
+
+  say "[OK] Log-ACLs für $WEB_USER wurden repariert."
+  check_log_access
+}
+
+backup_status() {
+  [[ -d "$BACKUP_DIR" ]] || fail "Backup-Verzeichnis fehlt: $BACKUP_DIR"
+
+  local code_backups=()
+  local db_backups=()
+  shopt -s nullglob
+  code_backups=("$BACKUP_DIR"/disown-code-*.tar.gz)
+  db_backups=("$BACKUP_DIR"/disown-db-*.sql)
+  shopt -u nullglob
+
+  say "[OK] Code-Backups: ${#code_backups[@]}"
+  say "[OK] DB-Backups: ${#db_backups[@]}"
+  say "[OK] Speicherbedarf: $(du -sh "$BACKUP_DIR" | awk '{print $1}')"
+  if [[ "${#code_backups[@]}" -gt 0 ]]; then
+    say "[OK] Neuestes Code-Backup: ${code_backups[-1]}"
+  fi
+  if [[ "${#db_backups[@]}" -gt 0 ]]; then
+    say "[OK] Neuestes DB-Backup: ${db_backups[-1]}"
+  fi
+}
+
+create_backup() {
+  [[ -x "$BACKUP_SCRIPT" ]] || fail "Backup-Skript fehlt oder ist nicht ausführbar: $BACKUP_SCRIPT"
+  "$BACKUP_SCRIPT"
+  backup_status
+}
+
+require_root
+check_dependencies
+
+case "${1:-}" in
+  status)
+    [[ "$#" -eq 1 ]] || fail "Unerlaubte Argumente."
+    check_log_access
+    ;;
+  repair-log-permissions)
+    [[ "$#" -eq 1 ]] || fail "Unerlaubte Argumente."
+    repair_log_permissions
+    ;;
+  backup-status)
+    [[ "$#" -eq 1 ]] || fail "Unerlaubte Argumente."
+    backup_status
+    ;;
+  create-backup)
+    [[ "$#" -eq 1 ]] || fail "Unerlaubte Argumente."
+    create_backup
+    ;;
+  *)
+    fail "Erlaubte Aktionen: status, repair-log-permissions, backup-status, create-backup"
+    ;;
+esac

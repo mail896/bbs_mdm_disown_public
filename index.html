@@ -288,7 +288,7 @@
 <body>
   <header class="hero">
     <div class="hero-inner">
-      <div class="eyebrow">BBS Einbeck · DISOWN 2.3</div>
+      <div class="eyebrow">BBS Einbeck · DISOWN 2.4</div>
       <h1>iPad-Management für MDM- und ADE-Freigaben</h1>
       <p class="lead">Eine PHP-Webanwendung für Rückgabeanträge, Jamf-Unenroll, Apple School Manager/ADE-Freigabe über Release Broker und nachvollziehbare Abschlussmails.</p>
       <div class="actions">
@@ -302,13 +302,16 @@
   <main>
     <section>
       <h2>Was das System abbildet</h2>
-      <p class="section-lead">DISOWN führt ehemals verwaltete iPads kontrolliert durch den operativen Freigabeprozess. Version 2.3 ergänzt eine schaltbare E-Mail-Push-Wache für neue Anträge, während Release Broker, Audit und Admin-Workflow unverändert nachvollziehbar bleiben. Das öffentliche Repository enthält neutralisierten Code, Beispiele, Screenshots und Installationshinweise ohne Produktivzugänge.</p>
+      <p class="section-lead">DISOWN führt ehemals verwaltete iPads kontrolliert durch den operativen Freigabeprozess. Version 2.4 ergänzt ein Einstellungsportal für E-Mail-Push, SMTP, Jobs, Sicherheit und Systembetrieb. Critical Mode schützt zeitlich begrenzt die eng erlaubten Root-Helper-Aktionen für Log-ACLs und Backups. Das öffentliche Repository enthält neutralisierten Code, Beispiele, Screenshots und Installationshinweise ohne Produktivzugänge.</p>
       <div class="feature-grid">
         <div class="feature"><strong>Admin-Workflow</strong><span>Antrag, Jamf, ASM/ADE und Mail bleiben als klare Einzelschritte sichtbar.</span></div>
         <div class="feature"><strong>Release Broker</strong><span>Ein einzelnes Gerät wird per ASM Public API dem Broker zugewiesen und per NanoDEP aus ADE/DEP freigegeben.</span></div>
         <div class="feature"><strong>Admin-Sonderfreigabe</strong><span>Defekte Geräte können nach Jamf-Seriennummernprüfung als lokaler Einzelfallantrag angelegt werden.</span></div>
         <div class="feature"><strong>Bulk-Verarbeitung</strong><span>Auswahl, Seriennummernliste, ASM/ADE-Freigabe und Mail bleiben über den Ablauf erhalten.</span></div>
         <div class="feature"><strong>Auditierbarkeit</strong><span>Ein Audit-Log protokolliert kritische Schritte, Teilfehler und Bulk-Seriennummernlisten.</span></div>
+        <div class="feature"><strong>Einstellungsportal</strong><span>E-Mail-Push, SMTP, Jobs, Logs, Schnittstellen, Sicherheit und Systemwerkzeuge sind zentral erreichbar.</span></div>
+        <div class="feature"><strong>Critical Mode</strong><span>Ein separates Kennwort, kurze Laufzeit und feste sudoers-Kommandos begrenzen Log- und Backup-Aktionen.</span></div>
+        <div class="feature"><strong>Fehlanträge korrigieren</strong><span>Vollständig unbearbeitete versehentliche Anträge können bestätigt gelöscht werden; der Vorgang bleibt auditiert.</span></div>
         <div class="feature"><strong>Schulgeräte-Schutz</strong><span>WebClip und Bulk bleiben gegen Leih- und Koffergeräte geschützt; der Sonderweg ist bewusst admin-only.</span></div>
         <div class="feature"><strong>Ruhigere Suche</strong><span>Suchfelder aktualisieren verzögert, behalten den Fokus und bleiben weiterhin per Enter oder Button direkt bedienbar.</span></div>
       </div>
@@ -392,7 +395,7 @@
   </main>
 
   <footer>
-    <a href="https://github.com/mail896/bbs_mdm_disown_public">Version 2.3</a> · Stand 15. Juli 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
+    <a href="https://github.com/mail896/bbs_mdm_disown_public">Version 2.4</a> · Stand 16. Juli 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
   </footer>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Installation und Betrieb
 
-Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.3.
+Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.4.
 
 ## 1. Voraussetzungen
 
@@ -204,7 +204,24 @@ Empfohlene Reihenfolge:
 - Public-Repo nur neutralisiert aktualisieren.
 - `PROJECT_STATE.*` nicht in Public veroeffentlichen.
 
-### 7.1 Admin-Sonderfreigabe fuer Defektgeraete
+### 7.1 Critical Mode und Root-Helper
+
+Critical Mode verwendet ein separates, nur per Root-CLI gesetztes Kennwort. Einrichten oder erneuern:
+
+```bash
+sudo php /var/www/sicher.bbs-einbeck.de/disown/scripts/set_critical_password.php
+```
+
+Der Webserver erhaelt keine allgemeine Root-Berechtigung. Der Installer kopiert einen root-eigenen Helper nach `/usr/local/sbin` und erlaubt `www-data` per sudoers nur die exakt aufgefuehrten Helper-Aktionen fuer Log-ACLs und Backups:
+
+```bash
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-settings-root-helper.sh install
+sudo /var/www/sicher.bbs-einbeck.de/disown/tools/install-settings-root-helper.sh check
+```
+
+Der Helper ruft bewusst keine Skripte aus dem beschreibbaren Webroot als root auf. Die Backup-Aktion startet ausschließlich das root-eigene `/usr/local/sbin/backup-disown.sh`. In der UI erfordern schreibende Root-Aktionen Schreibrolle, CSRF-Schutz, aktiven Critical Mode und eine ausdrueckliche Bestaetigung; das Ergebnis wird auditiert.
+
+### 7.2 Admin-Sonderfreigabe fuer Defektgeraete
 
 Der Admin-Sonderweg ist fuer einzelne defekte Geraete gedacht, die nicht ueber den normalen WebClip-Antrag laufen koennen. Der Ablauf:
 

@@ -156,7 +156,7 @@ function audit_url(array $params): string
 function audit_display_user(?string $value): string
 {
     $user = (string) $value;
-    return str_ends_with($user, '@example.org') ? substr($user, 0, -strlen('@example.org')) : $user;
+    return str_ends_with($user, '@bbs-einbeck.de') ? substr($user, 0, -strlen('@bbs-einbeck.de')) : $user;
 }
 
 function audit_normalize_admin_user(?string $value): string
@@ -167,7 +167,10 @@ function audit_normalize_admin_user(?string $value): string
     }
 
     $shortUser = audit_display_user($user);
-    $aliases = [];
+    $aliases = [
+        'marc' => 'marc.schulz',
+        'arthur' => 'arthur.steblov',
+    ];
 
     return $aliases[$shortUser] ?? $shortUser;
 }
@@ -202,6 +205,22 @@ function audit_display_action(?string $value): string
         'DEVICE_CASE_SAVED' => 'Klärfall',
         'DEVICE_CASE_DELETED' => 'Klärfall gelöscht',
         'TEMPLATE_UPDATED' => 'Vorlage',
+        'REQUEST_DELETED' => 'Antrag gelöscht',
+        'SETTINGS_PUSH_UPDATED' => 'Push aktualisiert',
+        'SETTINGS_SMTP_UPDATED' => 'SMTP aktualisiert',
+        'SETTINGS_SMTP_TEST_SENT' => 'SMTP-Test gesendet',
+        'SETTINGS_SMTP_TEST_FAILED' => 'SMTP-Test Fehler',
+        'SETTINGS_CRITICAL_PASSWORD_SET' => 'Critical-Kennwort gesetzt',
+        'SETTINGS_CRITICAL_UNLOCKED' => 'Critical entsperrt',
+        'SETTINGS_CRITICAL_UNLOCK_FAILED' => 'Critical fehlgeschlagen',
+        'SETTINGS_CRITICAL_LOCKED' => 'Critical gesperrt',
+        'SETTINGS_ROOT_ACTION_OK' => 'Root-Aktion OK',
+        'SETTINGS_ROOT_ACTION_FAILED' => 'Root-Aktion Fehler',
+        'SETTINGS_ROOT_ACTION_DENIED' => 'Root-Aktion blockiert',
+        'SETTINGS_BACKUP_STATUS' => 'Backup-Status',
+        'SETTINGS_BACKUP_CREATED' => 'Backup erstellt',
+        'SETTINGS_BACKUP_FAILED' => 'Backup Fehler',
+        'SETTINGS_TOOL_RUN' => 'Werkzeug ausgeführt',
     ];
 
     return $labels[$action] ?? ucwords(strtolower(str_replace('_', ' ', $action)));
