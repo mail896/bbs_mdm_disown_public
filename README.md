@@ -4,13 +4,12 @@
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Die in DEV vorbereitete Version 2.6 verifiziert die tatsächliche Jamf-Abmeldung, bevor ASM/ADE freigegeben wird. Version 2.4 ist weiterhin der aktuelle Produktionsstand.
+Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.6 verifiziert die tatsächliche Jamf-Abmeldung, bevor ASM/ADE freigegeben wird.
 
 ## Stand
 
-- Version: `2.4`
-- Entwicklung: `2.6-dev`
-- Datum: `16. Juli 2026`
+- Version: `2.6`
+- Datum: `17. Oktober 2026`
 - Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
 - Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien

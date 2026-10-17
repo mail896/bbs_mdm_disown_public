@@ -8,8 +8,8 @@ function disown_is_dev_mode(): bool
 function disown_app_metadata(): array
 {
     return [
-        'version' => disown_is_dev_mode() ? '2.6-dev' : '2.4',
-        'release_date' => disown_is_dev_mode() ? '17. Oktober 2026' : '16. Juli 2026',
+        'version' => disown_is_dev_mode() ? '2.6-dev' : '2.6',
+        'release_date' => '17. Oktober 2026',
         'repository_url' => 'https://github.com/mail896/bbs_mdm_disown_public',
         'author_name' => 'Marc Schulz',
         'author_email' => 'marc.schulz@bbs-einbeck.de',

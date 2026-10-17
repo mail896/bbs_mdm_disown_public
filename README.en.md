@@ -4,13 +4,12 @@
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Web application for handling former student iPad returns and releases at BBS Einbeck. Development version 2.6 verifies the actual Jamf unenrollment before allowing ASM/ADE release. Version 2.4 remains the current production release.
+Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.6 verifies the actual Jamf unenrollment before allowing ASM/ADE release.
 
 ## Status
 
-- Version: `2.4`
-- Development: `2.6-dev`
-- Date: `16 July 2026`
+- Version: `2.6`
+- Date: `17 October 2026`
 - Production path: `/var/www/sicher.bbs-einbeck.de/disown`
 - Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public demo: sanitized variant without credentials and without local project-state files
