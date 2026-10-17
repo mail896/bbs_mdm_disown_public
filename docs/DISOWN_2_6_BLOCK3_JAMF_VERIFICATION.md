@@ -1,7 +1,7 @@
 # DISOWN 2.6: Jamf-Befehlsannahme und Post-Condition
 
 Stand: 2026-10-17
-Status: Block 3, ausschließlich DEV
+Status: In Version 2.6 implementiert und veröffentlicht
 
 ## Verifizierte Jamf-Grundlage
 
@@ -29,12 +29,12 @@ Der Task Manager verarbeitet dokumentiert nur bestimmte Hintergrundaktionen. Ein
 
 ## DEV-Sicherheit
 
-Ohne injizierten Testtransport führt DEV keinen Jamf-Unenroll-Schreibzugriff aus. Es simuliert ausschließlich eine angenommene, ausstehende Anforderung. Die automatisierten Tests injizieren sämtliche HTTP-Antworten und verwenden für Persistenztests nur verbindungsgebundene temporäre Tabellen.
+Ohne injizierten Testtransport führt DEV keinen Jamf-Unenroll-Schreibzugriff aus. Es simuliert ausschließlich eine angenommene, ausstehende Anforderung. Die automatisierten Kernprüfungen injizieren sämtliche HTTP-Antworten und verwenden für Persistenztests nur verbindungsgebundene temporäre Tabellen. Die zusätzlichen GUI-Demo-Fixtures werden nur geladen, wenn der Checkout eindeutig als DEV erkannt wird.
 
 ## Automatisierter Test
 
 ```bash
-cd /var/www/sicher.bbs-einbeck.de/disown-dev
+cd /path/to/disown-dev
 php tests/test_disown_26_block2.php
 php tests/test_disown_26_block3.php
 php tests/test_disown_26_workflow_store.php

@@ -228,24 +228,26 @@ try {
     block3_assert($lookupFailure['state'] === DISOWN_JAMF_STATE_FAILED, 'fehlgeschlagener Active-Lookup verhindert Schreibaktion');
     block3_assert($lookupFailure['response_class'] === 'transport_error', 'Lookup-Timeout bleibt sicher klassifiziert');
 
-    $devPending = jamf_unenroll_by_serial('FAKE0DIANA1');
-    block3_assert($devPending['state'] === DISOWN_JAMF_STATE_PENDING_DEVICE, 'Diana bildet HTTP 200 und Offline-Pending in DEV ab');
-    block3_assert(!empty($devPending['dev_fixture']), 'DEV-Fixture wird eindeutig gekennzeichnet');
-    $devVerified = jamf_verify_unenroll_by_serial('FAKE0DIANA1', date('Y-m-d H:i:s'));
-    block3_assert($devVerified['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'Diana bildet den späteren asynchronen Abschluss ab');
-    $devManual = jamf_verify_unenroll_by_serial('FAKE0SPIDEY', date('Y-m-d H:i:s'), false, true);
-    block3_assert($devManual['state'] === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED, 'unklare DEV-Fixture bleibt beim read-only Retry-Limit manuell');
+    if (disown_is_dev_mode()) {
+        $devPending = jamf_unenroll_by_serial('FAKE0DIANA1');
+        block3_assert($devPending['state'] === DISOWN_JAMF_STATE_PENDING_DEVICE, 'Diana bildet HTTP 200 und Offline-Pending in DEV ab');
+        block3_assert(!empty($devPending['dev_fixture']), 'DEV-Fixture wird eindeutig gekennzeichnet');
+        $devVerified = jamf_verify_unenroll_by_serial('FAKE0DIANA1', date('Y-m-d H:i:s'));
+        block3_assert($devVerified['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'Diana bildet den späteren asynchronen Abschluss ab');
+        $devManual = jamf_verify_unenroll_by_serial('FAKE0SPIDEY', date('Y-m-d H:i:s'), false, true);
+        block3_assert($devManual['state'] === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED, 'unklare DEV-Fixture bleibt beim read-only Retry-Limit manuell');
 
-    $devUnexpected = jamf_unenroll_by_serial('FAKE0SCULLY');
-    block3_assert($devUnexpected['state'] === DISOWN_JAMF_STATE_FAILED, 'Scully bildet unerwartetes HTTP 200 sicher als Fehler ab');
-    $devImmediate = jamf_unenroll_by_serial('FAKE0MULDER');
-    block3_assert($devImmediate['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'Mulder bildet unmittelbare Verifikation ab');
-    $devTimeout = jamf_unenroll_by_serial('FAKE0KNOPE1');
-    block3_assert($devTimeout['response_class'] === 'dev_fixture_transport_timeout', 'Knope bildet Transport-Timeout ab');
+        $devUnexpected = jamf_unenroll_by_serial('FAKE0SCULLY');
+        block3_assert($devUnexpected['state'] === DISOWN_JAMF_STATE_FAILED, 'Scully bildet unerwartetes HTTP 200 sicher als Fehler ab');
+        $devImmediate = jamf_unenroll_by_serial('FAKE0MULDER');
+        block3_assert($devImmediate['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'Mulder bildet unmittelbare Verifikation ab');
+        $devTimeout = jamf_unenroll_by_serial('FAKE0KNOPE1');
+        block3_assert($devTimeout['response_class'] === 'dev_fixture_transport_timeout', 'Knope bildet Transport-Timeout ab');
 
-    $asmDevFixture = asm_release_execute('FAKE0MULDER');
-    block3_assert(!empty($asmDevFixture['success']) && !empty($asmDevFixture['dry_run']), 'ASM-DEV-Fixture bleibt ein erfolgreicher Dry-Run');
-    block3_assert(!empty($asmDevFixture['details']['dev_fixture']), 'ASM-DEV-Fixture ist für lokalen Workflowabschluss markiert');
+        $asmDevFixture = asm_release_execute('FAKE0MULDER');
+        block3_assert(!empty($asmDevFixture['success']) && !empty($asmDevFixture['dry_run']), 'ASM-DEV-Fixture bleibt ein erfolgreicher Dry-Run');
+        block3_assert(!empty($asmDevFixture['details']['dev_fixture']), 'ASM-DEV-Fixture ist für lokalen Workflowabschluss markiert');
+    }
 
     echo 'Block-3-Tests erfolgreich: ' . $block3Assertions . ' Assertions.' . PHP_EOL;
     echo 'Alle Jamf-Antworten waren injizierte Fixtures; kein externer Schreibzugriff wurde ausgeführt.' . PHP_EOL;

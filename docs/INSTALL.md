@@ -1,6 +1,6 @@
 # Installation und Betrieb
 
-Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.4.
+Diese Anleitung beschreibt die Voraussetzungen fuer den Betrieb der DISOWN-Plattform ab Version 2.6.
 
 ## 1. Voraussetzungen
 
@@ -180,16 +180,44 @@ Die Anwendung nutzt eine relationale Datenbank fuer:
 
 Vor Produktivbetrieb immer ein DB-Backup erstellen.
 
+### 5.1 Upgrade auf Version 2.6
+
+Version 2.6 ergaenzt persistente Jamf-Zustandsfelder und Indizes. Nach einem Code- und Datenbank-Backup aus dem Anwendungsverzeichnis ausfuehren:
+
+```bash
+php migrations/20261017_add_jamf_unenroll_state.php
+```
+
+Die Migration ist idempotent und klassifiziert bestehende Zeilen konservativ. Die Ausgabe muss anschliessend bei einem zweiten Lauf `Neue Spalten: 0` und `Neue Indizes: 0` melden.
+
+Der Wiederanmeldungs-Check liest Jamf nur und fuehrt weder Unenroll noch ASM/ADE aus. Beispiel fuer die Benutzer-Crontab:
+
+```cron
+17 * * * * /usr/bin/php /var/www/sicher.bbs-einbeck.de/disown/scripts/check_jamf_reenrollments.php --limit=100 >> /path/to/writable/disown-jamf-reenrollment.log 2>&1
+```
+
+Der Logpfad muss fuer den Cron-Benutzer beschreibbar sein.
+
 ## 6. Tests
 
 Empfohlene Reihenfolge:
 
-1. DEV aufrufen und mit Demo-Daten testen.
-2. Jamf-Unenroll im DEV als Dry-Run pruefen.
-3. ASM/ADE im DEV als Dry-Run pruefen.
-4. NanoDEP-Dienst lokal pruefen.
-5. In PROD genau ein Testgeraet verwenden.
-6. Kontrollieren:
+1. In einem konfigurierten DEV-Checkout die automatisierten Checks ausfuehren:
+
+   ```bash
+   php tests/test_disown_26_block2.php
+   php tests/test_disown_26_block3.php
+   php tests/test_disown_26_workflow_store.php
+   php scripts/smoke_check.php --url=https://example.org/disown-dev
+   ```
+
+   Die Tests verwenden temporaere DB-Tabellen beziehungsweise injizierte Fixtures; sie fuehren keine externen Jamf-/ASM-Schreibzugriffe aus.
+2. DEV aufrufen und die bereitgestellten Demo-Faelle fuer direkten Erfolg, Offline/Pending, spaeteren asynchronen Abschluss, unerwartetes HTTP `200`, Timeout und manuelle Verifizierung testen.
+3. Den Bulk-Workflow pruefen: Nur `verified_unmanaged` darf automatisch nach ASM/ADE weiterlaufen; andere Geraete bleiben einzeln gesperrt.
+4. Pruefen, dass ein Mailfehler den abgeschlossenen Geraeteprozess nicht wieder oeffnet.
+5. NanoDEP-Dienst lokal pruefen.
+6. In PROD genau ein bewusst ausgewaehltes Testgeraet verwenden.
+7. Kontrollieren:
    - Jamf-Unenroll erfolgreich.
    - ASM/ADE-Freigabe erfolgreich.
    - ASM zeigt `Date Removed from Organization`.

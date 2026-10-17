@@ -1,6 +1,6 @@
 # Installation and Operation
 
-This guide describes the runtime requirements for DISOWN version 2.4.
+This guide describes the runtime requirements for DISOWN version 2.6.
 
 ## 1. Requirements
 
@@ -179,16 +179,44 @@ The application stores:
 
 Always create a database backup before production changes.
 
+### 5.1 Upgrade to Version 2.6
+
+Version 2.6 adds persistent Jamf workflow columns and indexes. After a code and database backup, run this from the application directory:
+
+```bash
+php migrations/20261017_add_jamf_unenroll_state.php
+```
+
+The migration is idempotent and classifies existing rows conservatively. A second run should report `Neue Spalten: 0` and `Neue Indizes: 0`.
+
+The reenrollment check is read-only against Jamf and never runs unenroll or ASM/ADE operations. Example user crontab entry:
+
+```cron
+17 * * * * /usr/bin/php /var/www/sicher.bbs-einbeck.de/disown/scripts/check_jamf_reenrollments.php --limit=100 >> /path/to/writable/disown-jamf-reenrollment.log 2>&1
+```
+
+The cron user must be able to write to the selected log path.
+
 ## 6. Testing
 
 Recommended order:
 
-1. Open DEV and test with demo data.
-2. Test Jamf unenroll in DEV dry-run mode.
-3. Test ASM/ADE in DEV dry-run mode.
-4. Check the local NanoDEP service.
-5. Use exactly one production test device.
-6. Verify:
+1. Run the automated checks in a configured DEV checkout:
+
+   ```bash
+   php tests/test_disown_26_block2.php
+   php tests/test_disown_26_block3.php
+   php tests/test_disown_26_workflow_store.php
+   php scripts/smoke_check.php --url=https://example.org/disown-dev
+   ```
+
+   The tests use temporary database tables or injected fixtures and do not perform external Jamf/ASM writes.
+2. Open DEV and exercise the supplied demo cases for immediate success, offline/pending, later asynchronous completion, unexpected HTTP `200`, timeout and manual verification.
+3. Test bulk processing: only `verified_unmanaged` may continue automatically to ASM/ADE; other devices must remain blocked individually.
+4. Confirm that a mail delivery failure does not reopen the completed device workflow.
+5. Check the local NanoDEP service.
+6. Use exactly one deliberately selected production test device.
+7. Verify:
    - Jamf unenroll succeeded.
    - ASM/ADE release succeeded.
    - ASM shows `Date Removed from Organization`.

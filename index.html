@@ -288,11 +288,12 @@
 <body>
   <header class="hero">
     <div class="hero-inner">
-      <div class="eyebrow">BBS Einbeck · DISOWN 2.4</div>
+      <div class="eyebrow">BBS Einbeck · DISOWN 2.6</div>
       <h1>iPad-Management für MDM- und ADE-Freigaben</h1>
       <p class="lead">Eine PHP-Webanwendung für Rückgabeanträge, Jamf-Unenroll, Apple School Manager/ADE-Freigabe über Release Broker und nachvollziehbare Abschlussmails.</p>
       <div class="actions">
         <a class="button primary" href="https://github.com/mail896/bbs_mdm_disown_public#readme">README lesen</a>
+        <a class="button secondary" href="https://github.com/mail896/bbs_mdm_disown_public/blob/main/docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md">2.6 Sicherheitsmodell</a>
         <a class="button secondary" href="https://github.com/mail896/bbs_mdm_disown_public/blob/main/README.en.md">English README</a>
         <a class="button secondary" href="https://github.com/mail896/bbs_mdm_disown_public/blob/main/docs/INSTALL.md">Installation</a>
       </div>
@@ -302,12 +303,14 @@
   <main>
     <section>
       <h2>Was das System abbildet</h2>
-      <p class="section-lead">DISOWN führt ehemals verwaltete iPads kontrolliert durch den operativen Freigabeprozess. Version 2.4 ergänzt ein Einstellungsportal für E-Mail-Push, SMTP, Jobs, Sicherheit und Systembetrieb. Critical Mode schützt zeitlich begrenzt die eng erlaubten Root-Helper-Aktionen für Log-ACLs und Backups. Das öffentliche Repository enthält neutralisierten Code, Beispiele, Screenshots und Installationshinweise ohne Produktivzugänge.</p>
+      <p class="section-lead">DISOWN führt ehemals verwaltete iPads kontrolliert durch den operativen Freigabeprozess. Version 2.6 behandelt die Jamf-Abmeldung als verifizierten Zustandsablauf: Eine angenommene API-Antwort ist noch kein Abschluss, Offline-Geräte bleiben pending und erst ein belastbarer Nachweis gibt die automatische ASM/ADE-Freigabe frei. Das öffentliche Repository enthält neutralisierten Code, Migration, Tests und Betriebsdokumentation ohne Produktivzugänge.</p>
       <div class="feature-grid">
-        <div class="feature"><strong>Admin-Workflow</strong><span>Antrag, Jamf, ASM/ADE und Mail bleiben als klare Einzelschritte sichtbar.</span></div>
+        <div class="feature"><strong>Verifizierter Jamf-Unenroll</strong><span>API-Antwort, aktiver Bestand, Trash-Übergang, Command-Status und Zeitpunkte werden gemeinsam bewertet.</span></div>
         <div class="feature"><strong>Release Broker</strong><span>Ein einzelnes Gerät wird per ASM Public API dem Broker zugewiesen und per NanoDEP aus ADE/DEP freigegeben.</span></div>
         <div class="feature"><strong>Admin-Sonderfreigabe</strong><span>Defekte Geräte können nach Jamf-Seriennummernprüfung als lokaler Einzelfallantrag angelegt werden.</span></div>
-        <div class="feature"><strong>Bulk-Verarbeitung</strong><span>Auswahl, Seriennummernliste, ASM/ADE-Freigabe und Mail bleiben über den Ablauf erhalten.</span></div>
+        <div class="feature"><strong>Bulk-Verarbeitung</strong><span>Jedes Gerät wird separat bewertet; nur verifizierte Geräte laufen direkt in die automatische ASM/ADE-Freigabe.</span></div>
+        <div class="feature"><strong>Pending statt Scheinerfolg</strong><span>Offline- und unklare Fälle werden read-only erneut geprüft oder gezielt zur manuellen Verifizierung markiert.</span></div>
+        <div class="feature"><strong>Mail ist nachgelagert</strong><span>Nicht erreichbare Empfänger werden sichtbar protokolliert, blockieren aber den bereits abgeschlossenen Geräteprozess nicht.</span></div>
         <div class="feature"><strong>Auditierbarkeit</strong><span>Ein Audit-Log protokolliert kritische Schritte, Teilfehler und Bulk-Seriennummernlisten.</span></div>
         <div class="feature"><strong>Einstellungsportal</strong><span>E-Mail-Push, SMTP, Jobs, Logs, Schnittstellen, Sicherheit und Systemwerkzeuge sind zentral erreichbar.</span></div>
         <div class="feature"><strong>Critical Mode</strong><span>Ein separates Kennwort, kurze Laufzeit und feste sudoers-Kommandos begrenzen Log- und Backup-Aktionen.</span></div>
@@ -321,8 +324,8 @@
       <h2>Standardablauf</h2>
       <div class="workflow">
         <div class="step"><div class="step-number">01</div><span class="step-title">WebClip-Antrag erfassen</span></div>
-        <div class="step"><div class="step-number">02</div><span class="step-title">Jamf-Unenroll ausführen</span></div>
-        <div class="step"><div class="step-number">03</div><span class="step-title">ASM/ADE über Release Broker freigeben</span></div>
+        <div class="step"><div class="step-number">02</div><span class="step-title">Jamf-Unenroll annehmen und read-only verifizieren</span></div>
+        <div class="step"><div class="step-number">03</div><span class="step-title">Nur nach Verifikation automatisch über ASM/ADE freigeben</span></div>
         <div class="step"><div class="step-number">04</div><span class="step-title">Abschlussmail an vorhandene Adressen senden</span></div>
         <div class="step"><div class="step-number">05</div><span class="step-title">Workflow und Details im Audit-Log nachvollziehen</span></div>
       </div>
@@ -407,7 +410,7 @@
   </main>
 
   <footer>
-    <a href="https://github.com/mail896/bbs_mdm_disown_public">Version 2.4</a> · Stand 16. Juli 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
+    <a href="https://github.com/mail896/bbs_mdm_disown_public">Version 2.6</a> · Stand 17. Oktober 2026 · <a href="https://github.com/mail896/bbs_mdm_disown_public">GitHub Repository</a>
   </footer>
 </body>
 </html>

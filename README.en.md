@@ -83,6 +83,18 @@ Bulk processing evaluates every device independently:
 
 The selection is kept until the mail step has finished. This prevents admins from losing the selected devices between Jamf, ASM/ADE and mail.
 
+## Version 2.6 Safety Model
+
+- HTTP `200` only means that Jamf accepted the unenroll command.
+- An active record with `isManaged=false` is considered directly verified.
+- Moving from active inventory to trash is not sufficient by itself because trash values such as `lastCheckin` and `isManaged` may be stale.
+- A later trash transition is only accepted together with a terminal command status; without that evidence the request remains `pending` or moves to manual verification after the retry limit.
+- Re-enrollment is neither automated nor recommended as a repair path.
+- ASM/ADE is unlocked per device only after `verified_unmanaged`; one bulk-item failure does not block other safely verified devices.
+- Delivery errors for obsolete school mailboxes remain visible but do not reopen or stop the completed device workflow.
+
+The decision logic and incident regression scenario are documented in [docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md](docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md).
+
 ## ASM/ADE Release Broker
 
 Since version 2.0 DISOWN uses two separate Apple paths:
@@ -122,6 +134,16 @@ Short version:
 6. Run `tools/install-nanodep-service.sh`.
 7. Validate with a DEV dry-run and one single production test device.
 
+### Upgrade from 2.4 to 2.6
+
+After a code and database backup, run the idempotent state migration once:
+
+```bash
+php migrations/20261017_add_jamf_unenroll_state.php
+```
+
+Then install the read-only reenrollment cron check and run the 2.6 DEV tests listed in [docs/RELEASE.md](docs/RELEASE.md). The migration classifies legacy rows conservatively and may be run again as an idempotency check.
+
 ## Important Files
 
 - `index.php` - WebClip and request intake.
@@ -152,6 +174,7 @@ Short version:
 
 ## History
 
+- `2.6`: verifiable Jamf state machine with pending/retry/manual states, asynchronous completion, safe bulk gating, automatic ASM/ADE continuation only after verification, non-blocking mail failures and read-only reenrollment detection.
 - `2.4`: settings portal for email push, SMTP, jobs, security and system operations; Critical Mode protects root-helper actions with a separate password, short lifetime and audit logging.
 - `2.4` maintenance: Completely untouched accidental requests can only be deleted from Settings → System → Tools with Critical Mode, request ID and explicit confirmation while retaining an audit record.
 - `2.4` maintenance 2026-08-21: Informational push-mail events no longer count as request processing for deletion eligibility. Workflow state, errors, linked cases and every audit action not explicitly allowed still block deletion.

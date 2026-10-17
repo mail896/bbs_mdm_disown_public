@@ -83,6 +83,18 @@ Der Bulk-Ablauf bewertet jedes Gerät getrennt:
 
 Die Auswahl bleibt bis zum Mail-Schritt erhalten. Erst nach dem Mailversand wird automatisch abgewählt. Das verhindert, dass Admins nach dem Jamf-Schritt Seriennummern oder Empfaenger vergessen.
 
+## Sicherheitsmodell in Version 2.6
+
+- HTTP `200` bedeutet nur, dass Jamf den Unenroll-Befehl angenommen hat.
+- Ein aktiver Datensatz mit `isManaged=false` gilt als direkt verifiziert.
+- Ein Wechsel aus dem aktiven Bestand in den Trash gilt nicht allein als Erfolg, weil `lastCheckin` und `isManaged` dort veraltet sein koennen.
+- Ein spaeterer Trash-Uebergang wird nur zusammen mit einem terminalen Command-Status als Abschluss gewertet; fehlt dieser Nachweis, bleibt der Vorgang `pending` oder wird nach dem Retry-Limit zur manuellen Verifizierung markiert.
+- Erneute Registrierung ist weder automatischer noch empfohlener Reparaturweg.
+- ASM/ADE wird pro Geraet erst nach `verified_unmanaged` freigegeben; Bulk-Fehler eines Geraets blockieren nicht die sicher verifizierten anderen Geraete.
+- Fehler beim Versand an nicht mehr vorhandene schulische Adressen bleiben sichtbar, stoppen den bereits abgeschlossenen Geraeteprozess aber nicht.
+
+Die technische Entscheidungslogik und der Incident-Testfall sind in [docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md](docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md) beschrieben.
+
 ## ASM/ADE Release Broker
 
 Seit Version 2.0 nutzt DISOWN zwei getrennte Apple-Wege:
@@ -123,6 +135,16 @@ Kurzfassung:
 6. `tools/install-nanodep-service.sh` ausfuehren.
 7. DEV Dry-Run und ein einzelnes PROD-Testgeraet pruefen.
 
+### Upgrade von 2.4 auf 2.6
+
+Nach Code- und Datenbank-Backup die idempotente Zustandsmigration einmal ausfuehren:
+
+```bash
+php migrations/20261017_add_jamf_unenroll_state.php
+```
+
+Danach den read-only Wiederanmeldungs-Check als Cronjob einrichten und die in [docs/RELEASE.md](docs/RELEASE.md) aufgefuehrten 2.6-Tests in DEV ausfuehren. Die Migration klassifiziert alte Zeilen konservativ und darf zur Kontrolle erneut gestartet werden.
+
 ## Wichtige Dateien
 
 - `index.php` - Webclip und Antragserfassung.
@@ -155,6 +177,7 @@ Kurzfassung:
 
 ## Historie
 
+- `2.6`: Verifizierbarer Jamf-Zustandsautomat mit Pending-/Retry-/Manual-Status, asynchronem Abschluss, sicherem Bulk-Gating, automatischer ASM/ADE-Fortsetzung nur nach Verifikation, nicht-blockierendem Mailfehler und read-only Wiederanmeldungserkennung.
 - `2.4`: Einstellungsportal mit E-Mail-Push-, SMTP-, Job-, Sicherheits- und Systembereichen; Critical Mode schützt Root-Helper-Aktionen mit separatem Kennwort, kurzer Laufzeit und Audit-Log.
 - `2.4` Nachpflege: Vollständig unbearbeitete Fehlanträge können ausschließlich unter Einstellungen → System → Werkzeuge mit Critical Mode, Antrag-ID und Bestätigung gelöscht werden; die Löschung bleibt im Audit-Log dokumentiert.
 - `2.4` Nachpflege 2026-08-21: Reine E-Mail-Push-Ereignisse gelten bei der Antragslöschung nicht mehr als Bearbeitung. Workflowstatus, Fehler, Klärfälle und alle nicht ausdrücklich tolerierten Auditaktionen sperren die Löschung weiterhin.

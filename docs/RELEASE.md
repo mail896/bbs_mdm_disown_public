@@ -33,22 +33,45 @@ URLs to the protected local deployment before using it in production.
    php scripts/smoke_check.php --url=https://example.org/disown-dev
    ```
 
-4. Test touched browser workflows, especially search, filters, mail preview,
-   clarification cases, ADE, audit and KUK views.
+4. For DISOWN 2.6 run the state-machine and persistence regression suite:
+
+   ```bash
+   php tests/test_disown_26_block2.php
+   php tests/test_disown_26_block3.php
+   php tests/test_disown_26_workflow_store.php
+   ```
+
+   The tests use injected Jamf/ASM fixtures and temporary database tables. They
+   must not perform external mutations.
+
+5. Test touched browser workflows, especially the single-device and bulk paths,
+   pending/retry/manual Jamf states, automatic ASM/ADE continuation only after
+   `verified_unmanaged`, non-blocking mail failures, search, filters, mail
+   preview, clarification cases, ADE, audit and KUK views.
 
 ## Production Release
 
-1. Apply the tested changes to production.
-2. Run syntax and smoke checks:
+1. Create and verify code and database backups.
+2. Apply the tested changes to production.
+3. When upgrading to 2.6, run the idempotent migration and then run it a second
+   time to verify that no columns or indexes are added again:
+
+   ```bash
+   php migrations/20261017_add_jamf_unenroll_state.php
+   ```
+
+4. Install the hourly `scripts/check_jamf_reenrollments.php` job. This check is
+   read-only against Jamf and only records a local deviation/audit entry.
+5. Run syntax and smoke checks:
 
    ```bash
    php scripts/smoke_check.php --url=https://example.org/disown
    ```
 
-3. Verify project-state files and internal directories are not web-accessible.
+6. Verify project-state files and internal directories are not web-accessible.
    Expected status for private resources is `403`.
 
-4. Commit and push the private repository branches.
+7. Commit and push the private repository branches.
 
 ## Public Repository
 
