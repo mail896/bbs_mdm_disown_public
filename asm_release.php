@@ -63,6 +63,19 @@ function asm_release_run(string $serial, bool $dryRun): array
         return asm_release_result(false, $dryRun, 'Seriennummer fehlt.', $steps);
     }
 
+    if ($dryRun && asm_release_is_dev_mode() && str_starts_with($serial, 'FAKE0')) {
+        $steps[] = asm_release_step('ASM-Gerät', 'ok', 'DEV-Fixture wurde lokal gefunden.');
+        $steps[] = asm_release_step('MDM-Zuweisung', 'ok', 'DEV-Simulation der kontrollierten Broker-Freigabe.');
+        $steps[] = asm_release_step('Freigabe', 'ok', 'Kein externer ASM/ADE-Schreibzugriff wurde ausgeführt.');
+        return asm_release_result(
+            true,
+            true,
+            'DEV-Simulation erfolgreich; der lokale Workflow kann fortgesetzt werden.',
+            $steps,
+            ['dev_fixture' => true]
+        );
+    }
+
     try {
         $config = asm_release_config(!$dryRun);
         $token = ade_asm_access_token();
@@ -80,18 +93,37 @@ function asm_release_run(string $serial, bool $dryRun): array
 
         $steps[] = asm_release_step(
             'Organisation',
-            $releasedAt === '' ? 'ok' : 'failed',
+            'ok',
             $releasedAt === '' ? 'Gerät ist noch nicht aus der Organisation entfernt.' : 'Gerät wurde bereits am ' . $releasedAt . ' aus der Organisation entfernt.'
         );
         if ($releasedAt !== '') {
-            return asm_release_result(false, $dryRun, 'Gerät ist bereits freigegeben.', $steps);
+            return asm_release_result(true, $dryRun, 'Gerät ist bereits freigegeben; der lokale Workflow kann sicher abgeglichen werden.', $steps, [
+                'already_released' => true,
+                'released_at' => $releasedAt,
+                'device' => $device,
+            ]);
         }
 
-        $assigned = ade_asm_assigned_server($token, $serial);
+        $assignmentCheck = asm_release_read_assignment_with_retry(
+            static fn (): ?array => ade_asm_assigned_server($token, $serial),
+            [$config['ASM_JAMF_MDM_SERVER_ID'], $config['ASM_BROKER_MDM_SERVER_ID']]
+        );
+        $assigned = $assignmentCheck['assigned'];
+        $assignmentAttempts = (int) $assignmentCheck['attempts'];
         $assignedId = (string) ($assigned['asm_mdm_server_id'] ?? '');
         $assignedName = (string) ($assigned['asm_mdm_server_name'] ?? '');
         $isJamfAssigned = strcasecmp($assignedId, $config['ASM_JAMF_MDM_SERVER_ID']) === 0;
         $isBrokerAssigned = strcasecmp($assignedId, $config['ASM_BROKER_MDM_SERVER_ID']) === 0;
+
+        if ($assignmentAttempts > 1) {
+            $steps[] = asm_release_step(
+                'ASM-Synchronisierung',
+                $assignedId !== '' ? 'ok' : 'failed',
+                $assignedId !== ''
+                    ? 'MDM-Zuweisung wurde nach ' . $assignmentAttempts . ' Prüfungen sichtbar.'
+                    : 'MDM-Zuweisung blieb nach ' . $assignmentAttempts . ' Prüfungen unbekannt.'
+            );
+        }
 
         $steps[] = asm_release_step(
             'MDM-Zuweisung',
@@ -101,7 +133,12 @@ function asm_release_run(string $serial, bool $dryRun): array
                 : 'Aktuelle MDM-Zuweisung konnte nicht gelesen werden.'
         );
         if (!$isJamfAssigned && !$isBrokerAssigned) {
-            return asm_release_result(false, $dryRun, 'Gerät ist nicht Jamf School oder dem Release Broker zugewiesen.', $steps);
+            $message = $assignedId === ''
+                ? 'ASM-Zuweisung ist noch nicht synchronisiert. Bitte den Vorgang später erneut versuchen.'
+                : 'Gerät ist nicht Jamf School oder dem Release Broker zugewiesen.';
+            return asm_release_result(false, $dryRun, $message, $steps, [
+                'assignment_attempts' => $assignmentAttempts,
+            ]);
         }
 
         if ($dryRun) {
@@ -117,6 +154,7 @@ function asm_release_run(string $serial, bool $dryRun): array
             return asm_release_result(true, true, 'Dry-Run erfolgreich: automatische ASM/ADE-Freigabe ist für dieses Gerät bereit.', $steps, [
                 'serial' => $serial,
                 'assigned_server' => $assigned,
+                'assignment_attempts' => $assignmentAttempts,
                 'device' => $device,
             ]);
         }
@@ -174,11 +212,45 @@ function asm_release_run(string $serial, bool $dryRun): array
             'broker_details' => $brokerDetails,
             'disown_response' => $disownResponse,
             'after_details' => $afterDetails,
+            'assignment_attempts' => $assignmentAttempts,
         ]);
     } catch (Throwable $e) {
         $steps[] = asm_release_step('Fehler', 'failed', $e->getMessage());
         return asm_release_result(false, $dryRun, 'ASM/ADE-Freigabe fehlgeschlagen: ' . $e->getMessage(), $steps);
     }
+}
+
+function asm_release_read_assignment_with_retry(callable $reader, array $recognizedServerIds, array $retryDelays = [3, 6]): array
+{
+    $recognizedServerIds = array_values(array_filter(array_map(
+        static fn ($value): string => strtolower(trim((string) $value)),
+        $recognizedServerIds
+    )));
+    $assigned = null;
+    $attempts = 0;
+
+    foreach (array_merge([0], $retryDelays) as $delay) {
+        if ($delay > 0) {
+            sleep((int) $delay);
+        }
+        $attempts++;
+        $assigned = $reader();
+        $assignedId = strtolower(trim((string) ($assigned['asm_mdm_server_id'] ?? '')));
+
+        if ($assignedId !== '') {
+            return [
+                'assigned' => $assigned,
+                'attempts' => $attempts,
+                'recognized' => in_array($assignedId, $recognizedServerIds, true),
+            ];
+        }
+    }
+
+    return [
+        'assigned' => $assigned,
+        'attempts' => $attempts,
+        'recognized' => false,
+    ];
 }
 
 function asm_release_get_org_device(string $token, string $serial): ?array

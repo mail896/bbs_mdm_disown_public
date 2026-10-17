@@ -3,6 +3,7 @@ require __DIR__ . '/auth.php';
 disown_require_admin();
 require 'db.php';
 require __DIR__ . '/jamf.php';
+require __DIR__ . '/workflow_store.php';
 require __DIR__ . '/asm_release.php';
 require_once __DIR__ . '/notify.php';
 require __DIR__ . '/vendor/autoload.php';
@@ -65,11 +66,11 @@ $filterLabels = [
     'cases' => 'Klärfälle',
 ];
 $jamfLicenseBaseline = [
-    'taken_at' => '2026-07-05 10:55:00',
+    'taken_at' => '2026-09-16 14:07:00',
     'recurring_total' => 1300,
-    'recurring_used' => 928,
+    'recurring_used' => 1306,
     'perpetual_total' => 378,
-    'perpetual_used' => 362,
+    'perpetual_used' => 370,
 ];
 $searchTerm = trim((string) ($_GET['q'] ?? ''));
 $monthFilter = trim((string) ($_GET['month'] ?? ''));
@@ -185,10 +186,39 @@ function log_request_action($mysqli, int $requestId, string $action, ?string $de
     disown_log_audit_action($mysqli, $requestId, $action, disown_current_admin_user(), $details);
 }
 
+/** @param array<string, mixed> $result */
+function audit_jamf_workflow_result(mysqli $mysqli, int $requestId, array $result, string $prefix = ''): void
+{
+    $state = (string) ($result['state'] ?? DISOWN_JAMF_STATE_FAILED);
+    $event = match ($state) {
+        DISOWN_JAMF_STATE_VERIFIED_UNMANAGED => 'JAMF_UNMANAGED_VERIFIED',
+        DISOWN_JAMF_STATE_PENDING_DEVICE, DISOWN_JAMF_STATE_COMMAND_ACCEPTED => 'JAMF_UNENROLL_PENDING',
+        DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED => 'JAMF_MANUAL_INTERVENTION_REQUIRED',
+        default => 'JAMF_UNENROLL_FAILED',
+    };
+    $httpStatus = isset($result['http_status']) ? (string) (int) $result['http_status'] : 'n/a';
+    $responseClass = substr(trim((string) ($result['response_class'] ?? 'unknown')), 0, 64);
+    $details = ($prefix !== '' ? $prefix . '; ' : '')
+        . 'HTTP: ' . $httpStatus
+        . '; Klasse: ' . $responseClass
+        . '; Zustand: ' . $state;
+    log_request_action($mysqli, $requestId, $event, $details);
+    if (!empty($result['accepted'])) {
+        log_request_action(
+            $mysqli,
+            $requestId,
+            'JAMF_UNENROLL_COMMAND_ACCEPTED',
+            ($prefix !== '' ? $prefix . '; ' : '') . 'HTTP: ' . $httpStatus . '; Klasse: ' . $responseClass
+        );
+    }
+}
+
 function load_request_for_action($mysqli, int $requestId): ?array
 {
     $stmt = $mysqli->prepare(
-        "SELECT id, serial, full_name, username, email, private_email, class_name, device_name, jamf_unenrolled, asm_manual_done, mail_sent, completed_by, user_agent
+        "SELECT id, serial, full_name, username, email, private_email, class_name, device_name,
+                jamf_unenrolled, jamf_unenroll_state, jamf_command_accepted_at, jamf_check_attempts,
+                jamf_command_status, asm_manual_done, mail_sent, completed_by, user_agent
          FROM requests
          WHERE id = ?"
     );
@@ -207,7 +237,9 @@ function load_request_for_action($mysqli, int $requestId): ?array
 function load_open_request_by_serial(mysqli $mysqli, string $serial): ?array
 {
     $stmt = $mysqli->prepare(
-        "SELECT id, serial, full_name, username, email, private_email, class_name, device_name, jamf_unenrolled, asm_manual_done, mail_sent, completed_by, user_agent
+        "SELECT id, serial, full_name, username, email, private_email, class_name, device_name,
+                jamf_unenrolled, jamf_unenroll_state, jamf_command_accepted_at, jamf_check_attempts,
+                jamf_command_status, asm_manual_done, mail_sent, completed_by, user_agent
          FROM requests
          WHERE UPPER(serial) = UPPER(?)
            AND status = 'offen'
@@ -258,18 +290,19 @@ function create_admin_direct_request(mysqli $mysqli, array $jamf, array $input, 
     $requestedReleaseDate = (new DateTimeImmutable('today', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
     $ip = $_SERVER['REMOTE_ADDR'] ?? '';
     $userAgent = 'Admin-Sonderfreigabe durch ' . ($adminUser !== '' ? $adminUser : 'admin');
+    $jamfUnenrolled = 0;
 
     $stmt = $mysqli->prepare(
         "INSERT INTO requests
-         (username, email, private_email, full_name, class_name, jamf_user_id, jamf_modified, serial, device_name, requested_release_date, ip, user_agent)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+         (username, email, private_email, full_name, class_name, jamf_user_id, jamf_modified, serial, device_name, requested_release_date, ip, user_agent, jamf_unenrolled, jamf_unenrolled_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 1, NOW(), NULL))"
     );
     if (!$stmt) {
         return null;
     }
 
     $stmt->bind_param(
-        'sssssissssss',
+        'sssssissssssii',
         $username,
         $schoolEmail,
         $privateEmail,
@@ -281,7 +314,9 @@ function create_admin_direct_request(mysqli $mysqli, array $jamf, array $input, 
         $deviceName,
         $requestedReleaseDate,
         $ip,
-        $userAgent
+        $userAgent,
+        $jamfUnenrolled,
+        $jamfUnenrolled
     );
 
     if (!$stmt->execute()) {
@@ -324,7 +359,8 @@ function load_bulk_requests($mysqli, array $ids): array
     $idList = implode(',', $ids);
     $result = $mysqli->query(
         "SELECT id, serial, full_name, class_name, username, email, private_email, device_name, completed_by,
-                jamf_unenrolled, asm_manual_done, mail_sent
+                jamf_unenrolled, jamf_unenroll_state, jamf_command_accepted_at, jamf_check_attempts,
+                jamf_command_status, asm_manual_done, mail_sent
          FROM requests
          WHERE id IN ({$idList})
          ORDER BY created_at DESC, id DESC"
@@ -356,21 +392,7 @@ function request_mail_recipients(array $row): array
 
 function complete_request_with_mail_failure($mysqli, int $requestId, string $recipientList, string $completedBy, string $serial, string $deviceName, string $error): void
 {
-    $updateStmt = $mysqli->prepare(
-        "UPDATE requests
-         SET mail_sent = 2,
-             mail_sent_at = NOW(),
-             mail_sent_to = ?,
-             status = 'erledigt',
-             completed_at = NOW(),
-             completed_by = ?
-         WHERE id = ?"
-    );
-    if ($updateStmt) {
-        $updateStmt->bind_param('ssi', $recipientList, $completedBy, $requestId);
-        $updateStmt->execute();
-        $updateStmt->close();
-    }
+    persist_completion_mail_result($mysqli, $requestId, 2, $recipientList, $completedBy);
 
     log_request_action(
         $mysqli,
@@ -378,6 +400,86 @@ function complete_request_with_mail_failure($mysqli, int $requestId, string $rec
         'MAIL_FAILED_COMPLETED',
         'Empfänger: ' . ($recipientList ?: 'unbekannt') . '; Seriennummer: ' . ($serial ?: 'unbekannt') . '; Gerät: ' . ($deviceName ?: 'unbekannt') . '; Fehler: ' . $error
     );
+}
+
+/**
+ * Runs the already-authorized ASM/ADE follow-up after verified Jamf state.
+ * The separate ASM button remains available only when this automatic step fails.
+ *
+ * @param array<string, mixed> $row
+ * @return array<string, mixed>
+ */
+function execute_asm_release_and_persist(mysqli $mysqli, array $row, string $auditPrefix = '', bool $bulk = false): array
+{
+    $requestId = (int) ($row['id'] ?? 0);
+    $serial = strtoupper(trim((string) ($row['serial'] ?? '')));
+    if ($requestId <= 0 || $serial === '' || !disown_request_allows_asm($row)) {
+        return [
+            'success' => false,
+            'local_completed' => false,
+            'message' => 'ASM/ADE konnte für diesen Workflowzustand nicht gestartet werden.',
+        ];
+    }
+
+    $result = asm_release_execute($serial);
+    $detailText = ($auditPrefix !== '' ? $auditPrefix . '; ' : '')
+        . 'Seriennummer: ' . $serial . '; ' . ($result['message'] ?? '');
+    $assignmentAttempts = (int) ($result['details']['assignment_attempts'] ?? 1);
+    if ($assignmentAttempts > 1) {
+        $detailText .= '; ASM-Zuweisungsprüfungen: ' . $assignmentAttempts;
+    }
+
+    $isDevFixture = !empty($result['details']['dev_fixture']);
+    $localCompleted = !empty($result['success']) && (empty($result['dry_run']) || $isDevFixture);
+    if ($localCompleted) {
+        $stmt = $mysqli->prepare(
+            "UPDATE requests
+             SET asm_manual_done = 1,
+                 asm_manual_done_at = NOW()
+             WHERE id = ?"
+        );
+        if (!$stmt) {
+            $result['success'] = false;
+            $result['local_completed'] = false;
+            $result['message'] = 'ASM/ADE war erfolgreich, der lokale Status konnte aber nicht gespeichert werden.';
+            return $result;
+        }
+        $stmt->bind_param('i', $requestId);
+        $stored = $stmt->execute();
+        $stmt->close();
+        if (!$stored) {
+            $result['success'] = false;
+            $result['local_completed'] = false;
+            $result['message'] = 'ASM/ADE war erfolgreich, der lokale Status konnte aber nicht gespeichert werden.';
+            return $result;
+        }
+
+        $alreadyReleased = !empty($result['details']['already_released']);
+        log_request_action(
+            $mysqli,
+            $requestId,
+            $bulk
+                ? ($isDevFixture
+                    ? 'BULK_ASM_DEV_SIMULATED'
+                    : ($alreadyReleased ? 'BULK_ASM_ALREADY_RELEASED_CONFIRMED' : 'BULK_ASM_BROKER_RELEASE_SUCCESS'))
+                : ($isDevFixture
+                    ? 'ASM_DEV_SIMULATED'
+                    : ($alreadyReleased ? 'ASM_ALREADY_RELEASED_CONFIRMED' : 'ASM_BROKER_RELEASE_SUCCESS')),
+            $detailText
+        );
+    } else {
+        log_request_action(
+            $mysqli,
+            $requestId,
+            $bulk
+                ? (!empty($result['success']) ? 'BULK_ASM_BROKER_RELEASE_DRYRUN' : 'BULK_ASM_BROKER_RELEASE_FAILED')
+                : (!empty($result['success']) ? 'ASM_BROKER_RELEASE_DRYRUN' : 'ASM_BROKER_RELEASE_FAILED'),
+            $detailText
+        );
+    }
+
+    $result['local_completed'] = $localCompleted;
+    return $result;
 }
 
 function format_mail_delivery_status(array $successfulRecipients, array $failedRecipients, bool $includeErrorDetails = false): string
@@ -777,10 +879,11 @@ if (is_readable($mailTemplatePath)) {
 }
 if ($mailTemplate === false || $mailTemplate === null) {
     $mailTemplate = "Hallo {{name}},\n\n" .
-        "die Bearbeitung Ihres Antrags zur Freigabe des schulisch verwalteten iPads wurde durchgeführt.\n\n" .
+        "Ihr Antrag zur Freigabe Ihres iPads wurde erfolgreich abgeschlossen.\n\n" .
+        "DISOWN hat verifiziert, dass das Gerät nicht mehr durch Jamf School verwaltet wird. Anschließend wurde es erfolgreich aus Apple School Manager/ADE freigegeben.\n\n" .
         "Gerät:\n{{device_name}}\n\n" .
         "Seriennummer:\n{{serial}}\n\n" .
-        "Bitte beachten Sie, dass schulische Profile, Apps und Konfigurationen nach der Freigabe nicht mehr zur Verfügung stehen.\n\n" .
+        "Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein. Verwenden Sie nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung.\n\n" .
         "Mit freundlichen Grüßen\n\nBBS Einbeck";
 }
 $mailSubject = 'iPad-Freigabe BBS Einbeck';
@@ -966,8 +1069,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             $jamfDevice = jamf_lookup_by_serial($directSerial);
             if (!$jamfDevice) {
-                $adminDirectError = 'Gerät wurde in Jamf nicht gefunden.';
+                $jamfDevice = jamf_lookup_in_trash_by_serial($directSerial);
+            }
+            if (!$jamfDevice) {
+                $adminDirectError = 'Gerät wurde in Jamf weder aktiv noch im Papierkorb gefunden.';
             } else {
+                $jamfState = (string) ($jamfDevice['jamf_state'] ?? 'active');
                 $directSerial = strtoupper(trim((string) ($jamfDevice['serial'] ?? $directSerial)));
                 $adminDirectForm['serial'] = $directSerial;
                 if ($adminDirectForm['full_name'] === '') {
@@ -984,8 +1091,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'username' => trim((string) ($jamfDevice['username'] ?? '')),
                     'email' => trim((string) ($jamfDevice['email'] ?? '')),
                     'asset_tag' => trim((string) ($jamfDevice['asset_tag'] ?? '')),
+                    'jamf_state' => $jamfState,
                     'school_loan_reasons' => $schoolLoanReasons,
                 ];
+
+                if ($isAdminDirectExecution && $jamfState === 'trash' && ($_POST['admin_direct_confirm_trash'] ?? '') !== '1') {
+                    $adminDirectError = 'Bitte bestätige ausdrücklich, dass der Trash-Datensatz nur als unbestätigte Beobachtung übernommen wird und manuell verifiziert werden muss.';
+                }
 
                 if (!$isAdminDirectExecution) {
                     $adminDirectMessage = 'Jamf-Daten für ' . $directSerial . ' geladen. Bitte prüfen und dann den Antrag anlegen.';
@@ -1007,7 +1119,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $requestWasCreated = false;
 
                 if (!$request) {
-                    $requestId = create_admin_direct_request($mysqli, $jamfDevice, $directInput, $currentAdminUser);
+                    $requestId = create_admin_direct_request(
+                        $mysqli,
+                        $jamfDevice,
+                        $directInput,
+                        $currentAdminUser
+                    );
                     if ($requestId === null) {
                         $adminDirectError = 'Admin-Sonderfreigabe konnte nicht angelegt werden.';
                     } else {
@@ -1019,6 +1136,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             'ADMIN_DIRECT_REQUEST_CREATED',
                             'Seriennummer: ' . $directSerial . '; Schulgeräte-Check bewusst nur für diesen Admin-Sonderweg übersprungen.' . ($directNote !== '' ? ' Hinweis: ' . $directNote : '')
                         );
+                    }
+                }
+
+                if ($request && $adminDirectError === '') {
+                    $requestId = (int) $request['id'];
+                    if (($jamfDevice['jamf_state'] ?? '') === 'trash' && empty($request['jamf_unenrolled'])) {
+                        persist_jamf_workflow_result($mysqli, $requestId, [
+                            'state' => DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED,
+                            'success' => false,
+                            'accepted' => false,
+                            'response_class' => 'already_in_trash_unverified',
+                            'message' => 'Trash-Datensatz vorhanden; Profilentfernung ist nicht verifiziert.',
+                            'observed_location' => 'trash',
+                            'observed_is_managed' => null,
+                            'active_absent' => true,
+                            'trash_observed' => true,
+                        ]);
+                        log_request_action(
+                            $mysqli,
+                            $requestId,
+                            'ADMIN_DIRECT_JAMF_TRASH_OBSERVED',
+                            'Jamf-Status: Trash beobachtet; Profilentfernung nicht verifiziert; kein Jamf-Schreibzugriff ausgeführt.'
+                        );
+                        $request = load_request_for_action($mysqli, $requestId);
                     }
                 }
 
@@ -1038,6 +1179,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             'private_email' => '',
                             'note' => '',
                         ];
+                    } elseif (disown_jamf_state_from_row($request) === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED) {
+                        $adminDirectMessage = 'Vorgang #' . $requestId . ' wurde mit unbestätigtem Jamf-Trash-Status angelegt. ASM/ADE und Mail bleiben gesperrt; manuelle Verifizierung ist erforderlich.';
+                        $adminDirectPreview = null;
                     } else {
                         if (!$requestWasCreated) {
                             log_request_action(
@@ -1072,89 +1216,89 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } elseif (!$bulkRows) {
             $bulkError = 'Die ausgewählten Anträge wurden nicht gefunden.';
         } elseif ($bulkAction === 'bulk_jamf_unenroll') {
-            $successCount = 0;
+            $verifiedCount = 0;
+            $asmSuccessCount = 0;
+            $asmFailedCount = 0;
+            $pendingCount = 0;
             $failedCount = 0;
             $skippedCount = 0;
-            $successfulSerials = [];
-            $successfulIds = [];
+            $mailReadyIds = [];
 
             foreach ($bulkRows as $bulkRow) {
                 $requestId = (int) $bulkRow['id'];
                 $serial = trim((string) $bulkRow['serial']);
                 $isHistoryImport = (($bulkRow['completed_by'] ?? '') === 'history-import');
+                $storedJamfState = disown_jamf_state_from_row($bulkRow);
 
-                if ($isHistoryImport || !empty($bulkRow['jamf_unenrolled']) || !empty($bulkRow['mail_sent']) || $serial === '') {
+                if (
+                    $isHistoryImport
+                    || $storedJamfState === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED
+                    || !empty($bulkRow['mail_sent'])
+                    || $serial === ''
+                ) {
                     $skippedCount++;
                     continue;
                 }
 
-                $result = jamf_unenroll_by_serial($serial);
-                $resultMessage = $result['message'] ?? '';
-
-                if (!empty($result['success'])) {
-                    $updateStmt = $mysqli->prepare(
-                        "UPDATE requests
-                         SET jamf_unenrolled = 1,
-                             jamf_unenrolled_at = NOW(),
-                             jamf_unenroll_error = NULL
-                         WHERE id = ?"
+                if (in_array($storedJamfState, [DISOWN_JAMF_STATE_COMMAND_ACCEPTED, DISOWN_JAMF_STATE_PENDING_DEVICE, DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED], true)) {
+                    log_request_action($mysqli, $requestId, 'JAMF_UNENROLL_RECHECK_REQUESTED', 'Quelle: Bulk; nur read-only');
+                    $result = jamf_verify_unenroll_by_serial(
+                        $serial,
+                        $bulkRow['jamf_command_accepted_at'] ?? null,
+                        false,
+                        $storedJamfState === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED
+                            || (int) ($bulkRow['jamf_check_attempts'] ?? 0) >= 5
                     );
-                    if ($updateStmt) {
-                        $updateStmt->bind_param('i', $requestId);
-                        $updateStmt->execute();
-                        $updateStmt->close();
-                    }
-
-                    log_request_action(
-                        $mysqli,
-                        $requestId,
-                        'BULK_JAMF_UNENROLL_SUCCESS',
-                        'Seriennummer: ' . $serial . '; Meldung: ' . ($resultMessage ?: 'Gerät erfolgreich aus Jamf abgemeldet.')
-                    );
-                    $successCount++;
-                    $successfulSerials[] = $serial;
-                    $successfulIds[] = $requestId;
+                    $result['http_status'] = $result['observation']['active_http_status'] ?? null;
+                    $result['response_class'] = 'postcondition_recheck';
+                    $result['accepted'] = false;
                 } else {
-                    $errorText = $resultMessage ?: 'Unbekannter Fehler beim Jamf-Abruf.';
-                    $updateStmt = $mysqli->prepare(
-                        "UPDATE requests
-                         SET jamf_unenroll_error = ?
-                         WHERE id = ?"
-                    );
-                    if ($updateStmt) {
-                        $updateStmt->bind_param('si', $errorText, $requestId);
-                        $updateStmt->execute();
-                        $updateStmt->close();
-                    }
+                    log_request_action($mysqli, $requestId, 'JAMF_UNENROLL_REQUESTED', 'Quelle: Bulk');
+                    $result = jamf_unenroll_by_serial($serial);
+                }
+                $state = persist_jamf_workflow_result($mysqli, $requestId, $result);
+                audit_jamf_workflow_result($mysqli, $requestId, $result, 'Quelle: Bulk');
 
-                    log_request_action(
-                        $mysqli,
-                        $requestId,
-                        'BULK_JAMF_UNENROLL_FAILED',
-                        'Seriennummer: ' . $serial . '; Fehler: ' . $errorText
-                    );
+                if ($state === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+                    $verifiedCount++;
+                    $verifiedRow = load_request_for_action($mysqli, $requestId);
+                    if ($verifiedRow && !empty($verifiedRow['asm_manual_done'])) {
+                        $asmSuccessCount++;
+                        $mailReadyIds[] = $requestId;
+                    } elseif ($verifiedRow) {
+                        $asmResult = execute_asm_release_and_persist(
+                            $mysqli,
+                            $verifiedRow,
+                            'Automatisch nach Jamf-Verifikation; Quelle: Bulk',
+                            true
+                        );
+                        if (!empty($asmResult['local_completed'])) {
+                            $asmSuccessCount++;
+                            $mailReadyIds[] = $requestId;
+                        } else {
+                            $asmFailedCount++;
+                        }
+                    } else {
+                        $asmFailedCount++;
+                    }
+                } elseif (in_array($state, [DISOWN_JAMF_STATE_COMMAND_ACCEPTED, DISOWN_JAMF_STATE_PENDING_DEVICE], true)) {
+                    $pendingCount++;
+                } else {
                     $failedCount++;
                 }
             }
 
-            $bulkMessage = "Bulk-Jamf abgeschlossen: {$successCount} erfolgreich, {$failedCount} fehlgeschlagen, {$skippedCount} übersprungen.";
-            if ($successfulSerials) {
-                $bulkAsmSerials = array_values(array_unique($successfulSerials));
-                $bulkLastIds = normalize_bulk_ids($successfulIds);
-                log_request_action(
-                    $mysqli,
-                    0,
-                    'BULK_ASM_SERIAL_LIST',
-                    'Seriennummern fuer ASM/ADE: ' . implode(', ', $bulkAsmSerials)
-                    . '; Antraege: ' . implode(', ', array_map('strval', $bulkLastIds))
-                );
-                $_SESSION['bulk_asm_serials'] = $bulkAsmSerials;
+            $bulkMessage = "Bulk abgeschlossen: {$verifiedCount} in Jamf verifiziert, {$asmSuccessCount} davon automatisch in ASM/ADE abgeschlossen, {$asmFailedCount} ASM-Fehler, {$pendingCount} warten auf ein Gerät, {$failedCount} Jamf-fehlgeschlagen/manuell, {$skippedCount} übersprungen.";
+            if ($mailReadyIds) {
+                $bulkAsmSerials = [];
+                $bulkLastIds = normalize_bulk_ids($mailReadyIds);
                 $_SESSION['bulk_last_ids'] = $bulkLastIds;
-                $_SESSION['bulk_last_step'] = 'asm';
+                $_SESSION['bulk_last_step'] = 'mail';
             }
         } elseif ($bulkAction === 'bulk_asm_release') {
             $successCount = 0;
             $failedCount = 0;
+            $dryRunCount = 0;
             $skippedCount = 0;
             $successfulIds = [];
             $successfulSerials = [];
@@ -1164,43 +1308,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $serial = trim((string) $bulkRow['serial']);
                 $isHistoryImport = (($bulkRow['completed_by'] ?? '') === 'history-import');
 
-                if ($isHistoryImport || empty($bulkRow['jamf_unenrolled']) || !empty($bulkRow['asm_manual_done']) || !empty($bulkRow['mail_sent']) || $serial === '') {
+                if (!disown_request_allows_asm($bulkRow) || $serial === '') {
                     $skippedCount++;
                     continue;
                 }
 
-                $asmBulkResult = asm_release_execute($serial);
-                $detailText = 'Seriennummer: ' . strtoupper($serial) . '; ' . ($asmBulkResult['message'] ?? '');
-
-                if (!empty($asmBulkResult['success']) && empty($asmBulkResult['dry_run'])) {
-                    $updateStmt = $mysqli->prepare(
-                        "UPDATE requests
-                         SET asm_manual_done = 1,
-                             asm_manual_done_at = NOW()
-                         WHERE id = ?"
-                    );
-                    if ($updateStmt) {
-                        $updateStmt->bind_param('i', $requestId);
-                        $updateStmt->execute();
-                        $updateStmt->close();
-                    }
-
-                    log_request_action($mysqli, $requestId, 'BULK_ASM_BROKER_RELEASE_SUCCESS', $detailText);
+                $asmBulkResult = execute_asm_release_and_persist($mysqli, $bulkRow, 'Quelle: Bulk-Wiederholung', true);
+                if (!empty($asmBulkResult['local_completed'])) {
                     $successCount++;
                     $successfulIds[] = $requestId;
                     $successfulSerials[] = strtoupper($serial);
                 } elseif (!empty($asmBulkResult['success']) && !empty($asmBulkResult['dry_run'])) {
-                    log_request_action($mysqli, $requestId, 'BULK_ASM_BROKER_RELEASE_DRYRUN', $detailText);
-                    $successCount++;
-                    $successfulIds[] = $requestId;
-                    $successfulSerials[] = strtoupper($serial);
+                    $dryRunCount++;
                 } else {
-                    log_request_action($mysqli, $requestId, 'BULK_ASM_BROKER_RELEASE_FAILED', $detailText);
                     $failedCount++;
                 }
             }
 
-            $bulkMessage = "Bulk-ASM/ADE abgeschlossen: {$successCount} automatisch freigegeben, {$failedCount} fehlgeschlagen, {$skippedCount} übersprungen.";
+            $bulkMessage = "Bulk-ASM/ADE abgeschlossen: {$successCount} automatisch freigegeben, {$failedCount} fehlgeschlagen, {$dryRunCount} nur geprüft, {$skippedCount} übersprungen.";
             if ($successfulIds) {
                 $bulkAsmSerials = [];
                 $bulkLastIds = normalize_bulk_ids($successfulIds);
@@ -1220,22 +1345,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $failedCount = 0;
             $skippedCount = 0;
             $mailConfig = null;
+            $mailConfigComplete = true;
 
             if (!$isDevMode) {
                 $mailConfig = disown_mail_config($mysqli);
-                if (!disown_mail_config_is_complete($mailConfig)) {
-                    $bulkError = 'SMTP-Konfiguration fehlt oder ist unvollständig. Bulk-Mail wurde nicht ausgeführt.';
-                }
+                $mailConfigComplete = disown_mail_config_is_complete($mailConfig);
             }
 
-            if ($bulkError === '') {
-                foreach ($bulkRows as $bulkRow) {
+            foreach ($bulkRows as $bulkRow) {
                     $requestId = (int) $bulkRow['id'];
                     $serial = trim((string) $bulkRow['serial']);
                     $deviceName = trim((string) $bulkRow['device_name']);
                     $isHistoryImport = (($bulkRow['completed_by'] ?? '') === 'history-import');
 
-                    if ($isHistoryImport || empty($bulkRow['jamf_unenrolled']) || empty($bulkRow['asm_manual_done']) || !empty($bulkRow['mail_sent'])) {
+                    if (!disown_request_allows_completion_mail($bulkRow)) {
                         $skippedCount++;
                         continue;
                     }
@@ -1252,6 +1375,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             $serial,
                             $deviceName,
                             'Keine gültige Empfängeradresse.'
+                        );
+                        $failedCount++;
+                        continue;
+                    }
+
+                    if (!$mailConfigComplete) {
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
+                        complete_request_with_mail_failure(
+                            $mysqli,
+                            $requestId,
+                            $recipient,
+                            $completedBy,
+                            $serial,
+                            $deviceName,
+                            'SMTP-Konfiguration unvollständig.'
                         );
                         $failedCount++;
                         continue;
@@ -1286,23 +1424,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $deliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients);
                     $auditDeliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients, true);
                     $mailState = $failedRecipients ? 2 : 1;
-
-                    $updateStmt = $mysqli->prepare(
-                        "UPDATE requests
-                         SET mail_sent = ?,
-                             mail_sent_at = NOW(),
-                             mail_sent_to = ?,
-                             status = 'erledigt',
-                             completed_at = NOW(),
-                             completed_by = ?
-                         WHERE id = ?"
-                    );
-                    if ($updateStmt) {
-                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
-                        $updateStmt->bind_param('issi', $mailState, $deliveryStatus, $completedBy, $requestId);
-                        $updateStmt->execute();
-                        $updateStmt->close();
-                    }
+                    $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
+                    persist_completion_mail_result($mysqli, $requestId, $mailState, $deliveryStatus, $completedBy);
 
                     $logAction = $isDevMode ? 'BULK_MAIL_SENT_DEV' : 'BULK_MAIL_SENT';
                     if (!$isDevMode && $failedRecipients && $successfulRecipients) {
@@ -1321,13 +1444,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     } else {
                         $successCount++;
                     }
-                }
-
-                $bulkMessage = "Bulk-Mail abgeschlossen: {$successCount} gesendet, {$failedCount} fehlgeschlagen, {$skippedCount} übersprungen.";
-                $bulkAsmSerials = [];
-                $bulkLastIds = [];
-                $bulkLastStep = '';
             }
+
+            $bulkMessage = "Bulk-Mail abgeschlossen: {$successCount} gesendet, {$failedCount} fehlgeschlagen, {$skippedCount} übersprungen. Mailfehler halten den fachlichen Abschluss nicht offen.";
+            $bulkAsmSerials = [];
+            $bulkLastIds = [];
+            $bulkLastStep = '';
         } else {
             $bulkError = 'Unbekannte Bulk-Aktion.';
         }
@@ -1349,25 +1471,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $sendDevice = trim($_POST['send_device'] ?? '');
         $sendSerial = trim($_POST['send_serial'] ?? '');
         $sendRequestId = (int) ($_POST['send_request_id'] ?? 0);
+        $mailRequest = null;
+        $mailWorkflowAllowed = false;
         if ($sendRequestId > 0) {
-            $recipientStmt = $mysqli->prepare('SELECT email, private_email FROM requests WHERE id = ? LIMIT 1');
-            if ($recipientStmt) {
-                $recipientStmt->bind_param('i', $sendRequestId);
-                $recipientStmt->execute();
-                $recipientRow = $recipientStmt->get_result()->fetch_assoc();
-                $recipientStmt->close();
-                if ($recipientRow) {
-                    $requestRecipients = request_mail_recipients($recipientRow);
-                    if ($requestRecipients) {
-                        $sendRecipients = $requestRecipients;
-                        $invalidRecipients = [];
-                        $sendRecipientList = implode(', ', $sendRecipients);
+            $mailRequest = load_request_for_action($mysqli, $sendRequestId);
+            if ($mailRequest) {
+                $mailWorkflowAllowed = disown_request_allows_completion_mail($mailRequest);
+                $sendSerial = (string) ($mailRequest['serial'] ?? '');
+                $sendDevice = (string) ($mailRequest['device_name'] ?? '');
+                $requestRecipients = request_mail_recipients($mailRequest);
+                if ($sendRecipients) {
+                    $allowedRecipients = array_map('strtolower', $requestRecipients);
+                    $unauthorizedRecipients = array_filter(
+                        $sendRecipients,
+                        static fn($address) => !in_array(strtolower((string) $address), $allowedRecipients, true)
+                    );
+                    if ($unauthorizedRecipients) {
+                        $invalidRecipients = array_merge($invalidRecipients, $unauthorizedRecipients);
                     }
                 }
             }
         }
 
-        if (!$sendRecipients || $invalidRecipients || $sendSubject === '' || $sendBody === '') {
+        if (!$mailWorkflowAllowed) {
+            if ($sendRequestId > 0) {
+                log_request_action($mysqli, $sendRequestId, 'COMPLETION_MAIL_DENIED', 'Jamf nicht verifiziert oder ASM/ADE nicht abgeschlossen.');
+            }
+            $mailError = 'Abschlussmail gesperrt: Jamf muss verifiziert und ASM/ADE erfolgreich abgeschlossen sein.';
+        } elseif (!$sendRecipients || $invalidRecipients || $sendSubject === '' || $sendBody === '') {
             if ($sendRequestId > 0) {
                 $completedBy = $currentAdminUser !== '' ? $currentAdminUser : ($isDevMode ? 'dev' : 'marc');
                 complete_request_with_mail_failure(
@@ -1380,25 +1511,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     'Empfänger, Betreff oder Nachricht ungültig.'
                 );
             }
-            $mailError = 'E-Mail-Adresse, Betreff oder Nachricht ungültig. Der Vorgang wurde trotzdem abgeschlossen und Mail rot markiert.';
+            $mailError = 'E-Mail-Adresse, Betreff oder Nachricht ungültig. Der Vorgang wurde trotzdem abgeschlossen; der Mailfehler ist protokolliert.';
         } elseif ($isDevMode) {
             if ($sendRequestId > 0) {
-                $updateStmt = $mysqli->prepare(
-                    "UPDATE requests
-                     SET mail_sent = 1,
-                         mail_sent_at = NOW(),
-                         mail_sent_to = ?,
-                         status = 'erledigt',
-                         completed_at = NOW(),
-                         completed_by = ?
-                     WHERE id = ?"
-                );
-                if ($updateStmt) {
-                    $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'dev';
-                    $updateStmt->bind_param('ssi', $sendRecipientList, $completedBy, $sendRequestId);
-                    $updateStmt->execute();
-                    $updateStmt->close();
-                }
+                $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'dev';
+                persist_completion_mail_result($mysqli, $sendRequestId, 1, $sendRecipientList, $completedBy);
 
                 log_request_action(
                     $mysqli,
@@ -1426,7 +1543,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         'SMTP-Konfiguration unvollständig.'
                     );
                 }
-                $mailError = 'SMTP-Konfiguration fehlt oder ist unvollständig. Der Vorgang wurde trotzdem abgeschlossen und Mail rot markiert.';
+                $mailError = 'SMTP-Konfiguration fehlt oder ist unvollständig. Der Vorgang wurde trotzdem abgeschlossen; der Mailfehler ist protokolliert.';
             } else {
                 try {
                     $successfulRecipients = [];
@@ -1443,24 +1560,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $deliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients);
                     $auditDeliveryStatus = format_mail_delivery_status($successfulRecipients, $failedRecipients, true);
                     $mailState = $failedRecipients ? 2 : 1;
-
                     if ($sendRequestId > 0) {
-                        $updateStmt = $mysqli->prepare(
-                            "UPDATE requests
-                             SET mail_sent = ?,
-                                 mail_sent_at = NOW(),
-                                 mail_sent_to = ?,
-                                 status = 'erledigt',
-                                 completed_at = NOW(),
-                                 completed_by = ?
-                             WHERE id = ?"
-                        );
-                        if ($updateStmt) {
-                            $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
-                            $updateStmt->bind_param('issi', $mailState, $deliveryStatus, $completedBy, $sendRequestId);
-                            $updateStmt->execute();
-                            $updateStmt->close();
-                        }
+                        $completedBy = $currentAdminUser !== '' ? $currentAdminUser : 'marc';
+                        persist_completion_mail_result($mysqli, $sendRequestId, $mailState, $deliveryStatus, $completedBy);
                     }
 
                     if ($sendRequestId > 0) {
@@ -1498,7 +1600,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             $e->getMessage()
                         );
                     }
-                    $mailError = 'SMTP-Fehler: ' . htmlspecialchars($e->getMessage()) . ' Der Vorgang wurde trotzdem abgeschlossen und Mail rot markiert.';
+                    $mailError = 'SMTP-Fehler: ' . htmlspecialchars($e->getMessage()) . ' Der Vorgang wurde trotzdem abgeschlossen; der Mailfehler ist protokolliert.';
                 }
             }
         }
@@ -1507,53 +1609,68 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     // NEW WORKFLOW: Jamf Unenroll
     if (isset($_POST['unenroll'])) {
         $unenrollId = (int) $_POST['unenroll'];
-        $unenrollSerial = trim($_POST['unenroll_serial'] ?? '');
+        $postedUnenrollSerial = strtoupper(trim((string) ($_POST['unenroll_serial'] ?? '')));
 
-        if ($unenrollId > 0 && $unenrollSerial !== '') {
+        if ($unenrollId > 0) {
             $unenrollRequest = load_request_for_action($mysqli, $unenrollId);
-            $allowSchoolLoan = $unenrollRequest ? request_is_admin_direct($unenrollRequest) : false;
-            $result = jamf_unenroll_by_serial($unenrollSerial, $allowSchoolLoan);
-            $message = $result['message'] ?? '';
-
-            if (!empty($result['success'])) {
-                $updateStmt = $mysqli->prepare(
-                    "UPDATE requests
-                     SET jamf_unenrolled = 1,
-                         jamf_unenrolled_at = NOW(),
-                         jamf_unenroll_error = NULL
-                     WHERE id = ?"
-                );
-                if ($updateStmt) {
-                    $updateStmt->bind_param('i', $unenrollId);
-                    $updateStmt->execute();
-                    $updateStmt->close();
-                }
-                log_request_action(
-                    $mysqli,
-                    $unenrollId,
-                    'JAMF_UNENROLL_SUCCESS',
-                    'Seriennummer: ' . $unenrollSerial . ($allowSchoolLoan ? '; Schulgeräte-Check per Admin-Sonderweg übersprungen' : '') . '; Meldung: ' . ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.')
-                );
-                $disownMessage = ($message ?: 'Gerät erfolgreich aus Jamf abgemeldet.') . ' Nächster Schritt: automatische ASM/ADE-Freigabe prüfen und starten.';
+            $unenrollSerial = strtoupper(trim((string) ($unenrollRequest['serial'] ?? '')));
+            if (!$unenrollRequest || $unenrollSerial === '') {
+                $disownError = 'Antrag oder gespeicherte Seriennummer wurde nicht gefunden.';
+            } elseif ($postedUnenrollSerial !== '' && $postedUnenrollSerial !== $unenrollSerial) {
+                log_request_action($mysqli, $unenrollId, 'JAMF_UNENROLL_REQUEST_REJECTED', 'Browser-Seriennummer stimmt nicht mit dem Antrag überein.');
+                $disownError = 'Die Seriennummer des Formulars stimmt nicht mit dem Antrag überein. Bitte Seite neu laden.';
             } else {
-                $updateStmt = $mysqli->prepare(
-                    "UPDATE requests
-                     SET jamf_unenroll_error = ?
-                     WHERE id = ?"
-                );
-                if ($updateStmt) {
-                    $errorText = $message ?: 'Unbekannter Fehler beim Jamf-Abruf.';
-                    $updateStmt->bind_param('si', $errorText, $unenrollId);
-                    $updateStmt->execute();
-                    $updateStmt->close();
+                $allowSchoolLoan = request_is_admin_direct($unenrollRequest);
+                $storedJamfState = disown_jamf_state_from_row($unenrollRequest);
+                if ($storedJamfState === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+                    $result = [
+                        'state' => DISOWN_JAMF_STATE_VERIFIED_UNMANAGED,
+                        'success' => true,
+                        'accepted' => false,
+                        'response_class' => 'already_verified',
+                        'message' => 'Jamf-Abmeldung ist bereits verifiziert.',
+                    ];
+                } elseif (in_array($storedJamfState, [DISOWN_JAMF_STATE_COMMAND_ACCEPTED, DISOWN_JAMF_STATE_PENDING_DEVICE, DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED], true)) {
+                    log_request_action($mysqli, $unenrollId, 'JAMF_UNENROLL_RECHECK_REQUESTED', 'Einzelaktion; nur read-only');
+                    $result = jamf_verify_unenroll_by_serial(
+                        $unenrollSerial,
+                        $unenrollRequest['jamf_command_accepted_at'] ?? null,
+                        false,
+                        $storedJamfState === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED
+                            || (int) ($unenrollRequest['jamf_check_attempts'] ?? 0) >= 5
+                    );
+                    $result['http_status'] = $result['observation']['active_http_status'] ?? null;
+                    $result['response_class'] = 'postcondition_recheck';
+                    $result['accepted'] = false;
+                } else {
+                    log_request_action($mysqli, $unenrollId, 'JAMF_UNENROLL_REQUESTED', $allowSchoolLoan ? 'Admin-Sonderweg' : 'Einzelaktion');
+                    $result = jamf_unenroll_by_serial($unenrollSerial, $allowSchoolLoan);
                 }
-                log_request_action(
-                    $mysqli,
-                    $unenrollId,
-                    'JAMF_UNENROLL_FAILED',
-                    'Seriennummer: ' . $unenrollSerial . ($allowSchoolLoan ? '; Schulgeräte-Check per Admin-Sonderweg übersprungen' : '') . '; Fehler: ' . ($message ?: 'Unbekannter Fehler beim Jamf-Abruf.')
-                );
-                $disownError = 'Unenroll fehlgeschlagen: ' . htmlspecialchars($message);
+                $state = persist_jamf_workflow_result($mysqli, $unenrollId, $result);
+                audit_jamf_workflow_result($mysqli, $unenrollId, $result, $allowSchoolLoan ? 'Admin-Sonderweg' : 'Einzelaktion');
+                $message = (string) ($result['message'] ?? '');
+
+                if ($state === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+                    $verifiedRequest = load_request_for_action($mysqli, $unenrollId);
+                    if ($verifiedRequest && !empty($verifiedRequest['asm_manual_done'])) {
+                        $disownMessage = $message . ' ASM/ADE ist bereits abgeschlossen; die Abschlussmail kann vorbereitet werden.';
+                    } elseif ($verifiedRequest) {
+                        $automaticAsmResult = execute_asm_release_and_persist($mysqli, $verifiedRequest, 'Automatisch nach Jamf-Verifikation');
+                        if (!empty($automaticAsmResult['local_completed'])) {
+                            $disownMessage = $message . ' ASM/ADE wurde anschließend automatisch abgeschlossen. Die Abschlussmail kann vorbereitet werden.';
+                        } else {
+                            $disownError = $message . ' Jamf ist verifiziert, aber ASM/ADE konnte nicht automatisch abgeschlossen werden: '
+                                . (string) ($automaticAsmResult['message'] ?? 'unbekannter Fehler')
+                                . ' Der ASM-Schritt kann separat erneut versucht werden.';
+                        }
+                    } else {
+                        $disownError = $message . ' Jamf ist verifiziert, aber der Antrag konnte für den automatischen ASM-Schritt nicht erneut geladen werden.';
+                    }
+                } elseif (in_array($state, [DISOWN_JAMF_STATE_COMMAND_ACCEPTED, DISOWN_JAMF_STATE_PENDING_DEVICE], true)) {
+                    $disownMessage = $message . ' ASM/ADE und Abschlussmail bleiben bis zur Verifikation gesperrt.';
+                } else {
+                    $disownError = $message !== '' ? $message : 'Jamf-Abmeldung konnte nicht bestätigt werden.';
+                }
             }
         } else {
             $disownError = 'Ungültige Unenroll-Anfrage. Bitte Seite neu laden und erneut versuchen.';
@@ -1569,8 +1686,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $disownError = 'Antrag wurde nicht gefunden.';
         } elseif (($row['completed_by'] ?? '') === 'history-import') {
             $disownError = 'Historische Importe können nicht automatisch freigegeben werden.';
-        } elseif (empty($row['jamf_unenrolled'])) {
-            $disownError = 'Bitte zuerst Jamf Unenroll ausführen.';
+        } elseif (disown_jamf_state_from_row($row) !== DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+            $disownError = 'ASM/ADE bleibt gesperrt, bis Jamf als nicht mehr verwaltet verifiziert wurde.';
         } elseif (!empty($row['asm_manual_done'])) {
             $disownError = 'ASM/ADE ist für diesen Antrag bereits abgeschlossen.';
         } else {
@@ -1588,16 +1705,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $disownError = 'Antrag wurde nicht gefunden.';
         } elseif (($row['completed_by'] ?? '') === 'history-import') {
             $disownError = 'Historische Importe können nicht automatisch freigegeben werden.';
-        } elseif (empty($row['jamf_unenrolled'])) {
-            $disownError = 'Bitte zuerst Jamf Unenroll ausführen.';
+        } elseif (disown_jamf_state_from_row($row) !== DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+            $disownError = 'ASM/ADE bleibt gesperrt, bis Jamf als nicht mehr verwaltet verifiziert wurde.';
         } elseif (!empty($row['asm_manual_done'])) {
             $disownError = 'ASM/ADE ist für diesen Antrag bereits abgeschlossen.';
         } else {
             $asmReleaseRequest = $row;
             $asmReleasePreview = asm_release_execute((string) $row['serial']);
             $detailText = 'Seriennummer: ' . strtoupper((string) $row['serial']) . '; ' . ($asmReleasePreview['message'] ?? '');
+            $assignmentAttempts = (int) ($asmReleasePreview['details']['assignment_attempts'] ?? 1);
+            if ($assignmentAttempts > 1) {
+                $detailText .= '; ASM-Zuweisungsprüfungen: ' . $assignmentAttempts;
+            }
 
-            if (!empty($asmReleasePreview['success']) && empty($asmReleasePreview['dry_run'])) {
+            $isDevFixture = !empty($asmReleasePreview['details']['dev_fixture']);
+            if (!empty($asmReleasePreview['success']) && (empty($asmReleasePreview['dry_run']) || $isDevFixture)) {
                 $updateStmt = $mysqli->prepare(
                     "UPDATE requests
                      SET asm_manual_done = 1,
@@ -1609,8 +1731,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $updateStmt->execute();
                     $updateStmt->close();
                 }
-                log_request_action($mysqli, $asmReleaseId, 'ASM_BROKER_RELEASE_SUCCESS', $detailText);
-                $disownMessage = 'ASM/ADE-Freigabe automatisch abgeschlossen.';
+                $alreadyReleased = !empty($asmReleasePreview['details']['already_released']);
+                log_request_action(
+                    $mysqli,
+                    $asmReleaseId,
+                    $isDevFixture
+                        ? 'ASM_DEV_SIMULATED'
+                        : ($alreadyReleased ? 'ASM_ALREADY_RELEASED_CONFIRMED' : 'ASM_BROKER_RELEASE_SUCCESS'),
+                    $detailText
+                );
+                $disownMessage = $isDevFixture
+                    ? 'DEV-Simulation erfolgreich: ASM/ADE wurde nur lokal als abgeschlossen markiert; extern wurde nichts geändert.'
+                    : ($alreadyReleased
+                    ? 'Die bereits erfolgte ASM/ADE-Freigabe wurde bestätigt und lokal abgeschlossen.'
+                    : 'ASM/ADE-Freigabe automatisch abgeschlossen.');
             } elseif (!empty($asmReleasePreview['success']) && !empty($asmReleasePreview['dry_run'])) {
                 $disownMessage = 'DEV-Dry-Run erfolgreich: In DEV wurde nichts in ASM/ADE geändert.';
             } else {
@@ -1623,30 +1757,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     // NEW WORKFLOW: ASM manual release confirmed
     if (isset($_POST['asm_manual_done'])) {
         $asmId = (int) $_POST['asm_manual_done'];
-        $asmSerial = trim($_POST['asm_serial'] ?? '');
-
-        if ($asmId > 0) {
-            $updateStmt = $mysqli->prepare(
-                "UPDATE requests
-                 SET asm_manual_done = 1,
-                     asm_manual_done_at = NOW()
-                 WHERE id = ?"
-            );
-            if ($updateStmt) {
-                $updateStmt->bind_param('i', $asmId);
-                $updateStmt->execute();
-                $updateStmt->close();
-            }
-            log_request_action(
-                $mysqli,
-                $asmId,
-                'ASM_MANUAL_DONE',
-                'Seriennummer: ' . ($asmSerial ?: 'unbekannt') . '; ASM/ADE-Freigabe per Notfallabschluss bestätigt.'
-            );
-            $disownMessage = 'ASM/ADE-Freigabe per Notfallabschluss als erledigt markiert.';
-        } else {
-            $disownError = 'Ungültige ASM-Anfrage.';
-        }
+        log_request_action($mysqli, max(0, $asmId), 'ASM_OVERRIDE_DENIED', 'Ungeschützter Notfallabschluss ist in DISOWN 2.6 deaktiviert.');
+        $disownError = 'Der bisherige Notfallabschluss ist deaktiviert. Ein Override wird erst mit Critical Mode, Begründung und ausdrücklicher Bestätigung verfügbar.';
     }
 
 }
@@ -1666,6 +1778,7 @@ $dashboard = [
     'waiting_jamf' => 0,
     'waiting_asm' => 0,
     'waiting_mail' => 0,
+    'reenrollment_alerts' => 0,
     'jamf_unenrolled' => 0,
     'asm_done' => 0,
     'mail_sent' => 0,
@@ -1683,6 +1796,7 @@ $dashboardStmt = $mysqli->prepare(
          COALESCE(SUM(CASE WHEN ({$dueCondition}) AND jamf_unenrolled = 0 THEN 1 ELSE 0 END), 0) AS waiting_jamf,
          COALESCE(SUM(CASE WHEN jamf_unenrolled = 1 AND asm_manual_done = 0 AND mail_sent = 0 THEN 1 ELSE 0 END), 0) AS waiting_asm,
          COALESCE(SUM(CASE WHEN asm_manual_done = 1 AND mail_sent = 0 THEN 1 ELSE 0 END), 0) AS waiting_mail,
+         COALESCE(SUM(CASE WHEN jamf_reenrollment_detected_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS reenrollment_alerts,
          COALESCE(SUM(CASE WHEN jamf_unenrolled = 1 THEN 1 ELSE 0 END), 0) AS jamf_unenrolled,
          COALESCE(SUM(CASE WHEN asm_manual_done = 1 THEN 1 ELSE 0 END), 0) AS asm_done,
          COALESCE(SUM(CASE WHEN mail_sent = 1 THEN 1 ELSE 0 END), 0) AS mail_sent,
@@ -1841,6 +1955,7 @@ if (($_GET['export'] ?? '') === 'requests_csv') {
              serial,
              status,
              jamf_unenrolled,
+             jamf_reenrollment_detected_at,
              asm_manual_done,
              mail_sent
          FROM requests
@@ -1880,6 +1995,7 @@ if (($_GET['export'] ?? '') === 'requests_csv') {
         'Seriennummer',
         'Antrag-Status',
         'Jamf-Unenroll',
+        'Jamf-Wiederanmeldung erkannt',
         'ASM-manuell',
         'Mailstatus',
     ]);
@@ -1898,6 +2014,7 @@ if (($_GET['export'] ?? '') === 'requests_csv') {
             $row['serial'],
             $row['status'],
             !empty($row['jamf_unenrolled']) ? 'ja' : 'nein',
+            $row['jamf_reenrollment_detected_at'] ?? '',
             !empty($row['asm_manual_done']) ? 'ja' : 'nein',
             mail_status_label($row['mail_sent']),
         ]);
@@ -1921,6 +2038,11 @@ $result = $mysqli->prepare(
          serial,
          status,
          jamf_unenrolled,
+         jamf_unenroll_state,
+         jamf_command_accepted_at,
+         jamf_check_attempts,
+         jamf_command_status,
+         jamf_reenrollment_detected_at,
          jamf_unenrolled_at,
          jamf_unenroll_error,
          asm_manual_done,
@@ -2157,6 +2279,7 @@ if ($pageSerials) {
         <span class="dashboard-stat warn <?= (int) $dashboard['waiting_jamf'] === 0 ? 'zero' : '' ?>">Jamf <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_jamf'])?></span></span>
         <span class="dashboard-stat warn <?= (int) $dashboard['waiting_asm'] === 0 ? 'zero' : '' ?>">ASM <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_asm'])?></span></span>
         <span class="dashboard-stat warn <?= (int) $dashboard['waiting_mail'] === 0 ? 'zero' : '' ?>">Mail <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['waiting_mail'])?></span></span>
+        <span class="dashboard-stat danger <?= (int) $dashboard['reenrollment_alerts'] === 0 ? 'zero' : '' ?>">Wiederanmeldung <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['reenrollment_alerts'])?></span></span>
         <span class="dashboard-stat info <?= (int) $dashboard['school_year_total'] === 0 ? 'zero' : '' ?>">Anträge aktuelles Schuljahr <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['school_year_total'])?></span></span>
         <span class="dashboard-stat done <?= (int) $dashboard['done_requests'] === 0 ? 'zero' : '' ?>">Erledigt <span class="dashboard-stat-value"><?=htmlspecialchars((string) $dashboard['done_requests'])?></span></span>
         <span class="dashboard-stat info <?= $avgAdminProcessingText === '–' ? 'zero' : '' ?>"><span class="dashboard-stat-small">Ø Admin-Zeit</span> <span class="dashboard-stat-value"><?=htmlspecialchars($avgAdminProcessingText)?></span></span>
@@ -2245,7 +2368,7 @@ if ($pageSerials) {
         <div class="bulk-toolbar" aria-label="Massenverarbeitung">
             <span class="bulk-status" id="bulkSelectionStatus">Keine Anträge ausgewählt</span>
             <button type="button" id="bulkJamfButton" class="button button-secondary" onclick="submitBulkAction('bulk_jamf_unenroll')" disabled>Jamf für Auswahl</button>
-            <button type="button" id="bulkCopyButton" class="button button-secondary bulk-serials-button" onclick="showBulkAsmList()" title="Nur fuer manuelle Kontrolle oder Notfall-Abschluss" disabled>Seriennummern</button>
+            <button type="button" id="bulkCopyButton" class="button button-secondary bulk-serials-button" onclick="showBulkAsmList()" title="Nur für manuelle Kontrolle" disabled>Seriennummern</button>
             <button type="button" id="bulkAsmButton" class="button button-secondary" onclick="submitBulkAction('bulk_asm_release')" disabled>ASM/ADE für Auswahl</button>
             <button type="button" id="bulkMailButton" class="button button-secondary" onclick="submitBulkAction('bulk_mail_send')" disabled>Mail für Auswahl</button>
         </div>
@@ -2256,7 +2379,7 @@ if ($pageSerials) {
         <div class="preview-header">
             <div>
                 <h2>Notfall-Seriennummern</h2>
-                <p class="preview-subtitle">Normaler Ablauf: ASM/ADE läuft automatisch über den Release Broker. Diese Liste ist nur für manuelle Kontrolle oder Notfall-Abschluss.</p>
+                <p class="preview-subtitle">Normaler Ablauf: ASM/ADE läuft automatisch über den Release Broker. Diese Liste ist nur für manuelle Kontrolle.</p>
             </div>
             <button type="button" class="button button-secondary small-button" onclick="hideBulkAsmList()">Schließen</button>
         </div>
@@ -2352,12 +2475,6 @@ if ($pageSerials) {
                             <?= $isDevMode ? 'Dry-Run erneut testen' : 'Jetzt ASM/ADE freigeben' ?>
                         </button>
                     </form>
-                    <form method="post" onsubmit="showSingleWorking('Notfall-Abschluss wird gespeichert. Bitte warten und die Seite nicht neu laden.'); openAsmBeforeSubmit()">
-                        <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars((string) ($asmReleaseRequest['id'] ?? 0))?>">
-                        <input type="hidden" name="asm_serial" value="<?=htmlspecialchars((string) ($asmReleaseRequest['serial'] ?? ''))?>">
-                        <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                        <button type="submit" class="button button-secondary">Notfall-Abschluss</button>
-                    </form>
                 </div>
             <?php endif; ?>
         </div>
@@ -2409,8 +2526,8 @@ if ($pageSerials) {
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <?php
-                        $bulkMailSent = !empty($row['mail_sent']);
-                        $bulkJamfDone = !empty($row['jamf_unenrolled']);
+                        $bulkMailSent = (int) ($row['mail_sent'] ?? 0) === 1;
+                        $bulkJamfDone = disown_jamf_state_from_row($row) === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED;
                         $bulkAsmDone = !empty($row['asm_manual_done']);
                         $bulkIsHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
                         $bulkSelectable = $canWrite && !$bulkIsHistoryImport && !$bulkMailSent;
@@ -2550,9 +2667,13 @@ if ($pageSerials) {
                             $mailSent = $mailState !== 0;
                             $mailFailed = $mailState === 2;
                             $jamfUnenrolled = !empty($row['jamf_unenrolled']);
+                            $jamfWorkflowState = disown_jamf_state_from_row($row);
+                            $jamfPending = in_array($jamfWorkflowState, [DISOWN_JAMF_STATE_COMMAND_ACCEPTED, DISOWN_JAMF_STATE_PENDING_DEVICE], true);
+                            $jamfManual = $jamfWorkflowState === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED;
+                            $jamfFailed = $jamfWorkflowState === DISOWN_JAMF_STATE_FAILED;
                             $asmManualDone = !empty($row['asm_manual_done']);
                             $isHistoryImport = (($row['completed_by'] ?? '') === 'history-import');
-                            $jamfStepDone = $isHistoryImport || $jamfUnenrolled;
+                            $jamfStepDone = $isHistoryImport || $jamfWorkflowState === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED;
                             $asmStepDone = $isHistoryImport || $asmManualDone;
                             $mailStepDone = $isHistoryImport || $mailSent;
                             $isOpen = ($status === 'offen');
@@ -2576,6 +2697,16 @@ if ($pageSerials) {
                         </div>
                         <?php if (!$isHistoryImport && $mailSent && (!$jamfUnenrolled || !$asmManualDone)): ?>
                             <div class="process-warning">🟠 Mail vor Abschluss versendet</div>
+                        <?php endif; ?>
+                        <?php if (!$isHistoryImport && $jamfPending): ?>
+                            <div class="process-warning">Jamf: wartet auf Gerät · ASM/Mail gesperrt</div>
+                        <?php elseif (!$isHistoryImport && $jamfManual): ?>
+                            <div class="process-error">Jamf: manuelle Verifizierung erforderlich</div>
+                        <?php elseif (!$isHistoryImport && $jamfFailed): ?>
+                            <div class="process-error">Jamf: Anfrage fehlgeschlagen</div>
+                        <?php endif; ?>
+                        <?php if (!empty($row['jamf_reenrollment_detected_at'])): ?>
+                            <div class="process-error">Jamf: spätere Wiederanmeldung erkannt · keine automatische Aktion</div>
                         <?php endif; ?>
                         <?php if (!$isHistoryImport && $mailFailed): ?>
                             <div class="process-error">Mailversand fehlgeschlagen</div>
@@ -2609,29 +2740,23 @@ if ($pageSerials) {
                             <?php endif; ?>
 
                             <?php if ($canWrite && !$isHistoryImport && !$jamfUnenrolled): ?>
-                                <form method="post" class="action-form" onsubmit="showSingleWorking('ASM/ADE-Prüfung läuft. Bitte warten und die Seite nicht neu laden.')">
+                                <form method="post" class="action-form" onsubmit="showSingleWorking('Jamf-Prüfung und gegebenenfalls automatische ASM/ADE-Freigabe laufen. Bitte warten und die Seite nicht neu laden.')">
                                     <input type="hidden" name="unenroll" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="unenroll_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                                    <button type="submit" class="button button-primary">Jamf Unenroll</button>
+                                    <button type="submit" class="button button-primary"><?= ($jamfPending || $jamfManual) ? 'Jamf read-only prüfen' : 'Jamf Unenroll' ?></button>
                                 </form>
                             <?php endif; ?>
 
-                            <?php if ($canWrite && !$isHistoryImport && $jamfUnenrolled && !$asmManualDone): ?>
+                            <?php if ($canWrite && !$isHistoryImport && $jamfWorkflowState === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED && !$asmManualDone): ?>
                                 <form method="post" class="action-form">
                                     <input type="hidden" name="asm_release_preview" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
                                     <button type="submit" class="button button-primary">ASM prüfen</button>
                                 </form>
-                                <form method="post" class="action-form" onsubmit="showSingleWorking('Notfall-Abschluss wird gespeichert. Bitte warten und die Seite nicht neu laden.'); openAsmBeforeSubmit()">
-                                    <input type="hidden" name="asm_manual_done" value="<?=htmlspecialchars($row['id'])?>">
-                                    <input type="hidden" name="asm_serial" value="<?=htmlspecialchars($row['serial'])?>">
-                                    <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                                    <button type="submit" class="button button-secondary">Notfall-Abschluss</button>
-                                </form>
                             <?php endif; ?>
 
-                            <?php if ($canWrite && !$isHistoryImport && $asmManualDone && !$mailSent): ?>
+                            <?php if ($canWrite && !$isHistoryImport && $asmManualDone && $mailState !== 1): ?>
                                 <button type="button" class="button button-primary" onclick="showMailPreview(this)"
                                     data-id="<?=htmlspecialchars($row['id'])?>"
                                     data-name="<?=htmlspecialchars($row['full_name'])?>"
@@ -2786,6 +2911,7 @@ if ($pageSerials) {
                         <span><strong>IServ</strong><?=htmlspecialchars($adminDirectPreview['username'] ?: 'nicht gesetzt')?></span>
                         <span><strong>E-Mail</strong><?=htmlspecialchars($adminDirectPreview['email'] ?: 'nicht gesetzt')?></span>
                         <span><strong>Asset-Tag</strong><?=htmlspecialchars($adminDirectPreview['asset_tag'] ?: 'nicht gesetzt')?></span>
+                        <span><strong>Jamf-Status</strong><?=($adminDirectPreview['jamf_state'] ?? '') === 'trash' ? 'Papierkorb' : 'Aktiv'?></span>
                     </div>
                     <?php if (!empty($adminDirectPreview['school_loan_reasons'])): ?>
                         <div class="admin-direct-warning">Schulgeräte-Erkennung: <?=htmlspecialchars(implode(', ', $adminDirectPreview['school_loan_reasons']))?>. Dieser Sonderweg darf das bewusst umgehen.</div>
@@ -2811,8 +2937,14 @@ if ($pageSerials) {
                             <input class="preview-input" name="admin_direct_private_email" type="text" inputmode="email" autocomplete="new-password" autocapitalize="none" spellcheck="false" value="<?=htmlspecialchars($adminDirectForm['private_email'])?>">
                         </label>
                     </div>
+                    <?php if (($adminDirectPreview['jamf_state'] ?? '') === 'trash'): ?>
+                        <label class="admin-direct-trash-confirmation">
+                            <input type="checkbox" name="admin_direct_confirm_trash" value="1" required>
+                            <span>Trash-Datensatz als unbestätigte Beobachtung übernehmen; der Jamf-Schritt bleibt bis zur manuellen Verifizierung gesperrt.</span>
+                        </label>
+                    <?php endif; ?>
                     <div class="admin-direct-actions">
-                        <span class="preview-subtitle">Der Antrag erscheint danach unten in der Tabelle. Jamf, ASM/ADE und Mail laufen über die normalen Admin-Schritte.</span>
+                        <span class="preview-subtitle"><?=(($adminDirectPreview['jamf_state'] ?? '') === 'trash') ? 'Der Antrag wird als manuell zu verifizieren angelegt. ASM/ADE und Mail bleiben gesperrt.' : 'Der Antrag erscheint danach unten in der Tabelle. Jamf, ASM/ADE und Mail laufen über die normalen Admin-Schritte.'?></span>
                         <span class="admin-direct-action-buttons">
                             <a class="button button-secondary" href="<?=htmlspecialchars(admin_url(['page' => 1, 'export' => null]))?>">Abbrechen</a>
                             <button type="submit" class="button button-primary">Antrag anlegen</button>

@@ -4,11 +4,12 @@
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.4 ergänzt ein Einstellungsportal mit Critical Mode und eng begrenztem Root-Helper; seit Version 2.0 automatisiert DISOWN den Ablauf bis zur Apple-ADE/ASM-Freigabe ueber einen lokalen Release Broker.
+Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Die in DEV vorbereitete Version 2.6 verifiziert die tatsächliche Jamf-Abmeldung, bevor ASM/ADE freigegeben wird. Version 2.4 ist weiterhin der aktuelle Produktionsstand.
 
 ## Stand
 
 - Version: `2.4`
+- Entwicklung: `2.6-dev`
 - Datum: `16. Juli 2026`
 - Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
 - Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
@@ -21,7 +22,7 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 - Adminportal mit beruhigter Auto-Suche, Statusfiltern, Bulk-Verarbeitung, Kennzahlen, Jahresverlauf und Jamf-Lizenztrend.
 - Admin-Sonderfreigabe fuer defekte Geraete per Seriennummer, mit bewusster Einzelfall-Pruefung und ohne Bulk/WebClip-Bypass.
 - Release-Broker-Status inklusive ADE-Token-Ablauf im Admin-Dashboard.
-- Automatischer Jamf-Unenroll per Jamf-School-API.
+- Zustandsbasierter Jamf-Unenroll mit strenger Antwortprüfung, read-only Post-Condition, Pending-/Retry-Zustand und Wiederanmeldungserkennung.
 - Automatische ASM/ADE-Freigabe per Apple School Manager Public API und lokalem NanoDEP Release Broker.
 - Abschlussmail an schulische und private E-Mail-Adresse; der Prozess wird auch bei Teilfehlern abgeschlossen und der Mailstatus wird rot markiert.
 - Klärfall-Notizen zu einzelnen Geraeten, lokal in der Datenbank.
@@ -56,8 +57,8 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 ## Standardablauf
 
 1. Schuelerin oder Schueler stellt den Antrag ueber den Webclip.
-2. Admin fuehrt den Jamf-Unenroll aus.
-3. Das System weist genau dieses Geraet per ASM Public API dem Release Broker zu.
+2. Admin fuehrt den Jamf-Unenroll aus; DISOWN verifiziert read-only, dass das Gerät nicht mehr verwaltet wird.
+3. Erst danach weist das System genau dieses Geraet automatisch per ASM Public API dem Release Broker zu.
 4. Der lokale NanoDEP Release Broker fuehrt den ADE/DEP-Disown aus.
 5. Das System kontrolliert, dass das Geraet danach fuer den Broker nicht mehr erreichbar ist.
 6. Abschlussmail wird an alle vorhandenen Empfaengeradressen gesendet.
@@ -73,13 +74,13 @@ Nur dieser Admin-Sonderweg darf den Schulgeraete-Blocker bewusst ueberspringen. 
 
 ## Bulk-Workflow
 
-Der Bulk-Ablauf bleibt bewusst schrittweise:
+Der Bulk-Ablauf bewertet jedes Gerät getrennt:
 
 1. Antraege markieren.
-2. `Jamf fuer Auswahl` ausfuehren.
-3. Seriennummernliste wird kopierbar angezeigt und im Audit-Log protokolliert.
-4. `ASM/ADE fuer Auswahl` automatisiert die Apple-Freigabe ueber den Release Broker.
-5. `Mail fuer Auswahl` sendet die vorbereiteten Abschlussmails.
+2. `Jamf fuer Auswahl` ausfuehren. Verifizierte Geräte werden direkt danach automatisch per ASM/ADE freigegeben.
+3. Pending-, Fehler- und manuelle Fälle bleiben pro Gerät gesperrt und können read-only erneut geprüft werden.
+4. `ASM/ADE fuer Auswahl` bleibt nur als gezielte Wiederholung für zuvor fehlgeschlagene ASM-Schritte verfügbar.
+5. `Mail fuer Auswahl` sendet die vorbereiteten Abschlussmails für erfolgreich abgeschlossene Geräte.
 
 Die Auswahl bleibt bis zum Mail-Schritt erhalten. Erst nach dem Mailversand wird automatisch abgewählt. Das verhindert, dass Admins nach dem Jamf-Schritt Seriennummern oder Empfaenger vergessen.
 
@@ -157,6 +158,7 @@ Kurzfassung:
 
 - `2.4`: Einstellungsportal mit E-Mail-Push-, SMTP-, Job-, Sicherheits- und Systembereichen; Critical Mode schützt Root-Helper-Aktionen mit separatem Kennwort, kurzer Laufzeit und Audit-Log.
 - `2.4` Nachpflege: Vollständig unbearbeitete Fehlanträge können ausschließlich unter Einstellungen → System → Werkzeuge mit Critical Mode, Antrag-ID und Bestätigung gelöscht werden; die Löschung bleibt im Audit-Log dokumentiert.
+- `2.4` Nachpflege 2026-08-21: Reine E-Mail-Push-Ereignisse gelten bei der Antragslöschung nicht mehr als Bearbeitung. Workflowstatus, Fehler, Klärfälle und alle nicht ausdrücklich tolerierten Auditaktionen sperren die Löschung weiterhin.
 - `2.4` Nachpflege: Backup-Status und neue Code-/DB-Sicherungen sind über Critical Mode und den fest begrenzten Root-Helper im Einstellungsportal verfügbar.
 - `2.3`: Schaltbarer E-Mail-Push fuer neue WebClip-Antraege; Adminportal speichert den Ein/Aus-Zustand in `app_settings`, Empfaenger bleiben in `/etc/disown/notify.conf`.
 - `2.2`: Visuelles Release mit polierter Admin-Tabelle, ausgewaehlten Zeilen, deutlicheren Aktionen und vereinheitlichtem Look fuer Admin, ADE-Aufnahmen, Audit-Log und KUK.

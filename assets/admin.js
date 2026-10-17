@@ -181,7 +181,7 @@ function submitBulkAction(action) {
 function showBulkWorking(action, count) {
     const message = document.getElementById('bulkWorkingMessage');
     const texts = {
-        bulk_jamf_unenroll: `${count} Gerät(e) werden in Jamf abgemeldet. Bitte warten und die Seite nicht neu laden.`,
+        bulk_jamf_unenroll: `${count} Gerät(e) werden in Jamf geprüft und bei bestätigter Abmeldung automatisch in ASM/ADE freigegeben. Bitte warten und die Seite nicht neu laden.`,
         bulk_asm_release: `${count} Gerät(e) werden automatisch per ASM/ADE Release Broker freigegeben. Bitte warten und die Seite nicht neu laden.`,
         bulk_mail_send: `${count} vorbereitete Mail(s) werden versendet. Bitte warten und die Seite nicht neu laden.`
     };

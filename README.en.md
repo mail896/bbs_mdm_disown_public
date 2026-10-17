@@ -4,11 +4,12 @@
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.4 adds a settings portal with Critical Mode and a narrowly scoped root helper; since version 2.0 DISOWN automates the workflow through Apple ADE/ASM release by using a local release broker.
+Web application for handling former student iPad returns and releases at BBS Einbeck. Development version 2.6 verifies the actual Jamf unenrollment before allowing ASM/ADE release. Version 2.4 remains the current production release.
 
 ## Status
 
 - Version: `2.4`
+- Development: `2.6-dev`
 - Date: `16 July 2026`
 - Production path: `/var/www/sicher.bbs-einbeck.de/disown`
 - Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
@@ -21,7 +22,7 @@ Web application for handling former student iPad returns and releases at BBS Ein
 - Admin portal with calmer auto-search, status filters, bulk workflow, metrics, rolling 12-month view and Jamf license estimate.
 - Admin special release for defective devices by serial number, with explicit single-device review and without bypassing WebClip or bulk safeguards.
 - Release broker status including ADE token expiration in the admin dashboard.
-- Automated Jamf unenroll through the Jamf School API.
+- State-based Jamf unenroll with strict response validation, a read-only post-condition, pending/retry handling and reenrollment detection.
 - Automated ASM/ADE release through the Apple School Manager Public API and a local NanoDEP release broker.
 - Completion mail to school and private email addresses; partial mail failures are shown in red but the request can still be completed.
 - Local clarification notes for individual devices.
@@ -56,8 +57,8 @@ Web application for handling former student iPad returns and releases at BBS Ein
 ## Standard Workflow
 
 1. The student submits a request through the WebClip.
-2. An admin performs the Jamf unenroll.
-3. The system assigns exactly this device to the release broker through the ASM Public API.
+2. An admin performs the Jamf unenroll; DISOWN verifies read-only that the device is no longer managed.
+3. Only then does the system automatically assign exactly this device to the release broker through the ASM Public API.
 4. The local NanoDEP release broker performs the ADE/DEP disown call.
 5. The system verifies that the broker can no longer access the device afterwards.
 6. Completion mail is sent to all available recipient addresses.
@@ -73,13 +74,13 @@ Only this admin-only path may intentionally bypass the school-device blocker. We
 
 ## Bulk Workflow
 
-Bulk processing intentionally remains step-based:
+Bulk processing evaluates every device independently:
 
 1. Select requests.
-2. Run `Jamf fuer Auswahl`.
-3. The serial-number list is shown for copying and written to the audit log.
-4. Run `ASM/ADE fuer Auswahl` to release the devices through the release broker.
-5. Run `Mail fuer Auswahl` to send the prepared completion mails.
+2. Run `Jamf fuer Auswahl`. Devices that pass verification continue automatically through ASM/ADE release.
+3. Pending, failed and manual-review devices remain blocked per device and can be checked again read-only.
+4. `ASM/ADE fuer Auswahl` remains available only as a targeted retry for a previously failed ASM step.
+5. Run `Mail fuer Auswahl` for devices whose Jamf and ASM/ADE steps completed successfully.
 
 The selection is kept until the mail step has finished. This prevents admins from losing the selected devices between Jamf, ASM/ADE and mail.
 
@@ -154,6 +155,7 @@ Short version:
 
 - `2.4`: settings portal for email push, SMTP, jobs, security and system operations; Critical Mode protects root-helper actions with a separate password, short lifetime and audit logging.
 - `2.4` maintenance: Completely untouched accidental requests can only be deleted from Settings → System → Tools with Critical Mode, request ID and explicit confirmation while retaining an audit record.
+- `2.4` maintenance 2026-08-21: Informational push-mail events no longer count as request processing for deletion eligibility. Workflow state, errors, linked cases and every audit action not explicitly allowed still block deletion.
 - `2.4` maintenance: Backup status and new code/database backups are available in the settings portal through Critical Mode and the narrowly scoped root helper.
 - `2.3`: Switchable email push for new WebClip requests; the admin portal stores the on/off state in `app_settings`, recipients stay in `/etc/disown/notify.conf`.
 - `2.2`: Visual release with a polished admin table, selected-row treatment, clearer actions and a unified look for admin, ADE intake, audit log and KUK.
