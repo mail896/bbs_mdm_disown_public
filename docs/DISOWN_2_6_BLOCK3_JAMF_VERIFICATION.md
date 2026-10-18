@@ -21,11 +21,13 @@ Der Task Manager verarbeitet dokumentiert nur bestimmte Hintergrundaktionen. Ein
 5. Ein aktuelles `isManaged=false` beim exakten Active-Datensatz kann direkt verifizieren.
 6. Trash allein verifiziert nichts. `isManaged` und `lastCheckin` aus Trash bleiben nur Diagnosewerte.
 7. Active-Abwesenheit, zeitlich passender Trash-Übergang und ein separat belegter terminal erfolgreicher Command-Status können gemeinsam verifizieren.
-8. Ohne diesen Nachweis bleibt der Vorgang `pending_device`; nach fünf ergebnislosen Prüfungen folgt `manual_intervention_required`.
-9. „Erneut prüfen“ ist read-only und sendet keinen zweiten Unenroll-Befehl.
-10. Nur `verified_unmanaged` setzt den kompatiblen Alt-Bool `jamf_unenrolled=1`.
-11. Auch `manual_intervention_required` bleibt read-only erneut prüfbar. Ein späterer eindeutiger `isManaged=false`-Nachweis kann den Vorgang fortsetzen; ohne Nachweis bleibt er manuell gesperrt.
-12. Ein stündlicher read-only Lauf kann abgeschlossene Seriennummern erneut prüfen. Wird ein exakter Active-Datensatz später wieder mit `isManaged=true` beobachtet, setzt DISOWN ausschließlich das persistente Abweichungsflag `jamf_reenrollment_detected_at` und schreibt `JAMF_REENROLLMENT_DETECTED` mit dem technischen Akteur `system:jamf-readonly-check`. Es erfolgt keine automatische Löschung, Freigabe oder Wiederherstellung.
+8. Wenn Jamf keinen separat abfragbaren Command-Status liefert, kann auch die streng korrelierte Kombination aus bestätigter Befehlsannahme, autoritativ leerem Active-Bestand, zeitlich passendem Trash-Übergang, explizitem `isManaged=false` und einem `lastCheckin` nach der Befehlsannahme verifizieren. Kein einzelnes Trash-Feld genügt dafür.
+9. Direkt nach der Befehlsannahme führt DISOWN bis zu vier kurze read-only Beobachtungen aus. Dadurch wird ein schneller asynchroner Abschluss ohne zusätzlichen Admin-Klick erkannt; ein zweiter Unenroll-Befehl wird nie gesendet.
+10. Ohne einen der beiden Nachweise bleibt der Vorgang `pending_device`; nach fünf ergebnislosen späteren Prüfungen folgt `manual_intervention_required`.
+11. „Status prüfen“ ist read-only und sendet keinen zweiten Unenroll-Befehl.
+12. Nur `verified_unmanaged` setzt den kompatiblen Alt-Bool `jamf_unenrolled=1`.
+13. Auch `manual_intervention_required` bleibt read-only erneut prüfbar. Ein späterer eindeutiger Nachweis kann den Vorgang fortsetzen; ohne Nachweis bleibt er manuell gesperrt.
+14. Ein stündlicher read-only Lauf kann abgeschlossene Seriennummern erneut prüfen. Wird ein exakter Active-Datensatz später wieder mit `isManaged=true` beobachtet, setzt DISOWN ausschließlich das persistente Abweichungsflag `jamf_reenrollment_detected_at` und schreibt `JAMF_REENROLLMENT_DETECTED` mit dem technischen Akteur `system:jamf-readonly-check`. Es erfolgt keine automatische Löschung, Freigabe oder Wiederherstellung.
 
 ## DEV-Sicherheit
 
@@ -50,6 +52,8 @@ Abgedeckt sind insbesondere:
 - bereits unmanaged;
 - bereits im Trash ohne Nachweis;
 - Incident `HTTP 200 → offline → späterer Kontakt → Trash mit stale isManaged=true`;
+- schneller Abschluss `HTTP 200 → Active leer → frischer Trash mit isManaged=false und neuem lastCheckin`;
+- begrenzte automatische read-only Nachprüfung ohne zweiten Unenroll-Befehl;
 - derselbe Incident mit zusätzlichem terminalen Command-Nachweis;
 - Retry-Limit und manuelle Verifizierung;
 - Pending-Persistenz setzt weder Erfolgs-Bool noch Fehlertext;

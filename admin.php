@@ -2744,7 +2744,7 @@ if ($pageSerials) {
                                     <input type="hidden" name="unenroll" value="<?=htmlspecialchars($row['id'])?>">
                                     <input type="hidden" name="unenroll_serial" value="<?=htmlspecialchars($row['serial'])?>">
                                     <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-                                    <button type="submit" class="button button-primary"><?= ($jamfPending || $jamfManual) ? 'Jamf read-only prüfen' : 'Jamf Unenroll' ?></button>
+                                    <button type="submit" class="button button-primary" title="<?= ($jamfPending || $jamfManual) ? 'Jamf-Status read-only erneut prüfen' : 'Gerät in Jamf abmelden' ?>"><?= ($jamfPending || $jamfManual) ? 'Status prüfen' : 'Jamf Unenroll' ?></button>
                                 </form>
                             <?php endif; ?>
 

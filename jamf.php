@@ -654,7 +654,10 @@ function jamf_evidence_from_observation(
         'trash_changed_after_command' => $trashLookupOk
             && !empty($trash['found'])
             && jamf_timestamp_is_after($trash['modified'] ?? null, $commandAcceptedAt),
-        // Stored for diagnosis only. Trash snapshot values never become direct proof.
+        'trash_last_checkin_after_command' => $trashLookupOk
+            && !empty($trash['found'])
+            && jamf_timestamp_is_after($trash['last_checkin'] ?? null, $commandAcceptedAt),
+        // Trash values only qualify as part of the correlated transition above.
         'trash_is_managed' => $trash['is_managed'] ?? null,
         'trash_last_checkin' => $trash['last_checkin'] ?? null,
     ];
@@ -738,7 +741,9 @@ function jamf_unenroll_by_serial(
     string $serial,
     bool $allowSchoolLoan = false,
     ?callable $transport = null,
-    ?array $cfg = null
+    ?array $cfg = null,
+    ?int $postCommandPollAttempts = null,
+    int $postCommandPollDelayMs = 750
 ): array
 {
     $serial = strtoupper(trim($serial));
@@ -861,8 +866,21 @@ function jamf_unenroll_by_serial(
     }
 
     $acceptedAt = date('Y-m-d H:i:s');
-    $after = jamf_observe_serial($serial, $transport, $cfg);
-    $verified = jamf_verification_result($after, true, $acceptedAt);
+    $pollAttempts = $postCommandPollAttempts ?? ($transport === null ? 4 : 1);
+    $pollAttempts = max(1, min(6, $pollAttempts));
+    $postCommandPollDelayMs = max(0, min(2000, $postCommandPollDelayMs));
+    $after = [];
+    $verified = [];
+    for ($pollAttempt = 1; $pollAttempt <= $pollAttempts; $pollAttempt++) {
+        if ($pollAttempt > 1 && $postCommandPollDelayMs > 0) {
+            usleep($postCommandPollDelayMs * 1000);
+        }
+        $after = jamf_observe_serial($serial, $transport, $cfg);
+        $verified = jamf_verification_result($after, true, $acceptedAt);
+        if (($verified['state'] ?? '') === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+            break;
+        }
+    }
 
     return array_merge($verified, [
         'accepted' => true,
@@ -871,6 +889,7 @@ function jamf_unenroll_by_serial(
         'command_id' => $command['command_id'],
         'command_status' => $command['command_status'],
         'command_accepted_at' => $acceptedAt,
+        'post_command_poll_attempts' => $pollAttempt,
         'observation' => $after,
     ]);
 }

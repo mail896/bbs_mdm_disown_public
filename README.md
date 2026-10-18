@@ -88,7 +88,8 @@ Die Auswahl bleibt bis zum Mail-Schritt erhalten. Erst nach dem Mailversand wird
 - HTTP `200` bedeutet nur, dass Jamf den Unenroll-Befehl angenommen hat.
 - Ein aktiver Datensatz mit `isManaged=false` gilt als direkt verifiziert.
 - Ein Wechsel aus dem aktiven Bestand in den Trash gilt nicht allein als Erfolg, weil `lastCheckin` und `isManaged` dort veraltet sein koennen.
-- Ein spaeterer Trash-Uebergang wird nur zusammen mit einem terminalen Command-Status als Abschluss gewertet; fehlt dieser Nachweis, bleibt der Vorgang `pending` oder wird nach dem Retry-Limit zur manuellen Verifizierung markiert.
+- Ein spaeterer Trash-Uebergang wird zusammen mit einem terminalen Command-Status oder einer streng korrelierten frischen Kombination aus Active-Abwesenheit, `isManaged=false`, Änderungszeitpunkt und neuem `lastCheckin` als Abschluss gewertet; fehlt beides, bleibt der Vorgang `pending` oder wird nach dem Retry-Limit zur manuellen Verifizierung markiert.
+- Bis zu vier kurze read-only Nachprüfungen direkt nach der Befehlsannahme erkennen schnelle asynchrone Abschlüsse ohne zusätzlichen Admin-Klick und ohne zweiten Unenroll-Befehl.
 - Erneute Registrierung ist weder automatischer noch empfohlener Reparaturweg.
 - ASM/ADE wird pro Geraet erst nach `verified_unmanaged` freigegeben; Bulk-Fehler eines Geraets blockieren nicht die sicher verifizierten anderen Geraete.
 - Fehler beim Versand an nicht mehr vorhandene schulische Adressen bleiben sichtbar, stoppen den bereits abgeschlossenen Geraeteprozess aber nicht.

@@ -88,7 +88,8 @@ The selection is kept until the mail step has finished. This prevents admins fro
 - HTTP `200` only means that Jamf accepted the unenroll command.
 - An active record with `isManaged=false` is considered directly verified.
 - Moving from active inventory to trash is not sufficient by itself because trash values such as `lastCheckin` and `isManaged` may be stale.
-- A later trash transition is only accepted together with a terminal command status; without that evidence the request remains `pending` or moves to manual verification after the retry limit.
+- A later trash transition is accepted together with either a terminal command status or a strictly correlated fresh combination of active absence, `isManaged=false`, modification time and a new `lastCheckin`; without either form of evidence the request remains `pending` or moves to manual verification after the retry limit.
+- Up to four short read-only checks immediately after command acceptance detect fast asynchronous completion without another admin click and without sending a second unenroll command.
 - Re-enrollment is neither automated nor recommended as a repair path.
 - ASM/ADE is unlocked per device only after `verified_unmanaged`; one bulk-item failure does not block other safely verified devices.
 - Delivery errors for obsolete school mailboxes remain visible but do not reopen or stop the completed device workflow.

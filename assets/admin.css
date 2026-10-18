@@ -1303,6 +1303,7 @@ th {
     gap: 10px;
 }
 .action-cell .button {
+    max-width: 100%;
     white-space: nowrap;
 }
 .template-textarea {

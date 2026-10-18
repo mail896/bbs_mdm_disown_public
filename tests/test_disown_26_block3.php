@@ -189,6 +189,42 @@ try {
     block3_assert($incidentPending['observed_is_managed'] === true, 'stale Trash-Wert bleibt für Diagnose sichtbar');
     block3_assert($incidentPending['state'] === DISOWN_JAMF_STATE_PENDING_DEVICE, 'stale Trash-Wert entscheidet nicht vorschnell');
 
+    $freshTrashTransport = block3_transport([
+        block3_device_list([]),
+        block3_device_list([block3_device($serial, false, [
+            'modified' => '2026-10-18 11:50:11',
+            'lastCheckin' => '2026-10-18 11:50:10',
+        ])]),
+    ]);
+    $freshTrashVerified = jamf_verify_unenroll_by_serial(
+        $serial,
+        '2026-10-18 11:50:09',
+        false,
+        false,
+        $freshTrashTransport,
+        $testConfig
+    );
+    block3_assert($freshTrashVerified['observed_location'] === 'trash', 'frischer Abschluss erkennt den Trash-Übergang');
+    block3_assert($freshTrashVerified['observed_is_managed'] === false, 'frischer Abschluss enthält explizit unmanaged');
+    block3_assert($freshTrashVerified['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'Active-Abwesenheit plus frischer unmanaged Trash verifiziert den Abschluss');
+
+    $staleUnmanagedTrashTransport = block3_transport([
+        block3_device_list([]),
+        block3_device_list([block3_device($serial, false, [
+            'modified' => '2026-10-18 11:50:11',
+            'lastCheckin' => '2026-10-18 11:49:00',
+        ])]),
+    ]);
+    $staleUnmanagedTrash = jamf_verify_unenroll_by_serial(
+        $serial,
+        '2026-10-18 11:50:09',
+        false,
+        false,
+        $staleUnmanagedTrashTransport,
+        $testConfig
+    );
+    block3_assert($staleUnmanagedTrash['state'] === DISOWN_JAMF_STATE_PENDING_DEVICE, 'veraltetes Trash-isManaged=false allein verifiziert nicht');
+
     $incidentTerminalTransport = block3_transport([
         block3_device_list([]),
         block3_device_list([block3_device($serial, true, [
@@ -205,6 +241,24 @@ try {
         $testConfig
     );
     block3_assert($incidentVerified['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'terminaler Command-Status plus Übergang verifiziert asynchronen Abschluss');
+
+    $pollRequests = [];
+    $pollingTransport = block3_transport([
+        block3_device_list([block3_device($serial, true)]),
+        block3_device_list([]),
+        ['http_status' => 200, 'body' => '{"message":"DeviceUnenrolled"}'],
+        block3_device_list([block3_device($serial, true)]),
+        block3_device_list([]),
+        block3_device_list([]),
+        block3_device_list([block3_device($serial, false, [
+            'modified' => date('Y-m-d H:i:s', time() + 1),
+            'lastCheckin' => date('Y-m-d H:i:s', time() + 1),
+        ])]),
+    ], $pollRequests);
+    $polledVerified = jamf_unenroll_by_serial($serial, false, $pollingTransport, $testConfig, 3, 0);
+    block3_assert($polledVerified['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'begrenzte Nachprüfung erkennt schnellen asynchronen Abschluss ohne weiteren Klick');
+    block3_assert(($polledVerified['post_command_poll_attempts'] ?? 0) === 2, 'Nachprüfung stoppt unmittelbar nach der Verifikation');
+    block3_assert(count(array_filter($pollRequests, static fn (array $request): bool => $request['method'] === 'POST')) === 1, 'Nachprüfung sendet keinen zweiten Unenroll-Befehl');
 
     $incidentManualTransport = block3_transport([
         block3_device_list([]),

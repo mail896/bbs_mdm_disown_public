@@ -125,8 +125,10 @@ function disown_request_allows_completion_mail(array $row): bool
 
 /**
  * Classify normalized read-only evidence without depending on a particular
- * Jamf response shape. The future API adapter must only set direct_unmanaged
- * for current, exact-device evidence; a Trash snapshot never qualifies.
+ * Jamf response shape. A Trash snapshot never qualifies by itself. A correlated
+ * post-command transition may qualify when Active is authoritatively empty and
+ * the Trash record explicitly reports unmanaged with fresh modification and
+ * check-in timestamps after the accepted command.
  *
  * @param array<string, mixed> $evidence
  */
@@ -142,6 +144,18 @@ function disown_jamf_state_from_evidence(array $evidence, bool $retryExhausted =
         && !empty($evidence['trash_found'])
         && !empty($evidence['trash_changed_after_command']);
     if ($terminalCommandEvidence) {
+        return DISOWN_JAMF_STATE_VERIFIED_UNMANAGED;
+    }
+
+    $confirmedTrashTransition = !empty($evidence['command_accepted'])
+        && array_key_exists('active_found', $evidence)
+        && $evidence['active_found'] === false
+        && !empty($evidence['trash_found'])
+        && !empty($evidence['trash_changed_after_command'])
+        && array_key_exists('trash_is_managed', $evidence)
+        && $evidence['trash_is_managed'] === false
+        && !empty($evidence['trash_last_checkin_after_command']);
+    if ($confirmedTrashTransition) {
         return DISOWN_JAMF_STATE_VERIFIED_UNMANAGED;
     }
 
