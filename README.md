@@ -24,6 +24,7 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 - Zustandsbasierter Jamf-Unenroll mit strenger Antwortprüfung, read-only Post-Condition, Pending-/Retry-Zustand und Wiederanmeldungserkennung.
 - Automatische ASM/ADE-Freigabe per Apple School Manager Public API und lokalem NanoDEP Release Broker.
 - Abschlussmail an schulische und private E-Mail-Adresse; der Prozess wird auch bei Teilfehlern abgeschlossen und der Mailstatus wird rot markiert.
+- Die im Adminportal bearbeitbare Abschlussmail-Vorlage liegt deploymentfest und getrennt für DEV/PROD in `app_settings`; die Repository-Datei bleibt nur der Standard-Fallback.
 - Klärfall-Notizen zu einzelnen Geraeten, lokal in der Datenbank.
 - KUK-Geraeteuebersicht fuer Kolleginnen-/Kollegen-iPads aus Jamf School.
 - ADE-Aufnahmen mit Abgleich zwischen ASM/ADE und Jamf School.

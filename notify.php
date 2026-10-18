@@ -19,6 +19,62 @@ function disown_mail_config_path(): string
     return getenv('DISOWN_MAIL_CONFIG') ?: '/etc/disown/mail.conf';
 }
 
+function disown_mail_file_config(): array
+{
+    $parsed = parse_ini_file(disown_mail_config_path());
+    return is_array($parsed) ? $parsed : [];
+}
+
+function disown_mail_db_config(?mysqli $mysqli = null): array
+{
+    if (!$mysqli) {
+        return [];
+    }
+
+    $json = disown_setting_get($mysqli, 'mail_config', '');
+    if ($json === '') {
+        return [];
+    }
+
+    $config = json_decode($json, true);
+    return is_array($config) ? $config : [];
+}
+
+function disown_mail_config(?mysqli $mysqli = null): array
+{
+    $config = disown_mail_file_config();
+    foreach (disown_mail_db_config($mysqli) as $key => $value) {
+        if (is_string($key) && $value !== null && $value !== '') {
+            $config[$key] = $value;
+        }
+    }
+
+    return $config;
+}
+
+function disown_mail_config_is_complete(array $config): bool
+{
+    foreach (['MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM'] as $key) {
+        if (trim((string) ($config[$key] ?? '')) === '') {
+            return false;
+        }
+    }
+    return true;
+}
+
+function disown_mail_set_config(mysqli $mysqli, array $config, string $updatedBy): bool
+{
+    $allowed = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM', 'MAIL_ENCRYPTION'];
+    $clean = [];
+    foreach ($allowed as $key) {
+        if (array_key_exists($key, $config) && trim((string) $config[$key]) !== '') {
+            $clean[$key] = trim((string) $config[$key]);
+        }
+    }
+
+    return disown_setting_set($mysqli, 'mail_config', json_encode($clean, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $updatedBy);
+}
+
 function disown_notify_config(): array
 {
     static $config = null;
@@ -47,12 +103,88 @@ function disown_notify_admin_url(): string
     return trim((string) (disown_notify_config()['APP_URL'] ?? $default));
 }
 
-function disown_notify_recipients(): array
+function disown_push_mail_default_recipient_records(): array
 {
     $config = disown_notify_config();
     $recipientText = trim((string) (getenv('DISOWN_PUSH_MAIL_TO') ?: ($config['PUSH_MAIL_TO'] ?? ($config['NOTIFY_TO'] ?? ''))));
+    $addresses = array_values(array_unique(array_filter(array_map('trim', preg_split('/[,;\s]+/', $recipientText) ?: []))));
 
-    return array_values(array_unique(array_filter(array_map('trim', preg_split('/[,;\s]+/', $recipientText) ?: []))));
+    return array_map(
+        static fn(string $address): array => [
+            'name' => '',
+            'email' => $address,
+            'enabled' => true,
+            'source' => 'notify.conf',
+        ],
+        $addresses
+    );
+}
+
+function disown_push_mail_recipient_records(?mysqli $mysqli = null): array
+{
+    if ($mysqli) {
+        $json = disown_setting_get($mysqli, 'push_mail_recipients', '');
+        if ($json !== '') {
+            $records = json_decode($json, true);
+            if (is_array($records)) {
+                $clean = [];
+                foreach ($records as $record) {
+                    if (!is_array($record)) {
+                        continue;
+                    }
+                    $email = strtolower(trim((string) ($record['email'] ?? '')));
+                    if ($email === '') {
+                        continue;
+                    }
+                    $clean[] = [
+                        'name' => trim((string) ($record['name'] ?? '')),
+                        'email' => $email,
+                        'enabled' => !empty($record['enabled']),
+                        'source' => 'db',
+                    ];
+                }
+                return $clean;
+            }
+        }
+    }
+
+    return disown_push_mail_default_recipient_records();
+}
+
+function disown_push_mail_set_recipient_records(mysqli $mysqli, array $records, string $updatedBy): bool
+{
+    $clean = [];
+    $seen = [];
+    foreach ($records as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+        $email = strtolower(trim((string) ($record['email'] ?? '')));
+        if ($email === '' || isset($seen[$email])) {
+            continue;
+        }
+        $seen[$email] = true;
+        $clean[] = [
+            'name' => trim((string) ($record['name'] ?? '')),
+            'email' => $email,
+            'enabled' => !empty($record['enabled']),
+        ];
+    }
+
+    return disown_setting_set($mysqli, 'push_mail_recipients', json_encode($clean, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $updatedBy);
+}
+
+function disown_notify_recipients(?mysqli $mysqli = null): array
+{
+    $records = disown_push_mail_recipient_records($mysqli);
+    $addresses = [];
+    foreach ($records as $record) {
+        if (!empty($record['enabled'])) {
+            $addresses[] = trim((string) ($record['email'] ?? ''));
+        }
+    }
+
+    return array_values(array_unique(array_filter($addresses)));
 }
 
 function disown_settings_ensure_table(mysqli $mysqli): bool
@@ -107,6 +239,56 @@ function disown_setting_set(mysqli $mysqli, string $key, string $value, string $
     return $ok;
 }
 
+function disown_release_mail_template_key(): string
+{
+    return basename(__DIR__) === 'disown-dev'
+        ? 'release_mail_template_dev'
+        : 'release_mail_template_prod';
+}
+
+function disown_release_mail_template_is_valid(string $template): bool
+{
+    $length = strlen($template);
+    return trim($template) !== '' && $length <= 60000;
+}
+
+function disown_release_mail_template(mysqli $mysqli, string $fallbackPath): string
+{
+    $stored = disown_setting_get($mysqli, disown_release_mail_template_key(), '');
+    if ($stored !== '') {
+        return $stored;
+    }
+
+    if (is_readable($fallbackPath)) {
+        $fallback = file_get_contents($fallbackPath);
+        if (is_string($fallback) && $fallback !== '') {
+            return $fallback;
+        }
+    }
+
+    return "Hallo {{name}},\n\n" .
+        "Ihr Antrag zur Freigabe Ihres iPads wurde erfolgreich abgeschlossen.\n\n" .
+        "DISOWN hat verifiziert, dass das Gerät nicht mehr durch Jamf School verwaltet wird. Anschließend wurde es erfolgreich aus Apple School Manager/ADE freigegeben.\n\n" .
+        "Gerät:\n{{device_name}}\n\n" .
+        "Seriennummer:\n{{serial}}\n\n" .
+        "Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein. Verwenden Sie nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung.\n\n" .
+        "Mit freundlichen Grüßen\n\nBBS Einbeck";
+}
+
+function disown_release_mail_template_set(mysqli $mysqli, string $template, string $updatedBy): bool
+{
+    if (!disown_release_mail_template_is_valid($template)) {
+        return false;
+    }
+
+    return disown_setting_set(
+        $mysqli,
+        disown_release_mail_template_key(),
+        $template,
+        $updatedBy
+    );
+}
+
 function disown_push_mail_enabled(mysqli $mysqli): bool
 {
     return disown_setting_get($mysqli, 'push_mail_enabled', '0') === '1';
@@ -119,10 +301,12 @@ function disown_push_mail_set_enabled(mysqli $mysqli, bool $enabled, string $upd
 
 function disown_push_mail_status(mysqli $mysqli): array
 {
-    $recipients = disown_notify_recipients();
+    $recipientRecords = disown_push_mail_recipient_records($mysqli);
+    $recipients = disown_notify_recipients($mysqli);
     return [
         'enabled' => disown_push_mail_enabled($mysqli),
         'recipients' => $recipients,
+        'recipient_records' => $recipientRecords,
         'recipient_count' => count($recipients),
         'admin_url' => disown_notify_admin_url(),
     ];
@@ -142,7 +326,7 @@ function disown_send_new_request_push_mail(mysqli $mysqli, int $requestId): void
         return;
     }
 
-    $recipients = disown_notify_recipients();
+    $recipients = disown_notify_recipients($mysqli);
     if (!$recipients) {
         disown_notify_log($mysqli, $requestId, 'PUSH_MAIL_FAILED', 'Keine Empfänger in ' . disown_notify_config_path() . ' konfiguriert.');
         return;
@@ -154,8 +338,8 @@ function disown_send_new_request_push_mail(mysqli $mysqli, int $requestId): void
         return;
     }
 
-    $mailConfig = parse_ini_file(disown_mail_config_path());
-    if ($mailConfig === false || empty($mailConfig['MAIL_HOST']) || empty($mailConfig['MAIL_PORT']) || empty($mailConfig['MAIL_USERNAME']) || empty($mailConfig['MAIL_PASSWORD']) || empty($mailConfig['MAIL_FROM'])) {
+    $mailConfig = disown_mail_config($mysqli);
+    if (!disown_mail_config_is_complete($mailConfig)) {
         disown_notify_log($mysqli, $requestId, 'PUSH_MAIL_FAILED', 'SMTP-Konfiguration fehlt oder ist unvollständig: ' . disown_mail_config_path());
         return;
     }

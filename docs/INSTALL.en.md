@@ -179,6 +179,11 @@ The application stores:
 
 Always create a database backup before production changes.
 
+The completion-mail template edited in the admin portal is stored in
+`app_settings`, so deployments cannot overwrite it. `templates/mail_release.txt`
+is only the versioned default fallback and does not need to be writable by the
+web server. DEV and production use separate setting keys.
+
 ### 5.1 Upgrade to Version 2.6
 
 Version 2.6 adds persistent Jamf workflow columns and indexes. After a code and database backup, run this from the application directory:

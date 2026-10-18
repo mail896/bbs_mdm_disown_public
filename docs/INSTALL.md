@@ -180,6 +180,11 @@ Die Anwendung nutzt eine relationale Datenbank fuer:
 
 Vor Produktivbetrieb immer ein DB-Backup erstellen.
 
+Die im Adminportal bearbeitbare Abschlussmail-Vorlage wird deploymentfest in
+`app_settings` gespeichert. `templates/mail_release.txt` ist nur der
+versionierte Standard-Fallback und muss für den Webserver nicht schreibbar sein.
+DEV und PROD verwenden getrennte Einstellungsschlüssel.
+
 ### 5.1 Upgrade auf Version 2.6
 
 Version 2.6 ergaenzt persistente Jamf-Zustandsfelder und Indizes. Nach einem Code- und Datenbank-Backup aus dem Anwendungsverzeichnis ausfuehren:

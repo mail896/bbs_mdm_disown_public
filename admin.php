@@ -873,19 +873,7 @@ if (!empty($_SESSION['bulk_last_step'])) {
 }
 
 $mailTemplatePath = __DIR__ . '/templates/mail_release.txt';
-$mailTemplate = null;
-if (is_readable($mailTemplatePath)) {
-    $mailTemplate = file_get_contents($mailTemplatePath);
-}
-if ($mailTemplate === false || $mailTemplate === null) {
-    $mailTemplate = "Hallo {{name}},\n\n" .
-        "Ihr Antrag zur Freigabe Ihres iPads wurde erfolgreich abgeschlossen.\n\n" .
-        "DISOWN hat verifiziert, dass das Gerät nicht mehr durch Jamf School verwaltet wird. Anschließend wurde es erfolgreich aus Apple School Manager/ADE freigegeben.\n\n" .
-        "Gerät:\n{{device_name}}\n\n" .
-        "Seriennummer:\n{{serial}}\n\n" .
-        "Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein. Verwenden Sie nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung.\n\n" .
-        "Mit freundlichen Grüßen\n\nBBS Einbeck";
-}
+$mailTemplate = disown_release_mail_template($mysqli, $mailTemplatePath);
 $mailSubject = 'iPad-Freigabe BBS Einbeck';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -895,10 +883,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     disown_require_write();
 
     if (isset($_POST['template_save'])) {
-        $templateContent = $_POST['template_content'] ?? '';
-        if (file_put_contents($mailTemplatePath, $templateContent) === false) {
-            $templateError = 'Die Vorlage konnte nicht gespeichert werden. Bitte Dateiberechtigungen prüfen.';
+        $templateContent = (string) ($_POST['template_content'] ?? '');
+        if (!disown_release_mail_template_is_valid($templateContent)) {
+            $templateError = 'Die Vorlage darf nicht leer und höchstens 60.000 Zeichen groß sein.';
+        } elseif (!disown_release_mail_template_set($mysqli, $templateContent, $currentAdminUser ?: 'admin')) {
+            $templateError = 'Die Vorlage konnte nicht in den Einstellungen gespeichert werden.';
         } else {
+            $mailTemplate = $templateContent;
             log_request_action($mysqli, 0, 'TEMPLATE_UPDATED', 'Mailvorlage aktualisiert.');
             $templateMessage = 'Vorlage erfolgreich gespeichert.';
         }

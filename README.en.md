@@ -24,6 +24,7 @@ Web application for handling former student iPad returns and releases at BBS Ein
 - State-based Jamf unenroll with strict response validation, a read-only post-condition, pending/retry handling and reenrollment detection.
 - Automated ASM/ADE release through the Apple School Manager Public API and a local NanoDEP release broker.
 - Completion mail to school and private email addresses; partial mail failures are shown in red but the request can still be completed.
+- The completion-mail template edited in the admin portal is stored in `app_settings` with separate DEV/production keys; the repository file remains only the default fallback.
 - Local clarification notes for individual devices.
 - KUK device overview for staff iPads from Jamf School.
 - ADE intake overview with ASM/ADE and Jamf School comparison.
