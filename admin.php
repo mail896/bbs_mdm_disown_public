@@ -884,12 +884,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     if (isset($_POST['template_save'])) {
         $templateContent = (string) ($_POST['template_content'] ?? '');
+        $mailTemplate = $templateContent;
         if (!disown_release_mail_template_is_valid($templateContent)) {
             $templateError = 'Die Vorlage darf nicht leer und höchstens 60.000 Zeichen groß sein.';
         } elseif (!disown_release_mail_template_set($mysqli, $templateContent, $currentAdminUser ?: 'admin')) {
             $templateError = 'Die Vorlage konnte nicht in den Einstellungen gespeichert werden.';
         } else {
-            $mailTemplate = $templateContent;
             log_request_action($mysqli, 0, 'TEMPLATE_UPDATED', 'Mailvorlage aktualisiert.');
             $templateMessage = 'Vorlage erfolgreich gespeichert.';
         }
