@@ -66,9 +66,9 @@ $filterLabels = [
     'cases' => 'Klärfälle',
 ];
 $jamfLicenseBaseline = [
-    'taken_at' => '2026-09-16 14:07:00',
-    'recurring_total' => 1300,
-    'recurring_used' => 1306,
+    'taken_at' => '2026-10-18 14:24:48',
+    'recurring_total' => 1400,
+    'recurring_used' => 1314,
     'perpetual_total' => 378,
     'perpetual_used' => 370,
 ];
