@@ -2326,12 +2326,6 @@ th {
     background: #f8fafc;
     color: #94a3b8;
 }
-.request-row:hover .device-case-button.case-create-button::after {
-    color: #92400e;
-    content: " · Klärfall";
-    font-size: 0.78rem;
-    font-weight: 700;
-}
 
 @media (prefers-reduced-motion: no-preference) {
     #requestsTable tbody tr:has(.bulk-select:checked) td:first-child {

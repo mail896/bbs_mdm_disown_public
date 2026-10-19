@@ -2535,30 +2535,15 @@ if ($pageSerials) {
                         $rowSerial = strtoupper(trim((string) ($row['serial'] ?? '')));
                         $rowCases = $casesBySerial[$rowSerial] ?? [];
                         $rowHasCase = $latestCaseId > 0 || count($rowCases) > 0;
-                        $rowOpensCase = $canWrite && $rowHasCase && !empty($row['serial']);
-                        $rowCaseClosed = $rowHasCase && $openCaseCount === 0 && $latestCaseStatus === 'geklaert';
-                        $rowCaseClass = $rowHasCase ? ($rowCaseClosed ? ' case-row-has-case case-row-closed' : ' case-row-has-case case-row-open') : '';
-                        $deviceCaseTooltip = $rowHasCase ? 'Klärfall zum Gerät öffnen' : 'Klärfall zum Gerät anlegen';
+                        $deviceCaseTooltip = $rowHasCase ? 'Notizen zum Gerät öffnen' : 'Notiz zum Gerät anlegen';
                     ?>
-                <tr class="request-row<?= $rowCaseClass ?><?= $rowOpensCase ? ' case-row-clickable' : '' ?>"
+                <tr class="request-row"
                     data-id="<?=htmlspecialchars($row['id'])?>"
                     data-full-name="<?=htmlspecialchars($row['full_name'])?>"
                     data-username="<?=htmlspecialchars($row['username'])?>"
                     data-email="<?=htmlspecialchars($row['email'])?>"
                     data-private-email="<?=htmlspecialchars($row['private_email'] ?? '')?>"
-                    data-serial="<?=htmlspecialchars($row['serial'])?>"
-                    <?php if ($rowOpensCase): ?>
-                        title="<?=htmlspecialchars($deviceCaseTooltip)?>"
-                        aria-label="<?=htmlspecialchars($deviceCaseTooltip . ': ' . (string) $row['device_name'])?>"
-                        data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
-                        data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
-                        data-source="admin"
-                        data-title="<?=htmlspecialchars((string) ($row['latest_case_title'] ?: $defaultCaseTitle))?>"
-                        data-status="<?=htmlspecialchars($latestCaseStatus ?: 'offen')?>"
-                        data-note="<?=htmlspecialchars((string) ($row['latest_case_note'] ?? ''))?>"
-                        data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
-                        data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
-                    <?php endif; ?>>
+                    data-serial="<?=htmlspecialchars($row['serial'])?>">
                     <td class="select-cell" data-label="">
                         <?php if ($bulkSelectable): ?>
                             <input type="checkbox"
@@ -2594,9 +2579,11 @@ if ($pageSerials) {
                             <?php endif; ?>
                     </td>
                     <td class="device-cell" data-label="Gerät">
+                        <div class="device-case-label"><?=htmlspecialchars($row['device_name'])?></div>
+                        <div class="serial-cell">
                         <?php if ($canWrite && !empty($row['serial'])): ?>
                             <button type="button"
-                                class="device-case-button<?= $rowHasCase ? '' : ' case-create-button' ?>"
+                                class="serial-case-button"
                                 data-case-id="<?=htmlspecialchars((string) $latestCaseId)?>"
                                 data-request-id="<?=htmlspecialchars((string) $row['id'])?>"
                                 data-serial="<?=htmlspecialchars($row['serial'])?>"
@@ -2607,14 +2594,14 @@ if ($pageSerials) {
                                 data-resolution-note="<?=htmlspecialchars((string) ($row['latest_case_resolution_note'] ?? ''))?>"
                                 data-updated-at="<?=htmlspecialchars((string) ($row['latest_case_updated_at'] ?? ''))?>"
                                 title="<?=htmlspecialchars($deviceCaseTooltip)?>"
-                                aria-label="<?=htmlspecialchars($deviceCaseTooltip . ': ' . (string) $row['device_name'])?>"
+                                aria-label="<?=htmlspecialchars($deviceCaseTooltip . ': ' . (string) $row['serial'])?>"
                                 onclick="showDeviceCase(this)">
-                                <span class="device-case-label"><?=htmlspecialchars($row['device_name'])?></span>
+                                <?=htmlspecialchars($row['serial'])?>
                             </button>
                         <?php else: ?>
-                            <div><?=htmlspecialchars($row['device_name'])?></div>
+                            <?=htmlspecialchars($row['serial'])?>
                         <?php endif; ?>
-                        <div class="serial-cell"><?=htmlspecialchars($row['serial'])?></div>
+                        </div>
                         <?php if ($canWrite && $rowHasCase): ?>
                             <div class="case-row-badge-line">
                                 <?php if ($openCaseCount > 0): ?>

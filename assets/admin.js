@@ -358,15 +358,6 @@ function hideDeviceCase() {
     }
 }
 
-document.querySelectorAll('.case-row-clickable').forEach((row) => {
-    row.addEventListener('click', (event) => {
-        if (event.target.closest('a, button, input, select, textarea, label')) {
-            return;
-        }
-        showDeviceCase(row);
-    });
-});
-
 function showMailPreview(button) {
     const data = button.dataset;
     let body = mailTemplate;
