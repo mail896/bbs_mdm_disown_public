@@ -202,11 +202,17 @@ function asm_release_run(string $serial, bool $dryRun): array
         $afterStatus = (string) ($afterDetails['devices'][$serial]['response_status'] ?? '');
         $steps[] = asm_release_step(
             'Nachkontrolle',
-            $afterStatus === 'NOT_ACCESSIBLE' ? 'ok' : 'warning',
+            $afterStatus === 'NOT_ACCESSIBLE' ? 'ok' : 'failed',
             $afterStatus === 'NOT_ACCESSIBLE'
                 ? 'Broker kann das Gerät nach Freigabe nicht mehr lesen, wie erwartet.'
                 : 'Broker-Nachkontrolle meldet: ' . ($afterStatus ?: 'unbekannt')
         );
+
+        if ($afterStatus !== 'NOT_ACCESSIBLE') {
+            return asm_release_result(false, false,
+                'Apple meldet die Freigabe, aber die Broker-Nachkontrolle ist noch nicht bestätigt. Bitte später erneut prüfen.',
+                $steps, ['disown_response' => $disownResponse, 'after_details' => $afterDetails]);
+        }
 
         return asm_release_result(true, false, 'ASM/ADE-Freigabe erfolgreich abgeschlossen.', $steps, [
             'broker_details' => $brokerDetails,

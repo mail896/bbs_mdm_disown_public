@@ -9,7 +9,7 @@ function disown_app_metadata(): array
 {
     return [
         'version' => disown_is_dev_mode() ? '2.6-dev' : '2.6',
-        'release_date' => '17. Oktober 2026',
+        'release_date' => '20. Oktober 2026',
         'repository_url' => 'https://github.com/mail896/bbs_mdm_disown_public',
         'author_name' => 'Marc Schulz',
         'author_email' => 'marc.schulz@bbs-einbeck.de',

@@ -4,12 +4,14 @@
 
 ![Admin portal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Web application for handling former student iPad returns and releases at BBS Einbeck. Version 2.6 verifies the actual Jamf unenrollment before allowing ASM/ADE release.
+Web application for handling former student iPad returns and releases at BBS Einbeck. DISOWN 2.6 briefly polls Jamf after unenroll; a correctly accepted command may continue to the admin-authorized Apple release while device confirmation is pending. Mail remains manual. A read-only background job reports outstanding Jamf inventory cleanup.
+
+Current rules, migration, cron and tests: [Apple release and Jamf cleanup](docs/DISOWN_2_6_ASYNC_RELEASE.md).
 
 ## Status
 
 - Version: `2.6`
-- Date: `17 October 2026`
+- Date: `20 October 2026`
 - Production path: `/var/www/sicher.bbs-einbeck.de/disown`
 - Development path: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public demo: sanitized variant without credentials and without local project-state files
@@ -57,11 +59,11 @@ Web application for handling former student iPad returns and releases at BBS Ein
 ## Standard Workflow
 
 1. The student submits a request through the WebClip.
-2. An admin performs the Jamf unenroll; DISOWN verifies read-only that the device is no longer managed.
-3. Only then does the system automatically assign exactly this device to the release broker through the ASM Public API.
+2. An admin clicks `Release`: Jamf unenroll followed by up to four brief read-only checks.
+3. Verified unenrollment or a correctly accepted command with an unambiguous inventory observation permits the authorized Apple/broker release for that exact device; device silence alone does not block it.
 4. The local NanoDEP release broker performs the ADE/DEP disown call.
 5. The system verifies that the broker can no longer access the device afterwards.
-6. Completion mail is sent to all available recipient addresses.
+6. The admin reviews the appropriate mail preview and explicitly confirms sending.
 7. The request is completed; partial failures and details are written to the audit log.
 
 The legacy database column `asm_manual_done` is kept for compatibility. Since version 2.0 it means that the ASM/ADE release step has been completed, usually automatically.
@@ -77,22 +79,22 @@ Only this admin-only path may intentionally bypass the school-device blocker. We
 Bulk processing evaluates every device independently:
 
 1. Select requests.
-2. Run `Jamf fuer Auswahl`. Devices that pass verification continue automatically through ASM/ADE release.
-3. Pending, failed and manual-review devices remain blocked per device and can be checked again read-only.
+2. Run `Auswahl freigeben`: brief Jamf checks, then Apple release for verified or correctly accepted cases.
+3. Actual failures and ambiguous mappings remain blocked per device; merely waiting devices do not. After confirmed Apple release, the background job reports remaining manual Trash cleanup.
 4. `ASM/ADE fuer Auswahl` remains available only as a targeted retry for a previously failed ASM step.
-5. Run `Mail fuer Auswahl` for devices whose Jamf and ASM/ADE steps completed successfully.
+5. Explicitly run `Mail fuer Auswahl` after confirmed Apple release; waiting Jamf cases use their own truthful mail template.
 
 The selection is kept until the mail step has finished. This prevents admins from losing the selected devices between Jamf, ASM/ADE and mail.
 
 ## Version 2.6 Safety Model
 
-- HTTP `200` only means that Jamf accepted the unenroll command.
+- HTTP `200` alone is insufficient: only the expected valid Jamf response confirms command acceptance.
 - An active record with `isManaged=false` is considered directly verified.
 - Moving from active inventory to trash is not sufficient by itself because trash values such as `lastCheckin` and `isManaged` may be stale.
-- A later trash transition is accepted together with either a terminal command status or a strictly correlated fresh combination of active absence, `isManaged=false`, modification time and a new `lastCheckin`; without either form of evidence the request remains `pending` or moves to manual verification after the retry limit.
+- Trash alone does not prove profile removal. Fresh correlated evidence may verify Jamf; mere device silence remains pending regardless of click count. Inventory cleanup is tracked separately.
 - Up to four short read-only checks immediately after command acceptance detect fast asynchronous completion without another admin click and without sending a second unenroll command.
 - Re-enrollment is neither automated nor recommended as a repair path.
-- ASM/ADE is unlocked per device only after `verified_unmanaged`; one bulk-item failure does not block other safely verified devices.
+- Verified unenrollment or a correctly accepted command with an unambiguous inventory observation permits Apple release. Actual failures remain blocked per device; mail remains manual.
 - Delivery errors for obsolete school mailboxes remain visible but do not reopen or stop the completed device workflow.
 
 The decision logic and incident regression scenario are documented in [docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md](docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md).
@@ -142,6 +144,7 @@ After a code and database backup, run the idempotent state migration once:
 
 ```bash
 php migrations/20261017_add_jamf_unenroll_state.php
+php migrations/20261020_add_jamf_cleanup.php
 ```
 
 Then install the read-only reenrollment cron check and run the 2.6 DEV tests listed in [docs/RELEASE.md](docs/RELEASE.md). The migration classifies legacy rows conservatively and may be run again as an idempotency check.

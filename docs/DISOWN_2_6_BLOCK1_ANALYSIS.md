@@ -1,5 +1,7 @@
 # DISOWN 2.6: Bestandsaufnahme, Datenfluss und Fehlerpfade
 
+Historische Analyse des ursprünglichen 2.6-Entwurfs, kein aktuelles Runbook. Die harte Kopplung wurde am 20.10.2026 durch [Apple-Freigabe und Jamf-Nacharbeit](DISOWN_2_6_ASYNC_RELEASE.md) ersetzt.
+
 Stand: 2026-10-17, ergänzt nach Incident-Nachprüfung
 Status: Block 1, ausschließlich DEV
 Produktionsänderungen: keine

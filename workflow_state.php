@@ -75,6 +75,7 @@ function disown_jamf_allowed_transitions(): array
         DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED => [
             DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED,
             DISOWN_JAMF_STATE_COMMAND_ACCEPTED,
+            DISOWN_JAMF_STATE_PENDING_DEVICE,
             DISOWN_JAMF_STATE_VERIFIED_UNMANAGED,
             DISOWN_JAMF_STATE_FAILED,
         ],
@@ -98,10 +99,35 @@ function disown_jamf_state_allows_release(string $state): bool
 /** @param array<string, mixed> $row */
 function disown_request_allows_asm(array $row): bool
 {
-    return disown_jamf_state_from_row($row) === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED
+    return disown_request_has_release_basis($row)
+        && (disown_jamf_state_from_row($row) === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED
+            || in_array($row['jamf_observed_location'] ?? '', ['active', 'trash', 'missing'], true))
         && empty($row['asm_manual_done'])
         && (int) ($row['mail_sent'] ?? 0) === 0
         && (($row['completed_by'] ?? '') !== 'history-import');
+}
+
+/** Accepted is not verified. Only a persisted, correctly accepted command may
+ * bypass a waiting device; legacy booleans/manual cases never create authority.
+ * @param array<string, mixed> $row
+ */
+function disown_request_has_release_basis(array $row): bool
+{
+    if (($row['completed_by'] ?? '') === 'history-import') {
+        return false;
+    }
+    $commandStatus = strtolower(trim((string) ($row['jamf_command_status'] ?? '')));
+    if (in_array($commandStatus, ['failed', 'error', 'cancelled', 'canceled', 'rejected'], true)) {
+        return false;
+    }
+    $state = disown_jamf_state_from_row($row);
+    if ($state === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED) {
+        return true;
+    }
+    $acceptedAt = trim((string) ($row['jamf_command_accepted_at'] ?? ''));
+    return $acceptedAt !== '' && strtotime($acceptedAt) !== false
+        && in_array($state, [DISOWN_JAMF_STATE_COMMAND_ACCEPTED,
+            DISOWN_JAMF_STATE_PENDING_DEVICE, DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED], true);
 }
 
 /** @param array<string, mixed> $observation */
@@ -117,7 +143,7 @@ function disown_reenrollment_detected(array $observation): bool
 /** @param array<string, mixed> $row */
 function disown_request_allows_completion_mail(array $row): bool
 {
-    return disown_jamf_state_from_row($row) === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED
+    return disown_request_has_release_basis($row)
         && !empty($row['asm_manual_done'])
         && (int) ($row['mail_sent'] ?? 0) !== 1
         && (($row['completed_by'] ?? '') !== 'history-import');
@@ -160,9 +186,8 @@ function disown_jamf_state_from_evidence(array $evidence, bool $retryExhausted =
     }
 
     if (!empty($evidence['command_accepted'])) {
-        return $retryExhausted
-            ? DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED
-            : DISOWN_JAMF_STATE_PENDING_DEVICE;
+        // Device silence is not a technical failure, regardless of button clicks.
+        return DISOWN_JAMF_STATE_PENDING_DEVICE;
     }
 
     return DISOWN_JAMF_STATE_FAILED;

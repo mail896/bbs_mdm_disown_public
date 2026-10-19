@@ -190,6 +190,7 @@ Version 2.6 adds persistent Jamf workflow columns and indexes. After a code and 
 
 ```bash
 php migrations/20261017_add_jamf_unenroll_state.php
+php migrations/20261020_add_jamf_cleanup.php
 ```
 
 The migration is idempotent and classifies existing rows conservatively. A second run should report `Neue Spalten: 0` and `Neue Indizes: 0`.

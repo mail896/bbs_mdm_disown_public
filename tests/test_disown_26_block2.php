@@ -111,8 +111,8 @@ try {
         'asynchroner Trash-Fall mit stale isManaged=true bleibt ohne Command-Nachweis pending'
     );
     block2_assert(
-        disown_jamf_state_from_evidence($asynchronousTrashEvidence, true) === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED,
-        'unklarer asynchroner Trash-Fall verlangt nach Retry-Limit manuelle Verifizierung'
+        disown_jamf_state_from_evidence($asynchronousTrashEvidence, true) === DISOWN_JAMF_STATE_PENDING_DEVICE,
+        'Gerätestille bleibt unabhängig von der Klickzahl pending; Trash-Bereinigung ist separat'
     );
     $asynchronousTrashEvidence['command_terminal_success'] = true;
     block2_assert(

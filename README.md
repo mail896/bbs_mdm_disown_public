@@ -4,12 +4,14 @@
 
 ![Adminportal](images/Demo-iPad-Managemnt-BBS-01.png)
 
-Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. Version 2.6 verifiziert die tatsächliche Jamf-Abmeldung, bevor ASM/ADE freigegeben wird.
+Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS Einbeck. DISOWN 2.6 prüft Jamf kurz nach; ein korrekt angenommener, noch wartender Befehl blockiert die autorisierte Apple-Freigabe nicht. Mail bleibt manuell. Ein read-only Hintergrundjob zeigt verbleibende Jamf-Nacharbeit an.
+
+Aktuelle Regeln, Migration, Cron und Tests: [Apple-Freigabe und Jamf-Nacharbeit](docs/DISOWN_2_6_ASYNC_RELEASE.md).
 
 ## Stand
 
 - Version: `2.6`
-- Datum: `17. Oktober 2026`
+- Datum: `20. Oktober 2026`
 - Produktionspfad: `/var/www/sicher.bbs-einbeck.de/disown`
 - Entwicklungszweig: `/var/www/sicher.bbs-einbeck.de/disown-dev`
 - Public-Demo: neutralisierte Variante ohne Zugangsdaten und ohne lokale Projekt-State-Dateien
@@ -57,11 +59,11 @@ Webanwendung fuer die Rueckgabe und Freigabe ehemaliger Schueler-iPads der BBS E
 ## Standardablauf
 
 1. Schuelerin oder Schueler stellt den Antrag ueber den Webclip.
-2. Admin fuehrt den Jamf-Unenroll aus; DISOWN verifiziert read-only, dass das Gerät nicht mehr verwaltet wird.
-3. Erst danach weist das System genau dieses Geraet automatisch per ASM Public API dem Release Broker zu.
+2. Admin klickt `Freigeben`: Jamf-Unenroll und bis zu vier kurze read-only Nachprüfungen.
+3. Bei Verifikation oder korrekt angenommenem Befehl mit eindeutiger Zuordnung folgt die autorisierte Apple-/Broker-Freigabe genau dieses Geräts; Gerätestille allein blockiert nicht.
 4. Der lokale NanoDEP Release Broker fuehrt den ADE/DEP-Disown aus.
 5. Das System kontrolliert, dass das Geraet danach fuer den Broker nicht mehr erreichbar ist.
-6. Abschlussmail wird an alle vorhandenen Empfaengeradressen gesendet.
+6. Admin prüft die passende Mailvorschau und bestätigt den Versand ausdrücklich manuell.
 7. Der Antrag ist erledigt; Teilerfolge und Fehler stehen im Audit-Log.
 
 Die alte Spalte `asm_manual_done` bleibt aus Kompatibilitaetsgruenden bestehen, bedeutet seit Version 2.0 aber: ASM/ADE-Freigabe wurde erledigt, in der Regel automatisch.
@@ -77,8 +79,8 @@ Nur dieser Admin-Sonderweg darf den Schulgeraete-Blocker bewusst ueberspringen. 
 Der Bulk-Ablauf bewertet jedes Gerät getrennt:
 
 1. Antraege markieren.
-2. `Jamf fuer Auswahl` ausfuehren. Verifizierte Geräte werden direkt danach automatisch per ASM/ADE freigegeben.
-3. Pending-, Fehler- und manuelle Fälle bleiben pro Gerät gesperrt und können read-only erneut geprüft werden.
+2. `Auswahl freigeben`: kurze Jamf-Nachprüfung und danach Apple-Freigabe für verifizierte oder korrekt angenommene Fälle.
+3. Echte Fehler und unklare Zuordnungen bleiben pro Gerät gesperrt; bloß wartende Geräte nicht. Der Hintergrundjob meldet nach bestätigter Apple-Freigabe verbleibenden manuellen Trash-Bedarf.
 4. `ASM/ADE fuer Auswahl` bleibt nur als gezielte Wiederholung für zuvor fehlgeschlagene ASM-Schritte verfügbar.
 5. `Mail fuer Auswahl` sendet die vorbereiteten Abschlussmails für erfolgreich abgeschlossene Geräte.
 
@@ -86,13 +88,13 @@ Die Auswahl bleibt bis zum Mail-Schritt erhalten. Erst nach dem Mailversand wird
 
 ## Sicherheitsmodell in Version 2.6
 
-- HTTP `200` bedeutet nur, dass Jamf den Unenroll-Befehl angenommen hat.
+- HTTP `200` allein genügt nicht: Nur die erwartete, gültige Jamf-Antwort bestätigt die Befehlsannahme.
 - Ein aktiver Datensatz mit `isManaged=false` gilt als direkt verifiziert.
 - Ein Wechsel aus dem aktiven Bestand in den Trash gilt nicht allein als Erfolg, weil `lastCheckin` und `isManaged` dort veraltet sein koennen.
-- Ein spaeterer Trash-Uebergang wird zusammen mit einem terminalen Command-Status oder einer streng korrelierten frischen Kombination aus Active-Abwesenheit, `isManaged=false`, Änderungszeitpunkt und neuem `lastCheckin` als Abschluss gewertet; fehlt beides, bleibt der Vorgang `pending` oder wird nach dem Retry-Limit zur manuellen Verifizierung markiert.
+- Trash allein bestätigt keine Profilentfernung. Frische korrelierte Evidenz kann Jamf verifizieren; bloßes Warten bleibt `pending`, unabhängig von der Klickzahl. Bestandsbereinigung wird separat erfasst.
 - Bis zu vier kurze read-only Nachprüfungen direkt nach der Befehlsannahme erkennen schnelle asynchrone Abschlüsse ohne zusätzlichen Admin-Klick und ohne zweiten Unenroll-Befehl.
 - Erneute Registrierung ist weder automatischer noch empfohlener Reparaturweg.
-- ASM/ADE wird pro Geraet erst nach `verified_unmanaged` freigegeben; Bulk-Fehler eines Geraets blockieren nicht die sicher verifizierten anderen Geraete.
+- ASM/ADE darf nach Verifikation oder korrekt angenommener Abmeldung mit eindeutiger Zuordnung fortgesetzt werden. Echte Fehler bleiben pro Gerät gesperrt; Mail bleibt manuell.
 - Fehler beim Versand an nicht mehr vorhandene schulische Adressen bleiben sichtbar, stoppen den bereits abgeschlossenen Geraeteprozess aber nicht.
 
 Die technische Entscheidungslogik und der Incident-Testfall sind in [docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md](docs/DISOWN_2_6_BLOCK3_JAMF_VERIFICATION.md) beschrieben.
@@ -143,6 +145,7 @@ Nach Code- und Datenbank-Backup die idempotente Zustandsmigration einmal ausfueh
 
 ```bash
 php migrations/20261017_add_jamf_unenroll_state.php
+php migrations/20261020_add_jamf_cleanup.php
 ```
 
 Danach den read-only Wiederanmeldungs-Check als Cronjob einrichten und die in [docs/RELEASE.md](docs/RELEASE.md) aufgefuehrten 2.6-Tests in DEV ausfuehren. Die Migration klassifiziert alte Zeilen konservativ und darf zur Kontrolle erneut gestartet werden.

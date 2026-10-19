@@ -1,4 +1,5 @@
 const mailTemplate = window.disownAdminConfig?.mailTemplate || "";
+const mailTemplatePending = window.disownAdminConfig?.mailTemplatePending || "";
 const mailSubject = window.disownAdminConfig?.mailSubject || "";
 
 const searchInput = document.getElementById('searchInput');
@@ -33,6 +34,9 @@ function getSelectedBulkRows() {
 }
 
 function getBulkStep(checkbox) {
+    if (checkbox.dataset.asm === '1') {
+        return 'mail';
+    }
     if (checkbox.dataset.jamf !== '1') {
         return 'jamf';
     }
@@ -181,7 +185,7 @@ function submitBulkAction(action) {
 function showBulkWorking(action, count) {
     const message = document.getElementById('bulkWorkingMessage');
     const texts = {
-        bulk_jamf_unenroll: `${count} Gerät(e) werden in Jamf geprüft und bei bestätigter Abmeldung automatisch in ASM/ADE freigegeben. Bitte warten und die Seite nicht neu laden.`,
+        bulk_jamf_unenroll: `${count} Gerät(e): Jamf-Abmeldung mit kurzer Nachprüfung, dann ASM/ADE-Freigabe bei Verifikation oder korrekt angenommenem Befehl. Mail bleibt manuell. Bitte warten und die Seite nicht neu laden.`,
         bulk_asm_release: `${count} Gerät(e) werden automatisch per ASM/ADE Release Broker freigegeben. Bitte warten und die Seite nicht neu laden.`,
         bulk_mail_send: `${count} vorbereitete Mail(s) werden versendet. Bitte warten und die Seite nicht neu laden.`
     };
@@ -360,7 +364,7 @@ function hideDeviceCase() {
 
 function showMailPreview(button) {
     const data = button.dataset;
-    let body = mailTemplate;
+    let body = data.jamfVerified === '1' ? mailTemplate : mailTemplatePending;
     const placeholders = {
         name: 'name',
         username: 'username',

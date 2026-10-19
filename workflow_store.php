@@ -31,6 +31,9 @@ function persist_jamf_workflow_result(mysqli $mysqli, int $requestId, array $res
     }
     $verified = $state === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED ? 1 : 0;
     $accepted = !empty($result['accepted']) ? 1 : 0;
+    $acceptedAt = trim((string) ($result['command_accepted_at'] ?? ''));
+    $acceptedAt = preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $acceptedAt)
+        && strtotime($acceptedAt) !== false ? $acceptedAt : null;
     $message = trim((string) ($result['message'] ?? ''));
     $error = in_array($state, [DISOWN_JAMF_STATE_FAILED, DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED], true)
         ? ($message !== '' ? $message : 'Jamf-Abmeldung ist nicht bestätigt.')
@@ -52,7 +55,7 @@ function persist_jamf_workflow_result(mysqli $mysqli, int $requestId, array $res
              jamf_unenrolled = ?,
              jamf_unenrolled_at = IF(? = 1, COALESCE(jamf_unenrolled_at, NOW()), jamf_unenrolled_at),
              jamf_unenroll_error = ?,
-             jamf_command_accepted_at = IF(? = 1, COALESCE(jamf_command_accepted_at, NOW()), jamf_command_accepted_at),
+             jamf_command_accepted_at = IF(? = 1, COALESCE(jamf_command_accepted_at, ?, NOW()), jamf_command_accepted_at),
              jamf_verified_unmanaged_at = IF(? = 1, COALESCE(jamf_verified_unmanaged_at, NOW()), jamf_verified_unmanaged_at),
              jamf_last_checked_at = NOW(),
              jamf_next_check_at = IF(? = 'pending_device', DATE_ADD(NOW(), INTERVAL 15 MINUTE), NULL),
@@ -73,12 +76,13 @@ function persist_jamf_workflow_result(mysqli $mysqli, int $requestId, array $res
         throw new RuntimeException('Jamf-Zustand konnte nicht vorbereitet werden.');
     }
     $stmt->bind_param(
-        'siisiisisssssiiiis',
+        'siisisisisssssiiiis',
         $state,
         $verified,
         $verified,
         $error,
         $accepted,
+        $acceptedAt,
         $verified,
         $state,
         $httpStatus,

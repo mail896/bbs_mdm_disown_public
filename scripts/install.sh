@@ -152,6 +152,7 @@ cat > "$OUT_DIR/cron.example" <<EOF
 30 7,13 * * 1-5 www-data /usr/bin/php $ROOT_DIR/notify_admins.php >> /var/log/disown/notify.log 2>&1
 29 7,13 * * * www-data /usr/bin/php $ROOT_DIR/sync_ade_enrollments.php --days=90 >> /var/log/disown/ade-sync.log 2>&1
 17 * * * * www-data /usr/bin/php $ROOT_DIR/scripts/check_jamf_reenrollments.php --limit=100 >> /var/log/disown/jamf-reenrollment.log 2>&1
+*/5 * * * * www-data /usr/bin/php $ROOT_DIR/scripts/check_jamf_cleanup.php --limit=25 >> /var/log/disown/jamf-cleanup.log 2>&1
 EOF
 
 chmod 600 "$OUT_DIR"/*.conf

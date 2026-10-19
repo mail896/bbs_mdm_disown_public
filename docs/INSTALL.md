@@ -191,6 +191,7 @@ Version 2.6 ergaenzt persistente Jamf-Zustandsfelder und Indizes. Nach einem Cod
 
 ```bash
 php migrations/20261017_add_jamf_unenroll_state.php
+php migrations/20261020_add_jamf_cleanup.php
 ```
 
 Die Migration ist idempotent und klassifiziert bestehende Zeilen konservativ. Die Ausgabe muss anschliessend bei einem zweiten Lauf `Neue Spalten: 0` und `Neue Indizes: 0` melden.

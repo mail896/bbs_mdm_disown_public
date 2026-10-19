@@ -8,6 +8,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require __DIR__ . '/../workflow_state.php';
+require __DIR__ . '/../jamf_cleanup.php';
 
 // Render only the actual row template, without auth, database or external calls.
 function normalize_device_case_status(string $status): string
@@ -96,6 +97,16 @@ try {
         'jamf_unenroll_state' => DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'asm_manual_done' => 1]);
     ui_assert($mail->query('//button[@onclick="showMailPreview(this)"]')->length === 1, 'Completion mail still requires its preview action');
     ui_assert(str_contains($source, 'onclick="sendMail()"'), 'Separate mail send confirmation remains');
+    $pendingMail = render_case_row($template, ['jamf_unenroll_state' => DISOWN_JAMF_STATE_PENDING_DEVICE,
+        'jamf_command_accepted_at' => '2026-10-19 12:00:00', 'asm_manual_done' => 1,
+        'jamf_cleanup_state' => 'manual_trash_required']);
+    $mailButton = $pendingMail->query('//button[@onclick="showMailPreview(this)"]')->item(0);
+    ui_assert($mailButton instanceof DOMElement && $mailButton->getAttribute('data-jamf-verified') === '0', 'Pending Apple-complete row offers truthful manual mail');
+    ui_assert($pendingMail->query('//input[@name="unenroll"]')->length === 0, 'Apple-complete row does not invite another unenroll');
+    ui_assert($pendingMail->query('//input[@class="bulk-select"]')->item(0)->getAttribute('data-asm') === '1', 'Bulk can advance to manual mail despite waiting Jamf');
+    $resume = render_case_row($template, ['jamf_unenroll_state' => DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED,
+        'jamf_command_accepted_at' => '2026-10-19 12:00:00', 'jamf_observed_location' => 'active']);
+    ui_assert(str_contains($resume->query('//td[@data-label="Aktion"]')->item(0)->textContent, 'Freigabe fortsetzen'), 'Previously waiting accepted requests can resume with one click');
     $css = (string) file_get_contents(__DIR__ . '/../assets/admin.css');
     ui_assert(!str_contains($css, 'content: " · Klärfall"'), 'Hover never invents a case label');
     $js = (string) file_get_contents(__DIR__ . '/../assets/admin.js');

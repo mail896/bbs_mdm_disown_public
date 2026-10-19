@@ -1,7 +1,7 @@
 # DISOWN 2.6: Jamf-Befehlsannahme und Post-Condition
 
-Stand: 2026-10-17
-Status: In Version 2.6 implementiert und veröffentlicht
+Stand: 2026-10-20
+Aktuelle Fortsetzungs- und Betriebsregeln: [Apple-Freigabe und Jamf-Nacharbeit](DISOWN_2_6_ASYNC_RELEASE.md).
 
 ## Verifizierte Jamf-Grundlage
 
@@ -23,10 +23,10 @@ Der Task Manager verarbeitet dokumentiert nur bestimmte Hintergrundaktionen. Ein
 7. Active-Abwesenheit, zeitlich passender Trash-Übergang und ein separat belegter terminal erfolgreicher Command-Status können gemeinsam verifizieren.
 8. Wenn Jamf keinen separat abfragbaren Command-Status liefert, kann auch die streng korrelierte Kombination aus bestätigter Befehlsannahme, autoritativ leerem Active-Bestand, zeitlich passendem Trash-Übergang, explizitem `isManaged=false` und einem `lastCheckin` nach der Befehlsannahme verifizieren. Kein einzelnes Trash-Feld genügt dafür.
 9. Direkt nach der Befehlsannahme führt DISOWN bis zu vier kurze read-only Beobachtungen aus. Dadurch wird ein schneller asynchroner Abschluss ohne zusätzlichen Admin-Klick erkannt; ein zweiter Unenroll-Befehl wird nie gesendet.
-10. Ohne einen der beiden Nachweise bleibt der Vorgang `pending_device`; nach fünf ergebnislosen späteren Prüfungen folgt `manual_intervention_required`.
+10. Ohne Nachweis bleibt die Jamf-Abmeldung `pending_device`, unabhängig von der Klickzahl. Eine gespeicherte gültige Befehlsannahme darf bei eindeutig gelesener Zuordnung die autorisierte Apple-Freigabe fortsetzen, ohne Jamf-Erfolg zu erfinden.
 11. „Status prüfen“ ist read-only und sendet keinen zweiten Unenroll-Befehl.
 12. Nur `verified_unmanaged` setzt den kompatiblen Alt-Bool `jamf_unenrolled=1`.
-13. Auch `manual_intervention_required` bleibt read-only erneut prüfbar. Ein späterer eindeutiger Nachweis kann den Vorgang fortsetzen; ohne Nachweis bleibt er manuell gesperrt.
+13. Alte manuelle Fälle mit gültiger Befehlsannahme können fortgesetzt werden; Legacy-Bools oder Trash allein autorisieren keine Apple-Freigabe. Mail bleibt manuell nach bestätigter Apple-Freigabe.
 14. Ein stündlicher read-only Lauf kann abgeschlossene Seriennummern erneut prüfen. Wird ein exakter Active-Datensatz später wieder mit `isManaged=true` beobachtet, setzt DISOWN ausschließlich das persistente Abweichungsflag `jamf_reenrollment_detected_at` und schreibt `JAMF_REENROLLMENT_DETECTED` mit dem technischen Akteur `system:jamf-readonly-check`. Es erfolgt keine automatische Löschung, Freigabe oder Wiederherstellung.
 
 ## DEV-Sicherheit

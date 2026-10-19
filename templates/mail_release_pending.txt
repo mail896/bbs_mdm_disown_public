@@ -1,0 +1,37 @@
+Hallo {{name}},
+
+Die Freigabe Ihres iPads aus Apple School Manager/Automated Device Enrollment (ASM/ADE) wurde bestätigt.
+
+Jamf School hat den Abmeldebefehl angenommen. Die Entfernung des Verwaltungsprofils auf dem iPad ist noch nicht bestätigt. Die schulische Bestandsbereinigung wird separat nachverfolgt.
+
+Gerät: {{device_name}}
+Seriennummer: {{serial}}
+
+Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein.
+
+Verwenden Sie dabei nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung. Einzelne persönliche Daten können Sie anschließend gezielt über Ihre persönlichen Cloud-Dienste synchronisieren.
+
+Falls bei der neuen Einrichtung weiterhin eine schulische Fernverwaltung angezeigt wird, melden Sie sich bitte mit der Seriennummer bei Ihrem MDM-Team.
+
+Mit freundlichen Grüßen
+Ihr MDM-Team
+
+--- English ---
+
+Hello {{name}},
+
+Your iPad's release from Apple School Manager/Automated Device Enrollment (ASM/ADE) has been confirmed.
+
+Jamf School accepted the unenrollment command. Removal of the management profile from the iPad has not yet been confirmed. The school's inventory cleanup is tracked separately.
+
+Device: {{device_name}}
+Serial number: {{serial}}
+
+Please erase the iPad completely and then set it up as a new iPad.
+
+Do not use Quick Start, a full device-to-device transfer, or an old full backup from when the iPad was managed by the school. You can selectively synchronize individual personal data afterwards using your personal cloud services.
+
+If school remote management still appears during setup, please contact your MDM team and provide the serial number.
+
+Kind regards,
+Your MDM team

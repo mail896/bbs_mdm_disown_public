@@ -272,7 +272,7 @@ try {
         $incidentManualTransport,
         $testConfig
     );
-    block3_assert($incidentManual['state'] === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED, 'unklarer Incident endet nach Retry-Limit manuell');
+    block3_assert($incidentManual['state'] === DISOWN_JAMF_STATE_PENDING_DEVICE, 'angenommener Incident bleibt ohne Gerätebestätigung pending');
 
     $lookupFailureTransport = block3_transport([
         ['http_status' => 0, 'body' => '', 'transport_error' => 'timeout'],
@@ -289,7 +289,7 @@ try {
         $devVerified = jamf_verify_unenroll_by_serial('FAKE0DIANA1', date('Y-m-d H:i:s'));
         block3_assert($devVerified['state'] === DISOWN_JAMF_STATE_VERIFIED_UNMANAGED, 'Diana bildet den späteren asynchronen Abschluss ab');
         $devManual = jamf_verify_unenroll_by_serial('FAKE0SPIDEY', date('Y-m-d H:i:s'), false, true);
-        block3_assert($devManual['state'] === DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED, 'unklare DEV-Fixture bleibt beim read-only Retry-Limit manuell');
+    block3_assert($devManual['state'] === DISOWN_JAMF_STATE_PENDING_DEVICE, 'unklare DEV-Fixture bleibt ohne künstliches Klicklimit pending');
 
         $devUnexpected = jamf_unenroll_by_serial('FAKE0SCULLY');
         block3_assert($devUnexpected['state'] === DISOWN_JAMF_STATE_FAILED, 'Scully bildet unerwartetes HTTP 200 sicher als Fehler ab');

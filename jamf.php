@@ -93,12 +93,10 @@ function jamf_dev_fixture_result(string $serial, bool $verificationOnly = false,
 
     return array_merge($base, [
         'accepted' => true,
-        'state' => $retryExhausted ? DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED : DISOWN_JAMF_STATE_PENDING_DEVICE,
-        'response_class' => $retryExhausted ? 'dev_fixture_manual_review' : 'dev_fixture_pending',
+        'state' => DISOWN_JAMF_STATE_PENDING_DEVICE,
+        'response_class' => 'dev_fixture_pending',
         'command_status' => 'queued',
-        'message' => $retryExhausted
-            ? 'DEV-Simulation: Nach begrenzten read-only Prüfungen bleibt manuelle Verifizierung erforderlich.'
-            : 'DEV-Simulation: Befehl angenommen; Verifikation steht aus.',
+        'message' => 'DEV-Simulation: Befehl angenommen; Gerätebestätigung steht aus.',
     ]);
 }
 
@@ -476,7 +474,7 @@ function jamf_nullable_bool($value): ?bool
         return $value;
     }
     if (is_int($value) || is_float($value)) {
-        return (int) $value === 1;
+        return $value == 1 ? true : ($value == 0 ? false : null);
     }
 
     $normalized = strtolower(trim((string) $value));
@@ -530,6 +528,14 @@ function jamf_observe_serial(
     $serial = strtoupper(trim($serial));
     $activeResult = jamf_request_devices_by_serial_result($serial, false, $transport, $cfg);
     $trashResult = jamf_request_devices_by_serial_result($serial, true, $transport, $cfg);
+    foreach (['activeResult', 'trashResult'] as $resultName) {
+        $matches = array_filter(${$resultName}['devices'], static fn($device): bool => is_array($device)
+            && strtoupper(trim((string) ($device['serialNumber'] ?? ''))) === $serial);
+        if (count($matches) > 1) {
+            ${$resultName}['ok'] = false;
+            ${$resultName}['response_class'] = 'ambiguous_serial';
+        }
+    }
     $activeDevice = $activeResult['ok'] ? jamf_find_device_by_serial($activeResult['devices'], $serial) : null;
     $trashDevice = $trashResult['ok'] ? jamf_find_device_by_serial($trashResult['devices'], $serial) : null;
 
@@ -610,6 +616,12 @@ function jamf_classify_unenroll_response(array $response): array
         }
     }
 
+    if (in_array(strtolower((string) $commandStatus), ['failed', 'error', 'cancelled', 'canceled', 'rejected'], true)) {
+        return ['accepted' => false, 'http_status' => 200, 'response_class' => 'command_failed',
+            'command_id' => $commandId, 'command_status' => $commandStatus,
+            'message' => 'Jamf meldet einen fehlgeschlagenen oder abgebrochenen Abmeldebefehl.'];
+    }
+
     return [
         'accepted' => true,
         'http_status' => 200,
@@ -645,7 +657,7 @@ function jamf_evidence_from_observation(
     return [
         'command_accepted' => $commandAccepted,
         'command_terminal_success' => $commandTerminalSuccess,
-        'direct_unmanaged' => $activeLookupOk
+        'direct_unmanaged' => $activeLookupOk && $trashLookupOk && empty($trash['found'])
             && !empty($active['found'])
             && array_key_exists('is_managed', $active)
             && $active['is_managed'] === false,
@@ -680,7 +692,11 @@ function jamf_verification_result(
     $state = disown_jamf_state_from_evidence($evidence, $retryExhausted);
     $active = is_array($observation['active'] ?? null) ? $observation['active'] : [];
     $trash = is_array($observation['trash'] ?? null) ? $observation['trash'] : [];
-    $location = !empty($active['found']) ? 'active' : (!empty($trash['found']) ? 'trash' : 'missing');
+    $location = empty($observation['active_lookup_ok']) || empty($observation['trash_lookup_ok'])
+        ? 'unknown'
+        : (!empty($active['found']) && !empty($trash['found'])
+            ? 'conflict'
+            : (!empty($active['found']) ? 'active' : (!empty($trash['found']) ? 'trash' : 'missing')));
     $observedManaged = !empty($active['found']) ? ($active['is_managed'] ?? null) : ($trash['is_managed'] ?? null);
 
     $message = match ($state) {
@@ -724,7 +740,7 @@ function jamf_verify_unenroll_by_serial(
     $observation = jamf_observe_serial($serial, $transport, $cfg);
     $result = jamf_verification_result(
         $observation,
-        true,
+        $commandAcceptedAt !== null && strtotime($commandAcceptedAt) !== false,
         $commandAcceptedAt,
         $commandTerminalSuccess,
         $retryExhausted
@@ -787,6 +803,12 @@ function jamf_unenroll_by_serial(
 
     $active = $before['active'];
     $trash = $before['trash'];
+    if (!empty($active['found']) && !empty($trash['found'])) {
+        return ['success' => false, 'accepted' => false, 'state' => DISOWN_JAMF_STATE_FAILED,
+            'response_class' => 'active_trash_conflict',
+            'message' => 'Seriennummer gleichzeitig aktiv und im Trash gefunden; keine automatische Aktion.',
+            'observation' => $before];
+    }
     if (empty($active['found'])) {
         $responseClass = !empty($trash['found']) ? 'already_in_trash_unverified' : 'device_not_found';
         return [
@@ -804,6 +826,11 @@ function jamf_unenroll_by_serial(
     }
 
     $fullDevice = is_array($active['device'] ?? null) ? $active['device'] : [];
+    if (!$allowSchoolLoan && jamf_device_is_school_loan($fullDevice)) {
+        return ['success' => false, 'accepted' => false, 'state' => DISOWN_JAMF_STATE_FAILED,
+            'response_class' => 'school_loan_blocked',
+            'message' => 'Dieses Gerät ist als schulisches Leih-/Koffergerät markiert und darf nicht per Jamf abgemeldet werden.'];
+    }
     if (($active['is_managed'] ?? null) === false) {
         $verified = jamf_verification_result($before, false);
         return array_merge($verified, [
@@ -814,16 +841,6 @@ function jamf_unenroll_by_serial(
             'command_status' => null,
             'observation' => $before,
         ]);
-    }
-
-    if (!$allowSchoolLoan && jamf_device_is_school_loan($fullDevice)) {
-        return [
-            'success' => false,
-            'accepted' => false,
-            'state' => DISOWN_JAMF_STATE_FAILED,
-            'response_class' => 'school_loan_blocked',
-            'message' => 'Dieses Gerät ist als schulisches Leih-/Koffergerät markiert und darf nicht per Jamf abgemeldet werden.',
-        ];
     }
 
     $udid = trim((string) ($fullDevice['UDID'] ?? $fullDevice['udid'] ?? ''));
@@ -889,7 +906,7 @@ function jamf_unenroll_by_serial(
         'command_id' => $command['command_id'],
         'command_status' => $command['command_status'],
         'command_accepted_at' => $acceptedAt,
-        'post_command_poll_attempts' => $pollAttempt,
+        'post_command_poll_attempts' => min($pollAttempt, $pollAttempts),
         'observation' => $after,
     ]);
 }
