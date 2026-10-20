@@ -880,7 +880,6 @@ if (!empty($_SESSION['bulk_last_step'])) {
 
 $mailTemplatePath = __DIR__ . '/templates/mail_release.txt';
 $mailTemplate = disown_release_mail_template($mysqli, $mailTemplatePath);
-$mailTemplatePending = disown_pending_release_mail_template($mysqli);
 $mailSubject = 'iPad-Freigabe BBS Einbeck';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -891,20 +890,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     if (isset($_POST['template_save'])) {
         $templateContent = (string) ($_POST['template_content'] ?? '');
-        $pendingTemplateSave = ($_POST['template_variant'] ?? '') === 'pending';
-        if ($pendingTemplateSave) {
-            $mailTemplatePending = $templateContent;
-        } else {
-            $mailTemplate = $templateContent;
-        }
+        $mailTemplate = $templateContent;
         if (!disown_release_mail_template_is_valid($templateContent)) {
             $templateError = 'Die Vorlage darf nicht leer und höchstens 60.000 Zeichen groß sein.';
-        } elseif (!($pendingTemplateSave
-            ? disown_setting_set($mysqli, disown_release_mail_template_key() . '_pending', $templateContent, $currentAdminUser ?: 'admin')
-            : disown_release_mail_template_set($mysqli, $templateContent, $currentAdminUser ?: 'admin'))) {
+        } elseif (!disown_release_mail_template_set($mysqli, $templateContent, $currentAdminUser ?: 'admin')) {
             $templateError = 'Die Vorlage konnte nicht in den Einstellungen gespeichert werden.';
         } else {
-            log_request_action($mysqli, 0, 'TEMPLATE_UPDATED', 'Mailvorlage aktualisiert: ' . ($pendingTemplateSave ? 'Jamf-Bestätigung ausstehend' : 'Jamf verifiziert'));
+            log_request_action($mysqli, 0, 'TEMPLATE_UPDATED', 'Standard-Mailvorlage aktualisiert.');
             $templateMessage = 'Vorlage erfolgreich gespeichert.';
         }
     }
@@ -1403,7 +1395,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         continue;
                     }
 
-                    $body = disown_release_mail_template_for_row($mailTemplate, $bulkRow, $mailTemplatePending);
+                    $body = $mailTemplate;
                     $placeholders = [
                         '{{name}}' => (string) ($bulkRow['full_name'] ?? ''),
                         '{{username}}' => (string) ($bulkRow['username'] ?? ''),
@@ -2491,22 +2483,12 @@ if ($pageSerials) {
     <?php if ($canWrite): ?>
     <div id="templateEditor" class="preview-card hidden">
         <form method="post">
-            <h2>Mailvorlage: Jamf verifiziert</h2>
+            <h2>Standard-Mailvorlage</h2>
             <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
             <textarea name="template_content" class="template-textarea" rows="16"><?=htmlspecialchars($mailTemplate)?></textarea>
             <div class="editor-actions">
                 <button type="submit" name="template_save" class="button button-primary">Speichern</button>
                 <button type="button" class="button button-secondary" onclick="toggleTemplateEditor()">Abbrechen</button>
-            </div>
-        </form>
-        <form method="post">
-            <h2>Mailvorlage: Apple freigegeben, Jamf-Bestätigung ausstehend</h2>
-            <p class="preview-subtitle">Diese Variante bestätigt die Apple-Freigabe, ohne eine Entfernung des Jamf-Profils zu behaupten.</p>
-            <input type="hidden" name="csrf_token" value="<?=htmlspecialchars($_SESSION['csrf_token'])?>">
-            <input type="hidden" name="template_variant" value="pending">
-            <textarea name="template_content" class="template-textarea" rows="16"><?=htmlspecialchars($mailTemplatePending)?></textarea>
-            <div class="editor-actions">
-                <button type="submit" name="template_save" class="button button-primary">Wartende Variante speichern</button>
             </div>
         </form>
     </div>
@@ -2775,7 +2757,6 @@ if ($pageSerials) {
                                     data-email="<?=htmlspecialchars($row['email'])?>"
                                     data-private-email="<?=htmlspecialchars($row['private_email'] ?? '')?>"
                                     data-device="<?=htmlspecialchars($row['device_name'])?>"
-                                    data-jamf-verified="<?=$jamfStepDone ? '1' : '0'?>"
                                     data-serial="<?=htmlspecialchars($row['serial'])?>">
                                     Mail senden
                                 </button>
@@ -2841,7 +2822,7 @@ if ($pageSerials) {
             <div class="preview-header">
                 <div>
                     <h2>Mail-Vorschau</h2>
-                    <p class="preview-subtitle">Passende Vorlage zum Jamf-Status; Versand erst nach „Mail senden“.</p>
+                    <p class="preview-subtitle">Standardvorlage; Versand erst nach „Mail senden“.</p>
                 </div>
                 <button type="button" class="button button-secondary small-button" onclick="hideMailPreview()">Schließen</button>
             </div>
@@ -2982,7 +2963,6 @@ if ($pageSerials) {
 <script>
 window.disownAdminConfig = {
     mailTemplate: <?= json_encode($mailTemplate, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-    mailTemplatePending: <?= json_encode($mailTemplatePending, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
     mailSubject: <?= json_encode($mailSubject, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
 };
 </script>

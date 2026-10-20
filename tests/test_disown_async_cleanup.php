@@ -11,6 +11,14 @@ if (PHP_SAPI !== 'cli') {
 require (getenv('DISOWN_TEST_DB_BOOTSTRAP') ?: __DIR__ . '/../db.php');
 require __DIR__ . '/../jamf_cleanup.php';
 require __DIR__ . '/../workflow_mail.php';
+// Exercise the actual template/store functions without loading SMTP dependencies.
+$notifySource = (string) file_get_contents(__DIR__ . '/../notify.php');
+$templateStart = strpos($notifySource, 'function disown_settings_ensure_table(');
+$templateEnd = strpos($notifySource, 'function disown_push_mail_enabled(', $templateStart);
+if ($templateStart === false || $templateEnd === false) {
+    throw new RuntimeException('Template functions not found.');
+}
+eval(str_replace('__DIR__', var_export(dirname(__DIR__), true), substr($notifySource, $templateStart, $templateEnd - $templateStart)));
 require __DIR__ . '/../migrations/lib/jamf_cleanup_migration.php';
 
 $assertions = 0;
@@ -104,16 +112,21 @@ try {
     async_assert((int) $row['asm_manual_done'] === 1 && (int) $row['mail_sent'] === 0, 'Apple done, mail still untouched');
     async_assert($row['status'] !== 'erledigt' && $row['completed_at'] === null, 'No automatic completion without manual mail action');
     async_assert(disown_request_allows_completion_mail($row), 'Pending Jamf no longer blocks manually requested mail');
-    $custom = 'Custom verified template preserved exactly';
-    async_assert(disown_release_mail_template_for_row($custom, $row) !== $custom, 'Pending gets truthful separate template');
-    async_assert(str_contains(disown_release_mail_template_for_row($custom, $row), 'wurde veranlasst'), 'Pending template describes initiation, not completed profile removal');
-    async_assert(disown_pending_release_mail_default_template() === disown_pending_release_mail_template(), 'Built-in fallback exactly matches the bilingual versioned template');
+    $standardPath = __DIR__ . '/../templates/mail_release.txt';
+    $standard = (string) file_get_contents($standardPath);
+    async_assert(str_contains($standard, 'wurde veranlasst'), 'Standard describes initiation without inventing profile removal');
+    async_assert(disown_release_mail_default_template() === $standard, 'Built-in fallback exactly matches the single bilingual standard');
     foreach (['{{name}}', '{{device_name}}', '{{serial}}'] as $placeholder) {
-        async_assert(substr_count(disown_pending_release_mail_template(), $placeholder) === 2, 'Both languages retain placeholder ' . $placeholder);
+        async_assert(substr_count($standard, $placeholder) === 2, 'Both languages retain placeholder ' . $placeholder);
     }
-    async_assert(!str_contains(disown_pending_release_mail_template(), 'Bestandsbereinigung'), 'Student mail contains no internal cleanup wording');
-    $verifiedTemplateRow = array_replace($row, ['jamf_unenroll_state' => DISOWN_JAMF_STATE_VERIFIED_UNMANAGED]);
-    async_assert(disown_release_mail_template_for_row($custom, $verifiedTemplateRow) === $custom, 'Configured verified template is not overwritten');
+    async_assert(!str_contains($standard, 'Bestandsbereinigung'), 'Student mail contains no internal cleanup wording');
+    $mysqli->query('CREATE TEMPORARY TABLE app_settings (setting_key VARCHAR(96) PRIMARY KEY, setting_value TEXT, updated_by VARCHAR(128))');
+    async_assert(disown_release_mail_template($mysqli, $standardPath) === $standard, 'No stored template uses the one standard file');
+    $custom = 'Admin-edited standard {{name}} {{serial}}';
+    async_assert(disown_release_mail_template_set($mysqli, $custom, 'test-admin'), 'One GUI-editable standard is stored');
+    async_assert(disown_release_mail_template($mysqli, $standardPath) === $custom, 'All states load the same configured standard');
+    async_assert(str_contains($admin, '$body = $mailTemplate;'), 'Bulk uses the same standard as individual preview');
+    async_assert(!str_contains($admin, 'mailTemplatePending') && !str_contains($admin, 'template_variant'), 'No state-dependent template or second editor remains');
 
     $active = async_observation(true, false);
     async_assert(disown_jamf_cleanup_classify($row, $active) === 'waiting', 'Brief grace period before manual cleanup notice');

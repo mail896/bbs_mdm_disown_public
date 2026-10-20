@@ -16,9 +16,9 @@ Bereits angenommene, früher durch das Klicklimit als manuell eingestufte Anträ
 
 ## Mail und GUI
 
-Die bisher konfigurierte Mailvorlage bleibt für verifizierte Geräte unverändert. Eine getrennte Vorlage für wartende Geräte bestätigt nur die Apple-Freigabe, nicht die Profilentfernung. Sie enthält die Aufforderung zum vollständigen Löschen und Einrichten als neues iPad ohne altes Komplett-Backup aus der Verwaltungszeit.
+Es gibt genau eine Standard-Mailvorlage für alle Geräte, unabhängig vom Jamf-Status. Sie enthält den vom Betreiber vorgegebenen deutschen Wortlaut, Anrede, Gerät und Seriennummer als Variablen sowie die englische Fassung. Sie beschreibt die Jamf-Abmeldung als veranlasst und die Apple-Freigabe als abgeschlossen, ohne eine Profilentfernung zu behaupten.
 
-Beide Varianten sind im Vorlageneditor bearbeitbar und getrennt für DEV/PROD in `app_settings` gespeichert: `release_mail_template_dev` bzw. `_prod`, jeweils mit zusätzlichem `_pending` für die wartende Variante. Die Dateien `templates/mail_release.txt` und `templates/mail_release_pending.txt` sind nur Fallbacks. Vorschau und Bulk verwenden dieselbe Auswahlregel. Kein Update überschreibt vorhandene Vorlagen.
+Der eine Vorlageneditor speichert in `app_settings` unter dem jeweiligen Deployment-Schlüssel `release_mail_template_dev` bzw. `release_mail_template_prod`. `templates/mail_release.txt` ist der einzige Datei-Fallback; der eingebaute Notfalltext entspricht ihm. Einzelvorschau und Bulk verwenden dieselbe Standardvorlage. Die frühere zweite Vorlage, deren Statusumschaltung und die zusätzlichen Einstellungsschlüssel wurden entfernt. Versand bleibt ausdrücklich manuell.
 
 **Jamf-Nacharbeit** zeigt Seriennummern und konkrete Handlungs-/Prüffälle unabhängig vom Offen-/Erledigt-Filter. Die normale Karenzzeit wird nicht als Nacharbeit gezählt. Manuelles Trashen wird automatisch erkannt; kein weiterer Bestätigungsklick. Klärfall-Notizen bleiben dezent über die Seriennummer erreichbar.
 

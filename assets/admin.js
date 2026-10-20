@@ -1,5 +1,4 @@
 const mailTemplate = window.disownAdminConfig?.mailTemplate || "";
-const mailTemplatePending = window.disownAdminConfig?.mailTemplatePending || "";
 const mailSubject = window.disownAdminConfig?.mailSubject || "";
 
 const searchInput = document.getElementById('searchInput');
@@ -364,7 +363,7 @@ function hideDeviceCase() {
 
 function showMailPreview(button) {
     const data = button.dataset;
-    let body = data.jamfVerified === '1' ? mailTemplate : mailTemplatePending;
+    let body = mailTemplate;
     const placeholders = {
         name: 'name',
         username: 'username',

@@ -82,7 +82,7 @@ Bulk processing evaluates every device independently:
 2. Run `Auswahl freigeben`: brief Jamf checks, then Apple release for verified or correctly accepted cases.
 3. Actual failures and ambiguous mappings remain blocked per device; merely waiting devices do not. After confirmed Apple release, the background job reports remaining manual Trash cleanup.
 4. `ASM/ADE fuer Auswahl` remains available only as a targeted retry for a previously failed ASM step.
-5. Explicitly run `Mail fuer Auswahl` after confirmed Apple release; waiting Jamf cases use their own truthful mail template.
+5. Explicitly run `Mail fuer Auswahl` after confirmed Apple release; individual and bulk mail use the same single standard template for all Jamf states.
 
 The selection is kept until the mail step has finished. This prevents admins from losing the selected devices between Jamf, ASM/ADE and mail.
 

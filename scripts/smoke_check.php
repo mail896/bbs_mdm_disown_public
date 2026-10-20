@@ -152,7 +152,6 @@ foreach ([
     'jamf_cleanup.php',
     'workflow_mail.php',
     'scripts/check_jamf_cleanup.php',
-    'templates/mail_release_pending.txt',
     'scripts/check_jamf_reenrollments.php',
     'templates/mail_release.txt',
     'assets/search.js',

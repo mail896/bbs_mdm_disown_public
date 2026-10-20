@@ -8,6 +8,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
 }
 
 require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/workflow_mail.php';
 
 function disown_notify_config_path(): string
 {
@@ -266,13 +267,7 @@ function disown_release_mail_template(mysqli $mysqli, string $fallbackPath): str
         }
     }
 
-    return "Hallo {{name}},\n\n" .
-        "Ihr Antrag zur Freigabe Ihres iPads wurde erfolgreich abgeschlossen.\n\n" .
-        "DISOWN hat verifiziert, dass das Gerät nicht mehr durch Jamf School verwaltet wird. Anschließend wurde es erfolgreich aus Apple School Manager/ADE freigegeben.\n\n" .
-        "Gerät:\n{{device_name}}\n\n" .
-        "Seriennummer:\n{{serial}}\n\n" .
-        "Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein. Verwenden Sie nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung.\n\n" .
-        "Mit freundlichen Grüßen\n\nBBS Einbeck";
+    return disown_release_mail_default_template();
 }
 
 function disown_release_mail_template_set(mysqli $mysqli, string $template, string $updatedBy): bool

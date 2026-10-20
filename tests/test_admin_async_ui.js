@@ -16,8 +16,7 @@ for (const id of ['privateRecipientRow', 'sendPrivateEmail', 'sendSchoolEmail',
 }
 const context = vm.createContext({
     window: { disownAdminConfig: {
-        mailTemplate: 'VERIFIED {{name}} {{serial}}',
-        mailTemplatePending: 'PENDING {{name}} {{serial}}', mailSubject: 'Release',
+        mailTemplate: 'STANDARD {{name}} {{serial}}', mailSubject: 'Release',
     } },
     document: { getElementById: id => elements.get(id) || null, querySelectorAll: () => [] },
 });
@@ -31,12 +30,12 @@ assert.equal(context.getBulkStep({ dataset: { jamf: '1', asm: '1' } }), 'mail');
 const row = { id: '123', name: 'Test Person', serial: 'TEST123', device: 'Test iPad',
     email: 'school@example.invalid', privateEmail: 'private@example.invalid', jamfVerified: '0' };
 context.showMailPreview({ dataset: row });
-assert.equal(elements.get('previewBodyInput').value, 'PENDING Test Person TEST123');
+assert.equal(elements.get('previewBodyInput').value, 'STANDARD Test Person TEST123');
 assert.equal(elements.get('sendSerialInput').value, 'TEST123');
 assert.equal(elements.get('sendToInput').value, 'private@example.invalid, school@example.invalid');
 assert.equal(submissions, 0, 'Opening pending preview never sends mail');
 context.showMailPreview({ dataset: { ...row, jamfVerified: '1' } });
-assert.equal(elements.get('previewBodyInput').value, 'VERIFIED Test Person TEST123');
+assert.equal(elements.get('previewBodyInput').value, 'STANDARD Test Person TEST123');
 assert.equal(submissions, 0, 'Verified preview also never sends mail');
 elements.get('previewBodyInput').value = 'Admin-reviewed message';
 context.sendMail();

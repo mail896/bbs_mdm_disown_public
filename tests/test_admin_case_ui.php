@@ -101,7 +101,8 @@ try {
         'jamf_command_accepted_at' => '2026-10-19 12:00:00', 'asm_manual_done' => 1,
         'jamf_cleanup_state' => 'manual_trash_required']);
     $mailButton = $pendingMail->query('//button[@onclick="showMailPreview(this)"]')->item(0);
-    ui_assert($mailButton instanceof DOMElement && $mailButton->getAttribute('data-jamf-verified') === '0', 'Pending Apple-complete row offers truthful manual mail');
+    ui_assert($mailButton instanceof DOMElement && !$mailButton->hasAttribute('data-jamf-verified'), 'Pending Apple-complete row offers the same standard mail action');
+    ui_assert(substr_count($source, 'name="template_content"') === 1, 'Exactly one template editor');
     ui_assert($pendingMail->query('//input[@name="unenroll"]')->length === 0, 'Apple-complete row does not invite another unenroll');
     ui_assert($pendingMail->query('//input[@class="bulk-select"]')->item(0)->getAttribute('data-asm') === '1', 'Bulk can advance to manual mail despite waiting Jamf');
     $resume = render_case_row($template, ['jamf_unenroll_state' => DISOWN_JAMF_STATE_MANUAL_INTERVENTION_REQUIRED,

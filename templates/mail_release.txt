@@ -1,55 +1,35 @@
 Hallo {{name}},
 
-Ihr Antrag zur Freigabe Ihres iPads wurde erfolgreich abgeschlossen.
+Ihr iPad wurde von der Schule freigegeben.
 
-DISOWN hat verifiziert, dass das Gerät nicht mehr durch Jamf School verwaltet wird. Anschließend wurde es erfolgreich aus Apple School Manager/ADE freigegeben.
+Die Abmeldung aus der schulischen Geräteverwaltung (Jamf School) wurde veranlasst.
+Die Freigabe aus der schulischen Registrierung bei Apple (Apple School Manager / ASM/ADE) ist bereits abgeschlossen.
 
-Gerät:
-{{device_name}}
+Gerät: {{device_name}}
+Seriennummer: {{serial}}
 
-Seriennummer:
-{{serial}}
+Falls noch nicht geschehen, löschen Sie das iPad vollständig und richten Sie es anschließend als neues iPad ein. Ist es bereits zurückgesetzt, können Sie mit der Einrichtung fortfahren.
 
-Nächster Schritt:
+Verwenden Sie dabei kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung.
+Verzichten Sie auch auf Schnellstart oder eine vollständige Geräteübertragung von einem zuvor schulisch verwalteten Gerät. Persönliche Daten können Sie anschließend gezielt über Ihre privaten Cloud-Dienste synchronisieren.
 
-Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein.
+Team Mobile Devicemanagemt
 
-Verwenden Sie dabei nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung. Einzelne persönliche Daten können Sie anschließend gezielt über Ihre persönlichen Cloud-Dienste synchronisieren.
-
-Mit freundlichen Grüßen
-
-BBS Einbeck
-Team Mobile Device Management
-
-
-
-
-
---- english ---
-
-
-
-
+--- English ---
 
 Hello {{name}},
 
-Your request to release your iPad has been completed successfully.
+Your iPad has been released by the school.
 
-DISOWN verified that the device is no longer managed by Jamf School. It was then successfully released from Apple School Manager/Automated Device Enrollment.
+Unenrollment from the school's mobile device management system (Jamf School) has been initiated.
+Release from the school's registration with Apple (Apple School Manager / ASM/ADE) has already been completed.
 
-Device:
-{{device_name}}
+Device: {{device_name}}
+Serial number: {{serial}}
 
-Serial number:
-{{serial}}
+If you have not already done so, erase the iPad completely and then set it up as a new iPad. If it has already been reset, you can continue with setup.
 
-Next step:
+Do not restore an old full backup from when the iPad was managed by the school.
+Also avoid Quick Start or a full device-to-device transfer from a previously school-managed device. You can then selectively synchronize your personal data using your private cloud services.
 
-Please erase the iPad completely and then set it up as a new iPad.
-
-Do not use Quick Start, a full device-to-device transfer, or an old full backup from the time when the device was managed by the school. You can selectively synchronize individual personal data afterwards using your personal cloud services.
-
-Kind regards,
-
-BBS Einbeck
 Mobile Device Management Team
