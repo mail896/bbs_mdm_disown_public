@@ -1,37 +1,35 @@
 Hallo {{name}},
 
-Die Freigabe Ihres iPads aus Apple School Manager/Automated Device Enrollment (ASM/ADE) wurde bestätigt.
+Ihr iPad wurde von der Schule freigegeben.
 
-Jamf School hat den Abmeldebefehl angenommen. Die Entfernung des Verwaltungsprofils auf dem iPad ist noch nicht bestätigt. Die schulische Bestandsbereinigung wird separat nachverfolgt.
+Die Abmeldung aus der schulischen Geräteverwaltung (Jamf School) wurde veranlasst.
+Die Freigabe aus der schulischen Registrierung bei Apple (Apple School Manager / ASM/ADE) ist bereits abgeschlossen.
 
 Gerät: {{device_name}}
 Seriennummer: {{serial}}
 
-Bitte löschen Sie das iPad vollständig und richten Sie es danach als neues iPad ein.
+Falls noch nicht geschehen, löschen Sie das iPad vollständig und richten Sie es anschließend als neues iPad ein. Ist es bereits zurückgesetzt, können Sie mit der Einrichtung fortfahren.
 
-Verwenden Sie dabei nicht Schnellstart, keine vollständige Geräteübertragung und kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung. Einzelne persönliche Daten können Sie anschließend gezielt über Ihre persönlichen Cloud-Dienste synchronisieren.
+Verwenden Sie dabei kein altes Komplett-Backup aus der Zeit der schulischen Verwaltung.
+Verzichten Sie auch auf Schnellstart oder eine vollständige Geräteübertragung von einem zuvor schulisch verwalteten Gerät. Persönliche Daten können Sie anschließend gezielt über Ihre privaten Cloud-Dienste synchronisieren.
 
-Falls bei der neuen Einrichtung weiterhin eine schulische Fernverwaltung angezeigt wird, melden Sie sich bitte mit der Seriennummer bei Ihrem MDM-Team.
-
-Mit freundlichen Grüßen
-Ihr MDM-Team
+Team Mobile Devicemanagemt
 
 --- English ---
 
 Hello {{name}},
 
-Your iPad's release from Apple School Manager/Automated Device Enrollment (ASM/ADE) has been confirmed.
+Your iPad has been released by the school.
 
-Jamf School accepted the unenrollment command. Removal of the management profile from the iPad has not yet been confirmed. The school's inventory cleanup is tracked separately.
+Unenrollment from the school's mobile device management system (Jamf School) has been initiated.
+Release from the school's registration with Apple (Apple School Manager / ASM/ADE) has already been completed.
 
 Device: {{device_name}}
 Serial number: {{serial}}
 
-Please erase the iPad completely and then set it up as a new iPad.
+If you have not already done so, erase the iPad completely and then set it up as a new iPad. If it has already been reset, you can continue with setup.
 
-Do not use Quick Start, a full device-to-device transfer, or an old full backup from when the iPad was managed by the school. You can selectively synchronize individual personal data afterwards using your personal cloud services.
+Do not restore an old full backup from when the iPad was managed by the school.
+Also avoid Quick Start or a full device-to-device transfer from a previously school-managed device. You can then selectively synchronize your personal data using your private cloud services.
 
-If school remote management still appears during setup, please contact your MDM team and provide the serial number.
-
-Kind regards,
-Your MDM team
+Mobile Device Management Team

@@ -106,7 +106,12 @@ try {
     async_assert(disown_request_allows_completion_mail($row), 'Pending Jamf no longer blocks manually requested mail');
     $custom = 'Custom verified template preserved exactly';
     async_assert(disown_release_mail_template_for_row($custom, $row) !== $custom, 'Pending gets truthful separate template');
-    async_assert(str_contains(disown_release_mail_template_for_row($custom, $row), 'noch nicht bestätigt'), 'Pending template does not claim profile removal');
+    async_assert(str_contains(disown_release_mail_template_for_row($custom, $row), 'wurde veranlasst'), 'Pending template describes initiation, not completed profile removal');
+    async_assert(disown_pending_release_mail_default_template() === disown_pending_release_mail_template(), 'Built-in fallback exactly matches the bilingual versioned template');
+    foreach (['{{name}}', '{{device_name}}', '{{serial}}'] as $placeholder) {
+        async_assert(substr_count(disown_pending_release_mail_template(), $placeholder) === 2, 'Both languages retain placeholder ' . $placeholder);
+    }
+    async_assert(!str_contains(disown_pending_release_mail_template(), 'Bestandsbereinigung'), 'Student mail contains no internal cleanup wording');
     $verifiedTemplateRow = array_replace($row, ['jamf_unenroll_state' => DISOWN_JAMF_STATE_VERIFIED_UNMANAGED]);
     async_assert(disown_release_mail_template_for_row($custom, $verifiedTemplateRow) === $custom, 'Configured verified template is not overwritten');
 

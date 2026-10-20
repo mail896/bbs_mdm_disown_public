@@ -229,7 +229,7 @@ table {
 }
 #requestsTable th:nth-child(4),
 #requestsTable td:nth-child(4) {
-    width: 285px;
+    width: 260px;
 }
 #requestsTable th:nth-child(5),
 #requestsTable td:nth-child(5) {
@@ -237,11 +237,11 @@ table {
 }
 #requestsTable th:nth-child(6),
 #requestsTable td:nth-child(6) {
-    width: 310px;
+    width: 290px;
 }
 #requestsTable th:nth-child(7),
 #requestsTable td:nth-child(7) {
-    width: 171px;
+    width: 215px;
 }
 .page {
     max-width: 1280px;
@@ -983,7 +983,7 @@ th {
     font-size: 0.95rem;
 }
 .status-cell {
-    min-width: 310px;
+    min-width: 290px;
 }
 .nowrap-cell {
     white-space: nowrap;
@@ -1295,7 +1295,7 @@ th {
     margin: 0;
 }
 .action-cell {
-    min-width: 171px;
+    min-width: 215px;
 }
 .action-buttons {
     display: flex;
