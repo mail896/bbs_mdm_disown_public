@@ -1157,21 +1157,21 @@ th {
     color: #64748b;
     display: inline-flex;
     font-size: 0.9rem;
-    gap: 6px;
+    gap: 4px;
     position: relative;
     white-space: nowrap;
 }
 .process-step + .process-step {
-    margin-left: 22px;
+    margin-left: 8px;
 }
 .process-step + .process-step::before {
     background: #cbd5e1;
     content: "";
     height: 1px;
-    left: -18px;
+    left: -6px;
     position: absolute;
     top: 50%;
-    width: 14px;
+    width: 4px;
 }
 .process-step.done {
     color: #334155;
@@ -1293,6 +1293,8 @@ th {
 }
 .action-form {
     margin: 0;
+    max-width: 100%;
+    min-width: 0;
 }
 .action-cell {
     min-width: 215px;
@@ -2183,8 +2185,8 @@ th {
 }
 .action-cell .button {
     min-width: 0;
-    padding-left: 0.85rem;
-    padding-right: 0.85rem;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
 }
 .action-cell .button-primary {
     background: linear-gradient(180deg, #2563eb, #1d4ed8);

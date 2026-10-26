@@ -49,6 +49,13 @@ URLs to the protected local deployment before using it in production.
    `verified_unmanaged`, non-blocking mail failures, search, filters, mail
    preview, clarification cases, ADE, audit and KUK views.
 
+   For changes to request-table spacing, run `node tests/test_admin_button_layout.mjs`
+   (requires the existing Playwright development dependency and its Chromium browser).
+   It renders the actual row template with offline fixtures at seven viewport widths,
+   checks all five action labels plus pending/retry/read-only states, and rejects
+   overlapping status steps, clipped buttons or text. It never submits forms or
+   connects to Jamf, Apple, the database or a mail server.
+
 ## Production Release
 
 1. Create and verify code and database backups.
