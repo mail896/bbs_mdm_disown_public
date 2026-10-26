@@ -57,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($className === '' || strlen($className) > 6) {
         $message = 'Bitte geben Sie Ihre Klasse mit maximal 6 Zeichen ein.';
         $messageType = 'error';
-    } elseif ($privateEmail !== '' && !filter_var($privateEmail, FILTER_VALIDATE_EMAIL)) {
-        $message = 'Bitte geben Sie eine gültige private E-Mail-Adresse ein oder lassen Sie das Feld leer.';
+    } elseif ($privateEmail === '' || !filter_var($privateEmail, FILTER_VALIDATE_EMAIL)) {
+        $message = 'Bitte geben Sie eine gültige private E-Mail-Adresse ein.';
         $messageType = 'error';
     } elseif (!$requestedReleaseDateValid || $requestedReleaseDateObject < $todayDate) {
         $message = 'Bitte wählen Sie ein Freigabedatum aus, das nicht in der Vergangenheit liegt.';
@@ -416,15 +416,6 @@ body {
     color: #6b7280;
     margin: clamp(14px, 2vh, 24px) 0 0;
 }
-.site-footer {
-    color: #64748b;
-    font-size: 0.82rem;
-    margin-top: auto;
-    padding-top: clamp(18px, 3vh, 34px);
-}
-.site-footer a {
-    color: #2563eb;
-}
 @media (max-width: 560px) {
     body {
         background-attachment: scroll;
@@ -496,7 +487,6 @@ body {
 	                <?php else: ?>
 	                    <p class="description">Sie verlassen die BBS Einbeck?<br>Mit diesem Formular beantragen Sie die Freigabe Ihres schulisch verwalteten iPads.</p>
             <?php endif; ?>
-            <?php disown_render_site_footer('iPad-Freigabe', ['class' => 'site-footer']); ?>
 	    </div>
 	            <img src="logo.png" alt="BBS Einbeck" class="site-logo">
 	        </div>
@@ -505,7 +495,8 @@ body {
                 <div class="warning-box">
                     <strong>Achtung:</strong><br>
                     Bei der Freigabe werden schulisch bereitgestellte Apps, Profile und Einstellungen vom iPad entfernt, zum Beispiel Goodnotes, IServ, Microsoft Office und weitere schulisch verteilte Apps und WLAN Netze.<br>
-                    Sichern Sie wichtige Daten vorher selbst. Ein normales iCloud-iPad-Backup ist dafür nicht geeignet.
+                    Sichern Sie wichtige Daten vorher selbst. Ein normales iCloud-iPad-Backup ist dafür nicht geeignet.<br>
+                    <strong>Befolgen Sie unbedingt die Anweisungen aus der E-Mail, die nach der Freigabe folgt.</strong>
                 </div>
             <?php endif; ?>
 
@@ -599,9 +590,9 @@ body {
                                 <p class="field-help">Der Tag, ab dem die Freigabe durchgeführt werden soll.</p>
                             </div>
                             <div class="field field-wide">
-                                <label class="field-label" for="privateEmail">Private E-Mail, optional</label>
-                                <input class="form-input" id="privateEmail" name="private_email" type="email" value="<?=htmlspecialchars($privateEmail)?>" autocomplete="email">
-                                <p class="field-help">Nur ausfüllen, wenn die schulische E-Mail nicht mehr erreichbar ist.</p>
+                                <label class="field-label" for="privateEmail">Private E-Mail-Adresse (Pflichtfeld)</label>
+                                <input class="form-input" id="privateEmail" name="private_email" type="email" value="<?=htmlspecialchars($privateEmail)?>" required autocomplete="email" aria-describedby="privateEmailHelp">
+                                <p class="field-help" id="privateEmailHelp">Geben Sie eine dauerhaft erreichbare private E-Mail-Adresse an. Dorthin erhalten Sie nach der Freigabe die E-Mail mit den unbedingt zu befolgenden Anweisungen. Verwenden Sie keine schulische E-Mail-Adresse.</p>
                             </div>
                         </div>
                         <div class="form-actions">
@@ -617,7 +608,7 @@ body {
             <?php if ($messageType === 'success'): ?>
                 <p class="small-note">Falls sich das Fenster nicht schließt, können Sie diese Seite schließen.</p>
             <?php else: ?>
-                <p class="small-note">Hinweis: Die Seriennummer wird automatisch übernommen. Sie müssen nichts weiter eingeben.</p>
+                <p class="small-note">Hinweis: Die Seriennummer wird automatisch übernommen.</p>
             <?php endif; ?>
         <?php endif; ?>
 	    </div>

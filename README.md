@@ -18,7 +18,7 @@ Aktuelle Regeln, Migration, Cron und Tests: [Apple-Freigabe und Jamf-Nacharbeit]
 
 ## Funktionsumfang
 
-- Self-Service-Webclip fuer Rueckgabeantraege.
+- Self-Service-Webclip fuer Rueckgabeantraege mit verpflichtender privater E-Mail-Adresse (Formular- und Serverprüfung).
 - Schutzseite fuer schulische Leih-/Koffergeraete, damit diese nicht versehentlich freigegeben werden.
 - Adminportal mit beruhigter Auto-Suche, Statusfiltern, Bulk-Verarbeitung, Kennzahlen, Jahresverlauf und Jamf-Lizenztrend.
 - Admin-Sonderfreigabe fuer defekte Geraete per Seriennummer, mit bewusster Einzelfall-Pruefung und ohne Bulk/WebClip-Bypass.
@@ -58,7 +58,7 @@ Aktuelle Regeln, Migration, Cron und Tests: [Apple-Freigabe und Jamf-Nacharbeit]
 
 ## Standardablauf
 
-1. Schuelerin oder Schueler stellt den Antrag ueber den Webclip.
+1. Schuelerin oder Schueler stellt den Antrag ueber den Webclip und gibt eine erreichbare private E-Mail-Adresse an. Der Achtung-Hinweis fordert ausdrücklich dazu auf, die Anweisungen der nachfolgenden Freigabe-E-Mail zu befolgen. Nur auf dieser Antragsseite entfällt die Autoren-/Versionsfußzeile; die Adminportale behalten sie.
 2. Admin klickt `Freigeben`: Jamf-Unenroll und bis zu vier kurze read-only Nachprüfungen.
 3. Bei Verifikation oder korrekt angenommenem Befehl mit eindeutiger Zuordnung folgt die autorisierte Apple-/Broker-Freigabe genau dieses Geräts; Gerätestille allein blockiert nicht.
 4. Der lokale NanoDEP Release Broker fuehrt den ADE/DEP-Disown aus.

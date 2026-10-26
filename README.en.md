@@ -18,7 +18,7 @@ Current rules, migration, cron and tests: [Apple release and Jamf cleanup](docs/
 
 ## Features
 
-- Self-service WebClip for release requests.
+- Self-service WebClip for release requests with a mandatory private email address (browser and server validation).
 - Guard page for school-owned loaner/cart devices so they cannot be released accidentally.
 - Admin portal with calmer auto-search, status filters, bulk workflow, metrics, rolling 12-month view and Jamf license estimate.
 - Admin special release for defective devices by serial number, with explicit single-device review and without bypassing WebClip or bulk safeguards.
@@ -58,7 +58,7 @@ Current rules, migration, cron and tests: [Apple release and Jamf cleanup](docs/
 
 ## Standard Workflow
 
-1. The student submits a request through the WebClip.
+1. The student submits a request through the WebClip and provides a reachable private email address. The warning explicitly requires following the instructions in the email sent after release. Only this request page omits the author/version footer; the admin portals retain theirs.
 2. An admin clicks `Release`: Jamf unenroll followed by up to four brief read-only checks.
 3. Verified unenrollment or a correctly accepted command with an unambiguous inventory observation permits the authorized Apple/broker release for that exact device; device silence alone does not block it.
 4. The local NanoDEP release broker performs the ADE/DEP disown call.
