@@ -74,6 +74,10 @@ Der seltene Sonderweg fuer defekte Geraete liegt im Adminportal unten vor dem Fo
 
 Nur dieser Admin-Sonderweg darf den Schulgeraete-Blocker bewusst ueberspringen. WebClip, normale Antraege und Bulk bleiben gegen schulische Leih-/Koffergeraete geschuetzt.
 
+Die Erkennung berücksichtigt BBS-Asset-Tags (insbesondere `BBS #000` bis `BBS #999`) und Koffer-Gerätegruppen. Es gibt keine fest eingebauten Testausnahmen für einzelne Asset-Tags oder Seriennummern. Die Sperre gilt für die Anzeige des WebClip-Formulars, das serverseitige Anlegen des Antrags und den normalen Jamf-Unenroll-Aufruf.
+
+Eine zusätzliche Sperre allein aufgrund einer Perpetual-/Lifetime-Lizenz benötigt eine verlässliche Lizenzinformation pro Gerät. Die aktuell geprüften Jamf-Gerätelisten und Detailantworten liefern diesen Lizenztyp nicht. Dafür wird eine zusätzliche belastbare Quelle benötigt, zum Beispiel eine entsprechend gepflegte Jamf-Gerätegruppe.
+
 ## Bulk-Workflow
 
 Der Bulk-Ablauf bewertet jedes Gerät getrennt:

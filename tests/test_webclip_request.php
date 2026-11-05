@@ -50,15 +50,17 @@ function jamf_lookup_by_serial(string $serial): ?array
     return $fixture['jamf'];
 }
 
-function jamf_device_is_school_loan(array $device): bool
-{
-    global $fixture;
-    return $fixture['school_loan'];
-}
-
-function jamf_school_loan_reasons(array $device): array
-{
-    return [];
+// Exercise the production classifier together with the actual request page.
+// Only pure functions are loaded; lookup/config/network functions remain inert.
+$guardSource = (string) file_get_contents(__DIR__ . '/../jamf.php');
+foreach ([['function jamf_group_names(', 'function jamf_lookup_from_device('],
+    ['function jamf_device_is_school_loan(', 'function jamf_dev_lookup_mock_by_serial(']] as [$from, $to]) {
+    $start = strpos($guardSource, $from);
+    $end = $start === false ? false : strpos($guardSource, $to, $start);
+    if ($start === false || $end === false) {
+        throw new RuntimeException('Production school-device classifier not found');
+    }
+    eval(substr($guardSource, $start, $end - $start));
 }
 
 function jamf_device_has_apple_id_risk(array $device): bool
@@ -153,7 +155,6 @@ function webclip_render(string $source, string $method = 'GET', array $post = []
     $fixture = array_replace([
         'config' => ['SERIAL_TOKEN_SECRET' => '', 'REQUIRE_SERIAL_TOKEN' => false],
         'token_valid' => true,
-        'school_loan' => false,
         'existing_request' => true,
         'allow_insert' => false,
         'jamf' => [
@@ -245,7 +246,7 @@ try {
     $guardCases = [
         ['invalid token', $validPost, ['config' => ['SERIAL_TOKEN_SECRET' => 'test-secret', 'REQUIRE_SERIAL_TOKEN' => true], 'token_valid' => false], 'Dieser WebClip ist nicht mehr gültig.'],
         ['missing device', $validPost, ['jamf' => null], 'Gerät wurde in Jamf nicht gefunden.'],
-        ['school loan device', $validPost, ['school_loan' => true], 'Dieses iPad ist als schulisches Leih-/Koffergerät markiert'],
+        ['school loan device', $validPost, ['jamf' => ['asset_tag' => 'BBS #074']], 'Dieses iPad ist als schulisches Leih-/Koffergerät markiert'],
         ['missing owner', $validPost, ['jamf' => ['username' => '', 'email' => '', 'full_name' => '', 'serial' => 'TESTSERIAL123', 'device_name' => 'Test iPad']], 'Dieses iPad ist in Jamf keinem Benutzer zugeordnet.'],
         ['understanding not confirmed', array_diff_key($validPost, ['understanding_confirmed' => true]), [], 'Bitte bestätigen Sie zuerst'],
         ['class missing', array_replace($validPost, ['class_name' => '']), [], 'Bitte geben Sie Ihre Klasse'],
@@ -260,6 +261,15 @@ try {
         if ($name === 'invalid token') {
             webclip_assert($counts['jamf_lookup'] === 0, 'Invalid token prevents even the fake Jamf lookup');
         }
+    }
+    foreach (['BBS #000', 'BBS #024', 'BBS #074', 'BBS #126', 'BBS #999'] as $tag) {
+        $schoolDevice = ['asset_tag' => $tag, 'serial' => 'TESTSERIAL123'];
+        [$loanHtml, $counts] = webclip_render($source, 'GET', [], ['jamf' => $schoolDevice]);
+        webclip_assert(str_contains($loanHtml, 'Schulisches Leihgerät'), $tag . ': GET shows the return instructions');
+        webclip_assert(webclip_dom($loanHtml)->query('//form[contains(@class,"request-form")]')->length === 0, $tag . ': no release form');
+        [$loanPostHtml, $counts] = webclip_render($source, 'POST', $validPost, ['jamf' => $schoolDevice]);
+        webclip_assert(str_contains($loanPostHtml, 'kann nicht zur Freigabe angemeldet werden.'), $tag . ': crafted POST is rejected');
+        webclip_assert($counts['prepare'] === 0 && $counts['push'] === 0, $tag . ': no request SQL or push mail');
     }
     [$missingSerialHtml, $counts] = webclip_render($source, 'GET', [], [], false);
     webclip_assert(str_contains($missingSerialHtml, 'Bitte öffnen Sie den Webclip auf Ihrem iPad.'), 'Missing serial guidance remains');

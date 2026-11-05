@@ -293,9 +293,23 @@ function jamf_group_names(array $device): array
     return array_values(array_unique(array_map('trim', array_filter($names, static fn ($name) => trim((string) $name) !== ''))));
 }
 
+function jamf_device_asset_tags(array $device): array
+{
+    $tags = [];
+    foreach (['assetTag', 'asset_tag'] as $key) {
+        $tag = trim((string) ($device[$key] ?? ''));
+        if ($tag !== '') {
+            $tags[] = $tag;
+        }
+    }
+    return array_values(array_unique($tags));
+}
+
 function jamf_lookup_from_device(array $device, string $state = 'active'): array
 {
     $owner = is_array($device['owner'] ?? null) ? $device['owner'] : [];
+    $assetTags = jamf_device_asset_tags($device);
+    $schoolTags = array_values(array_filter($assetTags, static fn (string $tag): bool => stripos($tag, 'BBS') !== false));
 
     return [
         'username'      => $owner['username'] ?? '',
@@ -306,7 +320,7 @@ function jamf_lookup_from_device(array $device, string $state = 'active'): array
         'device_name'   => $device['name'] ?? '',
         'serial'        => $device['serialNumber'] ?? '',
         'jamf_state'    => $state,
-        'asset_tag'     => $device['assetTag'] ?? '',
+        'asset_tag'     => $schoolTags[0] ?? $assetTags[0] ?? '',
         'groups'        => jamf_group_names($device),
         'icloud_backup_enabled' => $device['iCloudBackupEnabled'] ?? null,
         'itunes_store_logged_in' => $device['iTunesStoreLoggedIn'] ?? null,
@@ -332,60 +346,22 @@ function jamf_device_has_apple_id_risk(array $device): bool
         || jamf_truthy($device['itunes_store_logged_in'] ?? $device['iTunesStoreLoggedIn'] ?? null);
 }
 
-function jamf_device_is_school_loan_exception(array $device): bool
-{
-    $serial = strtoupper(trim((string) ($device['serial'] ?? $device['serialNumber'] ?? '')));
-    if (in_array($serial, ['FFKDP0VBMF3M', 'F9FZMUJFMF3M'], true)) {
-        return true;
-    }
-
-    $assetTag = strtoupper(trim((string) ($device['asset_tag'] ?? $device['assetTag'] ?? '')));
-    return in_array($assetTag, ['BBS #126', 'BBS #024'], true);
-}
-
 function jamf_device_is_school_loan(array $device): bool
 {
-    if (jamf_device_is_school_loan_exception($device)) {
-        return false;
-    }
-
-    $assetTag = strtoupper(trim((string) ($device['asset_tag'] ?? $device['assetTag'] ?? '')));
-    if ($assetTag !== '' && strpos($assetTag, 'BBS') !== false) {
-        return true;
-    }
-
-    $groups = $device['groups'] ?? null;
-    if (!is_array($groups)) {
-        $groups = jamf_group_names($device);
-    }
-
-    foreach ($groups as $group) {
-        $normalized = strtoupper(trim((string) $group));
-        if ($normalized !== '' && strpos($normalized, 'KOFFER') !== false) {
-            return true;
-        }
-    }
-
-    return false;
+    return jamf_school_loan_reasons($device) !== [];
 }
 
 function jamf_school_loan_reasons(array $device): array
 {
-    if (jamf_device_is_school_loan_exception($device)) {
-        return [];
-    }
-
     $reasons = [];
-    $assetTag = trim((string) ($device['asset_tag'] ?? $device['assetTag'] ?? ''));
-    if ($assetTag !== '' && stripos($assetTag, 'BBS') !== false) {
-        $reasons[] = 'Asset-Tag: ' . $assetTag;
+    // Inspect both forms; an empty alias must not hide a protective Jamf tag.
+    foreach (jamf_device_asset_tags($device) as $assetTag) {
+        if ($assetTag !== '' && stripos($assetTag, 'BBS') !== false) {
+            $reasons[] = 'Asset-Tag: ' . $assetTag;
+        }
     }
 
-    $groups = $device['groups'] ?? null;
-    if (!is_array($groups)) {
-        $groups = jamf_group_names($device);
-    }
-    foreach ($groups as $group) {
+    foreach (jamf_group_names($device) as $group) {
         $group = trim((string) $group);
         if ($group !== '' && stripos($group, 'Koffer') !== false) {
             $reasons[] = 'Jamf-Gruppe: ' . $group;
