@@ -262,7 +262,8 @@ try {
             webclip_assert($counts['jamf_lookup'] === 0, 'Invalid token prevents even the fake Jamf lookup');
         }
     }
-    foreach (['BBS #000', 'BBS #024', 'BBS #074', 'BBS #126', 'BBS #999'] as $tag) {
+    foreach (['BBS #000', 'BBS #024', 'BBS #074', 'BBS #126', 'BBS #999',
+        'LK001', 'LK-001', 'LK #001', '  lk26-007  '] as $tag) {
         $schoolDevice = ['asset_tag' => $tag, 'serial' => 'TESTSERIAL123'];
         [$loanHtml, $counts] = webclip_render($source, 'GET', [], ['jamf' => $schoolDevice]);
         webclip_assert(str_contains($loanHtml, 'Schulisches Leihgerät'), $tag . ': GET shows the return instructions');

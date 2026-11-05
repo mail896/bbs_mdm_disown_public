@@ -116,7 +116,7 @@ was found and the release should stop.
 For school-device guard changes, run `php tests/test_school_device_guard.php` and
 `php tests/test_webclip_request.php`. These checks exercise the actual classifier,
 lookup normalization, GET/form visibility, crafted POST requests, and the normal
-Unenroll command gate. BBS asset tags, former test exceptions, group name formats,
+Unenroll command gate. BBS asset tags, LK staff-device prefixes, former test exceptions, group name formats,
 and the explicit admin special path are covered using isolated fixtures only.
 
 ## Rollback

@@ -74,7 +74,7 @@ The rare special path for defective devices is placed at the bottom of the admin
 
 Only this admin-only path may intentionally bypass the school-device blocker. WebClip requests, normal requests and bulk processing remain protected against school-owned loaner/cart devices.
 
-Detection covers BBS asset tags (including `BBS #000` through `BBS #999`) and cart groups whose names contain `Koffer`. There are no hardcoded test exceptions for individual asset tags or serial numbers. The guard applies to the WebClip form, server-side request creation, and normal Jamf unenroll calls.
+Detection covers BBS asset tags (including `BBS #000` through `BBS #999`), asset tags starting with `LK` for staff devices, and cart groups whose names contain `Koffer`. The LK prefix check ignores letter case and surrounding whitespace. There are no hardcoded test exceptions for individual asset tags or serial numbers. The guard applies to the WebClip form, server-side request creation, and normal Jamf unenroll calls.
 
 Blocking a device solely because of a perpetual/lifetime license additionally requires reliable per-device license information. The currently inspected Jamf device-list and detail responses do not supply that license type. A separate authoritative source, such as a maintained Jamf device group, is required.
 

@@ -28,6 +28,11 @@ $schoolDevices = [
     ['asset_tag' => '', 'assetTag' => 'BBS #074'],
     ['asset_tag' => 'BBS #074', 'assetTag' => ''],
     ['asset_tag' => 'PRIVATE', 'assetTag' => 'BBS #074'],
+    ['assetTag' => 'LK001'], ['assetTag' => 'LK-001'], ['assetTag' => 'LK #001'],
+    ['assetTag' => 'LK'], ['assetTag' => '  lk26-007  '],
+    ['asset_tag' => '', 'assetTag' => 'LK001'],
+    ['asset_tag' => 'LK001', 'assetTag' => 'PRIVATE'],
+    ['asset_tag' => 'PRIVATE', 'assetTag' => 'LK001'],
     ['groups' => ['iPad-Koffer 1']], ['groups' => [['name' => 'iPad-Koffer 1']]],
     ['groups' => [], 'deviceGroups' => [['displayName' => 'iPad-Koffer 2']]],
 ];
@@ -54,7 +59,9 @@ try {
         school_assert(empty($result['accepted']) && empty($result['success']), 'Blocked device is never reported as accepted');
         school_assert($methods === ['GET', 'GET'], 'Only read-only observations; no Unenroll POST');
     }
-    foreach ([[], ['assetTag' => 'PRIVATE #074'], ['groups' => ['Students', 'Recurring iPads']]] as $extra) {
+    foreach ([[], ['assetTag' => 'PRIVATE #074'], ['groups' => ['Students', 'Recurring iPads']],
+        ['assetTag' => 'FALK001'], ['assetTag' => 'PRIVATE-LK001'],
+        ['assetTag' => 'PRIVATE #074', 'name' => 'LK26 Test iPad']] as $extra) {
         school_assert(!jamf_device_is_school_loan(array_replace($base, $extra)), 'Unmarked privately owned fixture remains eligible');
     }
 

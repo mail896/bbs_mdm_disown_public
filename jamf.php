@@ -305,11 +305,17 @@ function jamf_device_asset_tags(array $device): array
     return array_values(array_unique($tags));
 }
 
+function jamf_asset_tag_is_school_owned(string $tag): bool
+{
+    $tag = trim($tag);
+    return stripos($tag, 'BBS') !== false || strncasecmp($tag, 'LK', 2) === 0;
+}
+
 function jamf_lookup_from_device(array $device, string $state = 'active'): array
 {
     $owner = is_array($device['owner'] ?? null) ? $device['owner'] : [];
     $assetTags = jamf_device_asset_tags($device);
-    $schoolTags = array_values(array_filter($assetTags, static fn (string $tag): bool => stripos($tag, 'BBS') !== false));
+    $schoolTags = array_values(array_filter($assetTags, 'jamf_asset_tag_is_school_owned'));
 
     return [
         'username'      => $owner['username'] ?? '',
@@ -356,7 +362,7 @@ function jamf_school_loan_reasons(array $device): array
     $reasons = [];
     // Inspect both forms; an empty alias must not hide a protective Jamf tag.
     foreach (jamf_device_asset_tags($device) as $assetTag) {
-        if ($assetTag !== '' && stripos($assetTag, 'BBS') !== false) {
+        if (jamf_asset_tag_is_school_owned($assetTag)) {
             $reasons[] = 'Asset-Tag: ' . $assetTag;
         }
     }
